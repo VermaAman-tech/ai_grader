@@ -1,0 +1,10 @@
+streamlit==1.44.1
+sqlalchemy==2.0.39
+pandas==2.2.3
+openpyxl==3.1.5
+python-dotenv==1.0.1
+httpx==0.28.1
+huggingface_hub==1.9.0
+PyMuPDF==1.25.5
+Pillow==11.1.0
+pytesseract==0.3.13

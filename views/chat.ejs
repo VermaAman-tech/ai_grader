@@ -1,0 +1,139 @@
+<div class="page-header">
+  <h1><i data-lucide="message-circle"></i> AI Teaching Assistant</h1>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/chat" class="inline-form" id="chatFilterForm">
+    <label>Context Exam:</label>
+    <select id="chatCourse" onchange="updateChatExams()">
+      <option value="">-- Any --</option>
+      <% courses.forEach(function(c) { %>
+        <option value="<%= c.id %>" data-exams='<%= JSON.stringify(allExams[c.id] || []) %>'><%= c.code %> - <%= c.name %></option>
+      <% }); %>
+    </select>
+    <select name="exam_id" id="chatExam" onchange="this.form.submit()">
+      <option value="">-- All Exams --</option>
+    </select>
+  </form>
+  <% if (history.length) { %>
+    <form method="POST" action="/chat/clear" style="display:inline">
+      <input type="hidden" name="exam_id" value="<%= selectedExamId || '' %>">
+      <button class="btn btn-sm btn-outline" onclick="return confirm('Clear chat history?')"><i data-lucide="trash-2"></i> Clear</button>
+    </form>
+  <% } %>
+</div>
+
+<div class="chat-container">
+  <div class="chat-messages" id="chatMessages">
+    <% if (!history.length) { %>
+      <div class="chat-welcome">
+        <i data-lucide="bot"></i>
+        <h3>Hello! I am your AI Teaching Assistant.</h3>
+        <p>Ask me about student performance, exam results, rubric suggestions, or teaching strategies. Select an exam for data-driven insights.</p>
+        <div class="chat-suggestions">
+          <button class="suggestion-chip" onclick="sendSuggestion(this)">How did students perform overall?</button>
+          <button class="suggestion-chip" onclick="sendSuggestion(this)">Which questions were the hardest?</button>
+          <button class="suggestion-chip" onclick="sendSuggestion(this)">Identify at-risk students</button>
+          <button class="suggestion-chip" onclick="sendSuggestion(this)">Suggest rubric improvements</button>
+        </div>
+      </div>
+    <% } else { %>
+      <% history.forEach(function(msg) { %>
+        <div class="chat-msg chat-<%= msg.role %>">
+          <div class="chat-avatar"><i data-lucide="<%= msg.role === 'user' ? 'user' : 'bot' %>"></i></div>
+          <div class="chat-bubble"><%= msg.content %></div>
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+
+  <div class="chat-input-area">
+    <form id="chatForm" onsubmit="sendChat(event)">
+      <input type="text" id="chatInput" placeholder="Ask about grades, students, analytics, or teaching strategies..." autocomplete="off">
+      <button type="submit" class="btn btn-primary" id="chatSendBtn"><i data-lucide="send"></i></button>
+    </form>
+  </div>
+</div>
+
+<script>
+const chatExams = {};
+<% courses.forEach(function(c) { %>
+  chatExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+<% }); %>
+const selChatExamId = <%= selectedExamId || 'null' %>;
+
+function updateChatExams() {
+  const cid = document.getElementById('chatCourse').value;
+  const sel = document.getElementById('chatExam');
+  sel.innerHTML = '<option value="">-- All Exams --</option>';
+  (chatExams[cid] || []).forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id; opt.textContent = e.name;
+    if (e.id === selChatExamId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+<% if (selectedExamId) { %>
+(function() {
+  const cs = document.getElementById('chatCourse');
+  for (const [cid, exams] of Object.entries(chatExams)) {
+    if (exams.some(e => e.id === selChatExamId)) { cs.value = cid; break; }
+  }
+  updateChatExams();
+})();
+<% } else { %>
+updateChatExams();
+<% } %>
+
+function scrollChat() {
+  const el = document.getElementById('chatMessages');
+  el.scrollTop = el.scrollHeight;
+}
+scrollChat();
+
+function appendMsg(role, text) {
+  const container = document.getElementById('chatMessages');
+  const welcome = container.querySelector('.chat-welcome');
+  if (welcome) welcome.remove();
+  const div = document.createElement('div');
+  div.className = `chat-msg chat-${role}`;
+  div.innerHTML = `<div class="chat-avatar"><i data-lucide="${role === 'user' ? 'user' : 'bot'}"></i></div><div class="chat-bubble">${text}</div>`;
+  container.appendChild(div);
+  lucide.createIcons();
+  scrollChat();
+}
+
+async function sendChat(e) {
+  e.preventDefault();
+  const input = document.getElementById('chatInput');
+  const msg = input.value.trim();
+  if (!msg) return;
+
+  appendMsg('user', msg);
+  input.value = '';
+  document.getElementById('chatSendBtn').disabled = true;
+
+  appendMsg('assistant', '<em>Thinking...</em>');
+  const thinkBubble = document.querySelector('.chat-messages .chat-assistant:last-child .chat-bubble');
+
+  try {
+    const resp = await fetch('/chat/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg, exam_id: selChatExamId || '' }),
+    });
+    const data = await resp.json();
+    thinkBubble.innerHTML = data.error ? `<span class="text-danger">${data.error}</span>` : data.reply.replace(/\n/g, '<br>');
+  } catch (err) {
+    thinkBubble.innerHTML = `<span class="text-danger">Network error: ${err.message}</span>`;
+  }
+  document.getElementById('chatSendBtn').disabled = false;
+  scrollChat();
+}
+
+function sendSuggestion(btn) {
+  document.getElementById('chatInput').value = btn.textContent;
+  document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+}
+</script>

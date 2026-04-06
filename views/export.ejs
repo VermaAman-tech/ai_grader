@@ -1,0 +1,56 @@
+<div class="page-header">
+  <h1><i data-lucide="download"></i> Export Gradebook</h1>
+</div>
+
+<div class="card" style="max-width:600px">
+  <div class="card-header"><i data-lucide="file-spreadsheet"></i> Download Excel Gradebook</div>
+  <div class="card-body">
+    <form method="POST" action="/export/download" id="exportForm">
+      <div class="form-group">
+        <label>Course</label>
+        <select id="exportCourse" onchange="updateExportExams()">
+          <option value="">-- Select Course --</option>
+          <% courses.forEach(function(c) { %>
+            <option value="<%= c.id %>" data-exams='<%= JSON.stringify(allExams[c.id] || []) %>'><%= c.code %> - <%= c.name %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Exam</label>
+        <select name="exam_id" id="exportExam" required>
+          <option value="">-- Select Exam --</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary"><i data-lucide="download"></i> Download .xlsx</button>
+    </form>
+  </div>
+</div>
+
+<div class="card mt-4" style="max-width:600px">
+  <div class="card-body">
+    <h4>What is included in the export?</h4>
+    <ul class="feature-list">
+      <li><i data-lucide="check"></i> <strong>Gradebook sheet</strong> -- per-question scores, totals, and percentages</li>
+      <li><i data-lucide="check"></i> <strong>Detailed Feedback sheet</strong> -- AI feedback and confidence per question per student</li>
+      <li><i data-lucide="check"></i> Includes overridden grades where applicable</li>
+      <li><i data-lucide="check"></i> Professional formatting ready for sharing</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+const exportExams = {};
+<% courses.forEach(function(c) { %>
+  exportExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+<% }); %>
+function updateExportExams() {
+  const cid = document.getElementById('exportCourse').value;
+  const sel = document.getElementById('exportExam');
+  sel.innerHTML = '<option value="">-- Select Exam --</option>';
+  (exportExams[cid] || []).forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id; opt.textContent = e.name;
+    sel.appendChild(opt);
+  });
+}
+</script>

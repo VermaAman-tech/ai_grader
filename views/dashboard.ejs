@@ -1,0 +1,93 @@
+<div class="page-header">
+  <h1><i data-lucide="layout-dashboard"></i> Dashboard</h1>
+  <p class="text-muted">Welcome back, <%= session.userName %>. Here is your grading overview.</p>
+</div>
+
+<% if (sub) { %>
+<div class="sub-banner">
+  <i data-lucide="crown"></i>
+  <span><strong><%= sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) %></strong> plan &middot; <%= sub.scope === 'college' ? 'College-wide' : 'Individual' %> &middot; Expires <%= new Date(sub.end_date).toLocaleDateString() %></span>
+  <a href="/plans" class="btn btn-sm btn-outline">Manage</a>
+</div>
+<% } %>
+
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-icon blue"><i data-lucide="book-open"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= stats.courses %></div><div class="kpi-label">Courses</div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon purple"><i data-lucide="file-text"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= stats.exams %></div><div class="kpi-label">Exams</div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon green"><i data-lucide="users"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= stats.students %></div><div class="kpi-label">Students</div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon amber"><i data-lucide="upload"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= stats.submissions %></div><div class="kpi-label">Submissions</div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon teal"><i data-lucide="check-circle"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= stats.done %></div><div class="kpi-label">Graded</div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon red"><i data-lucide="alert-circle"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= stats.errors %></div><div class="kpi-label">Errors</div></div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header"><i data-lucide="list-checks"></i> Workflow Checklist</div>
+    <div class="card-body">
+      <div class="checklist">
+        <div class="check-item <%= stats.courses > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.courses > 0 ? 'check-circle-2' : 'circle' %>"></i> Create a course</div>
+        <div class="check-item <%= stats.students > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.students > 0 ? 'check-circle-2' : 'circle' %>"></i> Import student roster</div>
+        <div class="check-item <%= stats.exams > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.exams > 0 ? 'check-circle-2' : 'circle' %>"></i> Create an exam</div>
+        <div class="check-item <%= stats.rubrics > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.rubrics > 0 ? 'check-circle-2' : 'circle' %>"></i> Define rubric questions</div>
+        <div class="check-item <%= stats.submissions > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.submissions > 0 ? 'check-circle-2' : 'circle' %>"></i> Upload submissions</div>
+        <div class="check-item <%= stats.done > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.done > 0 ? 'check-circle-2' : 'circle' %>"></i> Run AI grading</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><i data-lucide="book-open"></i> Recent Courses</div>
+    <div class="card-body">
+      <% if (recentCourses.length) { %>
+        <% recentCourses.forEach(function(c) { %>
+          <div class="list-item">
+            <div><strong><%= c.code %></strong> &mdash; <%= c.name %></div>
+            <span class="badge"><%= c.semester || 'N/A' %></span>
+          </div>
+        <% }); %>
+      <% } else { %>
+        <p class="text-muted">No courses yet. <a href="/courses">Create one</a>.</p>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<% if (recentSubs.length) { %>
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="clock"></i> Recent Submissions</div>
+  <div class="card-body">
+    <table class="table">
+      <thead><tr><th>Student</th><th>Exam</th><th>File</th><th>Status</th><th>Uploaded</th></tr></thead>
+      <tbody>
+        <% recentSubs.forEach(function(s) { %>
+          <tr>
+            <td><%= s.Student?.name || 'Unknown' %></td>
+            <td><%= s.Exam?.name || '' %></td>
+            <td><%= s.file_name %></td>
+            <td><span class="status-badge status-<%= s.status %>"><%= s.status %></span></td>
+            <td><%= new Date(s.created_at).toLocaleDateString() %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>

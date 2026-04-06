@@ -1,0 +1,100 @@
+<div class="page-header">
+  <h1><i data-lucide="check-circle"></i> AI Grading</h1>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/grading" class="inline-form" id="gradingFilter">
+    <label>Course:</label>
+    <select id="gradeCourse" onchange="updateGradingExams()">
+      <option value="">-- Select Course --</option>
+      <% courses.forEach(function(c) { %>
+        <option value="<%= c.id %>" data-exams='<%= JSON.stringify(allExams[c.id] || []) %>'><%= c.code %> - <%= c.name %></option>
+      <% }); %>
+    </select>
+    <label>Exam:</label>
+    <select name="exam_id" id="gradeExam" onchange="this.form.submit()">
+      <option value="">-- Select Exam --</option>
+    </select>
+  </form>
+  <% if (selectedExamId && submissions.some(s => s.status === 'pending' || s.status === 'error')) { %>
+    <form method="POST" action="/grading/grade-all/<%= selectedExamId %>" style="display:inline">
+      <button class="btn btn-primary btn-sm" onclick="return confirm('Grade all pending submissions? This may take several minutes.')"><i data-lucide="zap"></i> Grade All Pending</button>
+    </form>
+  <% } %>
+</div>
+
+<% if (!selectedExamId) { %>
+  <div class="empty-state"><i data-lucide="check-circle"></i><h3>Select an exam</h3><p>Choose a course and exam to manage grading.</p></div>
+<% } else if (!submissions.length) { %>
+  <div class="empty-state"><i data-lucide="upload"></i><h3>No submissions</h3><p>Upload PDFs first, then return here to grade.</p></div>
+<% } else { %>
+<div class="card">
+  <div class="card-header"><i data-lucide="files"></i> Submissions & Grades</div>
+  <div class="card-body">
+    <table class="table">
+      <thead><tr><th>Student</th><th>File</th><th>Status</th><th>Graded</th><th>Actions</th></tr></thead>
+      <tbody>
+        <% submissions.forEach(function(s) { %>
+          <tr>
+            <td><%= s.Student?.name || 'Unknown' %></td>
+            <td><%= s.file_name %></td>
+            <td><span class="status-badge status-<%= s.status %>"><%= s.status %></span></td>
+            <td><%= s.gradeCount %>/<%= s.rubricCount %></td>
+            <td class="actions-cell">
+              <% if (s.status === 'pending' || s.status === 'error') { %>
+                <form method="POST" action="/grading/grade/<%= s.id %>" style="display:inline">
+                  <button class="btn btn-sm btn-primary"><i data-lucide="play"></i> Grade</button>
+                </form>
+              <% } %>
+              <% if (s.gradeCount > 0) { %>
+                <a href="/grading/review/<%= s.id %>" class="btn btn-sm btn-outline"><i data-lucide="eye"></i> Review</a>
+              <% } %>
+              <% if (s.status === 'done') { %>
+                <form method="POST" action="/grading/grade/<%= s.id %>" style="display:inline" title="Re-grade">
+                  <button class="btn btn-sm btn-outline"><i data-lucide="refresh-cw"></i></button>
+                </form>
+              <% } %>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<script>
+const gradingExams = {};
+<% courses.forEach(function(c) { %>
+  gradingExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+<% }); %>
+const selExamId = <%= selectedExamId || 'null' %>;
+
+function updateGradingExams() {
+  const cid = document.getElementById('gradeCourse').value;
+  const sel = document.getElementById('gradeExam');
+  sel.innerHTML = '<option value="">-- Select Exam --</option>';
+  (gradingExams[cid] || []).forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id; opt.textContent = e.name;
+    if (e.id === selExamId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+// Auto-select course from exam
+<% if (selectedExamId) { %>
+  (function() {
+    const courseSelect = document.getElementById('gradeCourse');
+    for (const [cid, exams] of Object.entries(gradingExams)) {
+      if (exams.some(e => e.id === selExamId)) {
+        courseSelect.value = cid;
+        break;
+      }
+    }
+    updateGradingExams();
+  })();
+<% } else { %>
+  updateGradingExams();
+<% } %>
+</script>

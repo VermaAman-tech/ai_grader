@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In - Intelligrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="auth-body">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <i data-lucide="brain-circuit"></i>
+        <h1>Intelligrade</h1>
+      </div>
+      <h2>Welcome back</h2>
+      <p class="auth-subtitle">Sign in with your college email</p>
+
+      <% if (typeof success !== 'undefined' && success && success.length) { %>
+        <% success.forEach(function(msg) { %><div class="alert alert-success"><%= msg %></div><% }); %>
+      <% } %>
+      <% if (typeof error !== 'undefined' && error && error.length) { %>
+        <% error.forEach(function(msg) { %><div class="alert alert-error"><%= msg %></div><% }); %>
+      <% } %>
+
+      <form method="POST" action="/login" class="auth-form">
+        <div class="form-group">
+          <label>Email</label>
+          <div class="input-icon"><i data-lucide="mail"></i><input type="email" name="email" required placeholder="you@college.edu" autocomplete="email"></div>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <div class="input-icon"><i data-lucide="lock"></i><input type="password" name="password" required placeholder="Enter your password" autocomplete="current-password"></div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+      </form>
+      <p class="auth-footer-text">No account? <a href="/register">Register here</a></p>
+    </div>
+  </div>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

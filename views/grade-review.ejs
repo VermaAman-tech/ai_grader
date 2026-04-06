@@ -1,0 +1,81 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="eye"></i> Grade Review</h1>
+    <p class="text-muted"><%= submission.Student?.name || 'Unknown' %> &mdash; <%= submission.Exam?.name || '' %> &mdash; <%= submission.file_name %></p>
+  </div>
+  <a href="/grading?exam_id=<%= submission.exam_id %>" class="btn btn-outline"><i data-lucide="arrow-left"></i> Back</a>
+</div>
+
+<div class="score-summary">
+  <div class="score-total">
+    <span class="score-num"><%= Math.round(totalAwarded * 100) / 100 %></span>
+    <span class="score-sep">/</span>
+    <span class="score-max"><%= totalMax %></span>
+  </div>
+  <div class="score-pct"><%= totalMax > 0 ? Math.round(totalAwarded / totalMax * 10000) / 100 : 0 %>%</div>
+  <div class="score-status"><span class="status-badge status-<%= submission.status %>"><%= submission.status %></span></div>
+</div>
+
+<div class="grade-cards">
+  <% grades.forEach(function(g) { %>
+    <div class="card grade-card">
+      <div class="card-body">
+        <div class="grade-header">
+          <div class="grade-qno">Q<%= g.question_no %></div>
+          <div class="grade-score">
+            <span class="awarded"><%= g.effectiveMarks %></span>/<span class="max-marks"><%= g.Rubric?.max_marks || '?' %></span>
+            <% if (g.override_marks !== null) { %><span class="override-badge">overridden</span><% } %>
+          </div>
+          <div class="confidence-bar" title="AI confidence: <%= Math.round(g.confidence * 100) %>%">
+            <div class="confidence-track"><div class="confidence-fill" style="width: <%= Math.round(g.confidence * 100) %>%; background: <%= g.confidence >= 0.7 ? '#1a7d3f' : g.confidence >= 0.4 ? '#b08600' : '#ba1a1a' %>"></div></div>
+            <span><%= Math.round(g.confidence * 100) %>%</span>
+          </div>
+        </div>
+
+        <% if (g.Rubric) { %>
+          <div class="grade-question"><strong>Question:</strong> <%= g.Rubric.question_text %></div>
+        <% } %>
+
+        <div class="grade-feedback">
+          <strong>AI Feedback:</strong>
+          <p><%= g.feedback %></p>
+        </div>
+
+        <div class="grade-points-grid">
+          <% if (g.parsedMatched.length) { %>
+            <div class="points-col matched">
+              <strong><i data-lucide="check-circle-2"></i> Matched Points</strong>
+              <% g.parsedMatched.forEach(function(p) { %><div class="point-item"><%= p %></div><% }); %>
+            </div>
+          <% } %>
+          <% if (g.parsedMissing.length) { %>
+            <div class="points-col missing">
+              <strong><i data-lucide="x-circle"></i> Missing Points</strong>
+              <% g.parsedMissing.forEach(function(p) { %><div class="point-item"><%= p %></div><% }); %>
+            </div>
+          <% } %>
+        </div>
+
+        <% if (g.ocr_text) { %>
+          <details class="ocr-detail">
+            <summary>View extracted answer text</summary>
+            <pre class="ocr-text"><%= g.ocr_text %></pre>
+          </details>
+        <% } %>
+
+        <div class="override-section">
+          <details>
+            <summary><i data-lucide="edit-3"></i> Override Grade</summary>
+            <form method="POST" action="/grading/override/<%= g.id %>" class="override-form">
+              <div class="form-row">
+                <div class="form-group"><label>New Marks</label><input type="number" name="override_marks" step="0.5" min="0" max="<%= g.Rubric?.max_marks || 100 %>" value="<%= g.override_marks !== null ? g.override_marks : g.awarded_marks %>" placeholder="Marks"></div>
+                <div class="form-group" style="flex:2"><label>Note</label><input type="text" name="override_note" value="<%= g.override_note || '' %>" placeholder="Reason for override"></div>
+              </div>
+              <button type="submit" class="btn btn-sm btn-primary">Save Override</button>
+            </form>
+          </details>
+        </div>
+      </div>
+    </div>
+  <% }); %>
+</div>

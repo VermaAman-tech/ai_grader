@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - Intelligrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="auth-body">
+  <div class="auth-container">
+    <div class="auth-card auth-card-wide">
+      <div class="auth-brand">
+        <i data-lucide="brain-circuit"></i>
+        <h1>Intelligrade</h1>
+      </div>
+      <h2>Create your account</h2>
+      <p class="auth-subtitle">Use your college email to get started</p>
+
+      <% if (typeof error !== 'undefined' && error && error.length) { %>
+        <% error.forEach(function(msg) { %><div class="alert alert-error"><%= msg %></div><% }); %>
+      <% } %>
+
+      <form method="POST" action="/register" class="auth-form" id="registerForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Full Name</label>
+            <div class="input-icon"><i data-lucide="user"></i><input type="text" name="full_name" required placeholder="Dr. Jane Smith"></div>
+          </div>
+          <div class="form-group">
+            <label>College Email</label>
+            <div class="input-icon"><i data-lucide="mail"></i><input type="email" name="email" required placeholder="jane@university.edu"></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Password</label>
+            <div class="input-icon"><i data-lucide="lock"></i><input type="password" name="password" required minlength="6" placeholder="Min 6 characters"></div>
+          </div>
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <div class="input-icon"><i data-lucide="lock"></i><input type="password" name="confirm_password" required placeholder="Confirm password"></div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>I am registering as</label>
+          <div class="radio-group">
+            <label class="radio-card">
+              <input type="radio" name="role" value="admin" checked>
+              <div class="radio-card-body">
+                <i data-lucide="building-2"></i>
+                <strong>College Admin</strong>
+                <small>Register my institution</small>
+              </div>
+            </label>
+            <label class="radio-card">
+              <input type="radio" name="role" value="professor">
+              <div class="radio-card-body">
+                <i data-lucide="graduation-cap"></i>
+                <strong>Professor</strong>
+                <small>Join existing college or individual</small>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="collegeNameGroup">
+          <label>College / Institution Name</label>
+          <div class="input-icon"><i data-lucide="building-2"></i><input type="text" name="college_name" placeholder="University of Technology"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Department (optional)</label>
+          <div class="input-icon"><i data-lucide="briefcase"></i><input type="text" name="department" placeholder="Computer Science"></div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+      </form>
+      <p class="auth-footer-text">Already registered? <a href="/login">Sign in</a></p>
+    </div>
+  </div>
+  <script>
+    lucide.createIcons();
+    document.querySelectorAll('input[name="role"]').forEach(r => {
+      r.addEventListener('change', () => {
+        document.getElementById('collegeNameGroup').style.display = r.value === 'admin' && r.checked ? 'block' : (document.querySelector('input[name="role"]:checked').value === 'admin' ? 'block' : 'none');
+      });
+    });
+  </script>
+</body>
+</html>

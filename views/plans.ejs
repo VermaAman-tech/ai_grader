@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Choose a Plan - Intelligrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="auth-body">
+  <div class="plans-container">
+    <div class="plans-header">
+      <a href="/" class="landing-brand"><i data-lucide="brain-circuit"></i> Intelligrade</a>
+      <h2>Choose Your Plan</h2>
+      <p>Select a subscription to activate your account. Start with a free trial or go straight to a paid plan.</p>
+    </div>
+
+    <% if (typeof success !== 'undefined' && success && success.length) { %>
+      <% success.forEach(function(msg) { %><div class="alert alert-success"><%= msg %></div><% }); %>
+    <% } %>
+    <% if (typeof error !== 'undefined' && error && error.length) { %>
+      <% error.forEach(function(msg) { %><div class="alert alert-error"><%= msg %></div><% }); %>
+    <% } %>
+
+    <div class="pricing-grid pricing-grid-5">
+      <% const plans = [
+        { key: 'trial', name: 'Free Trial', price: 'Free', period: '7 days', features: ['Full feature access', 'Up to 50 submissions', 'AI grading + analytics'] },
+        { key: 'monthly', name: 'Monthly', price: '$29', period: '1 month', features: ['Unlimited submissions', 'AI grading + analytics', 'AI chat assistant'] },
+        { key: 'quarterly', name: 'Quarterly', price: '$79', period: '3 months', featured: true, features: ['Unlimited submissions', 'Priority support', 'AI chat assistant', 'Save 9%'] },
+        { key: 'semiannual', name: 'Semi-Annual', price: '$149', period: '6 months', features: ['Unlimited submissions', 'Priority support', 'AI chat assistant', 'Save 14%'] },
+        { key: 'annual', name: 'Annual', price: '$249', period: '12 months', features: ['Unlimited submissions', 'Dedicated support', 'AI chat assistant', 'Best value -- save 28%'] },
+      ]; %>
+      <% plans.forEach(function(plan) { %>
+        <div class="price-card<%= plan.featured ? ' featured' : '' %>">
+          <% if (plan.featured) { %><div class="price-badge">Popular</div><% } %>
+          <div class="price-label"><%= plan.name %></div>
+          <div class="price-amount"><%= plan.price %></div>
+          <div class="price-period"><%= plan.period %></div>
+          <ul class="price-features">
+            <% plan.features.forEach(function(f) { %>
+              <li><i data-lucide="check"></i><%= f %></li>
+            <% }); %>
+          </ul>
+          <form method="POST" action="/subscribe">
+            <input type="hidden" name="plan" value="<%= plan.key %>">
+            <input type="hidden" name="scope" value="<%= session.role === 'admin' ? 'college' : 'individual' %>">
+            <button type="submit" class="btn <%= plan.featured ? 'btn-primary' : 'btn-outline' %> btn-block">
+              <%= plan.key === 'trial' ? 'Start Trial' : 'Subscribe' %>
+            </button>
+          </form>
+        </div>
+      <% }); %>
+    </div>
+    <% if (session.role === 'admin') { %>
+      <p class="pricing-note">As a College Admin, your subscription covers all professors with a matching email domain.</p>
+    <% } %>
+  </div>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

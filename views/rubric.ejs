@@ -1,0 +1,97 @@
+<div class="page-header">
+  <h1><i data-lucide="clipboard-list"></i> Rubric Builder</h1>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/rubric" class="inline-form" id="rubricFilterForm">
+    <label>Course:</label>
+    <select id="rubricCourse" onchange="updateExamDropdown()">
+      <option value="">-- Select Course --</option>
+      <% courses.forEach(function(c) { %>
+        <option value="<%= c.id %>" data-exams='<%= JSON.stringify(allExams[c.id] || []) %>' <%= examInfo && examInfo.courseId === c.id ? 'selected' : '' %>><%= c.code %> - <%= c.name %></option>
+      <% }); %>
+    </select>
+    <label>Exam:</label>
+    <select name="exam_id" id="rubricExam" onchange="this.form.submit()">
+      <option value="">-- Select Exam --</option>
+    </select>
+  </form>
+  <% if (selectedExamId) { %>
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('addRubricModal').showModal()"><i data-lucide="plus"></i> Add Question</button>
+  <% } %>
+</div>
+
+<% if (!selectedExamId) { %>
+  <div class="empty-state"><i data-lucide="clipboard-list"></i><h3>Select an exam</h3><p>Choose a course and exam to build or view the rubric.</p></div>
+<% } else if (!rubrics.length) { %>
+  <div class="empty-state"><i data-lucide="clipboard-list"></i><h3>No rubric questions</h3><p>Add questions with key points for AI grading.</p>
+    <button class="btn btn-primary" onclick="document.getElementById('addRubricModal').showModal()"><i data-lucide="plus"></i> Add Question</button>
+  </div>
+<% } else { %>
+<div class="rubric-list">
+  <% rubrics.forEach(function(r) { %>
+    <div class="card rubric-card">
+      <div class="card-body">
+        <div class="rubric-header">
+          <span class="rubric-qno">Q<%= r.question_no %></span>
+          <span class="rubric-marks"><%= r.max_marks %> marks</span>
+          <form method="POST" action="/rubric/<%= r.id %>/delete?exam_id=<%= selectedExamId %>" style="display:inline" onsubmit="return confirm('Delete?')">
+            <button class="btn btn-sm btn-danger"><i data-lucide="trash-2"></i></button>
+          </form>
+        </div>
+        <p class="rubric-text"><%= r.question_text %></p>
+        <% if (r.parsedKeyPoints && r.parsedKeyPoints.length) { %>
+          <div class="key-points">
+            <strong>Key Points:</strong>
+            <% r.parsedKeyPoints.forEach(function(kp) { %>
+              <div class="kp-item"><i data-lucide="check-circle-2"></i> <%= kp.point %> <span class="kp-marks">(<%= kp.marks %> marks)</span></div>
+            <% }); %>
+          </div>
+        <% } %>
+        <% if (r.grading_notes) { %><div class="rubric-notes"><strong>Notes:</strong> <%= r.grading_notes %></div><% } %>
+      </div>
+    </div>
+  <% }); %>
+</div>
+<% } %>
+
+<% if (selectedExamId) { %>
+<dialog id="addRubricModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header"><h3>Add Rubric Question</h3><button class="modal-close" onclick="this.closest('dialog').close()">&times;</button></div>
+    <form method="POST" action="/rubric">
+      <input type="hidden" name="exam_id" value="<%= selectedExamId %>">
+      <div class="form-row">
+        <div class="form-group" style="flex:0 0 120px"><label>Q Number</label><input type="text" name="question_no" required placeholder="1a"></div>
+        <div class="form-group" style="flex:0 0 100px"><label>Order</label><input type="number" name="question_order" value="<%= rubrics.length + 1 %>" min="1"></div>
+        <div class="form-group" style="flex:0 0 120px"><label>Max Marks</label><input type="number" name="max_marks" required value="10" min="0.5" step="0.5"></div>
+      </div>
+      <div class="form-group"><label>Question Text</label><textarea name="question_text" required rows="3" placeholder="What is polymorphism? Explain with an example."></textarea></div>
+      <div class="form-group">
+        <label>Key Points (one per line: point text | marks)</label>
+        <textarea name="key_points_raw" rows="5" placeholder="Definition of polymorphism | 3&#10;Types: compile-time and runtime | 2&#10;Code example with explanation | 3&#10;Real-world analogy | 2"></textarea>
+        <small class="form-hint">Format: key point text | marks (separated by pipe). One per line.</small>
+      </div>
+      <div class="form-group"><label>Grading Notes (optional)</label><textarea name="grading_notes" rows="2" placeholder="Accept diagrams as valid examples"></textarea></div>
+      <div class="form-actions"><button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="btn btn-primary">Add Question</button></div>
+    </form>
+  </div>
+</dialog>
+<% } %>
+
+<script>
+const allExams = <%- JSON.stringify(allExams) %>;
+const selectedExamId = <%= selectedExamId || 'null' %>;
+function updateExamDropdown() {
+  const cid = document.getElementById('rubricCourse').value;
+  const sel = document.getElementById('rubricExam');
+  sel.innerHTML = '<option value="">-- Select Exam --</option>';
+  (allExams[cid] || []).forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id; opt.textContent = e.name;
+    if (e.id === selectedExamId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+updateExamDropdown();
+</script>

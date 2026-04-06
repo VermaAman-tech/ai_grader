@@ -1,0 +1,57 @@
+<div class="page-header">
+  <h1><i data-lucide="book-open"></i> Courses</h1>
+  <button class="btn btn-primary" onclick="document.getElementById('addCourseModal').showModal()"><i data-lucide="plus"></i> New Course</button>
+</div>
+
+<% if (courses.length) { %>
+<div class="card-grid">
+  <% courses.forEach(function(c) { %>
+    <div class="card course-card">
+      <div class="card-body">
+        <div class="course-code"><%= c.code %></div>
+        <h3><%= c.name %></h3>
+        <div class="course-meta">
+          <span><i data-lucide="calendar"></i> <%= c.semester || 'N/A' %></span>
+          <% if (c.section) { %><span><i data-lucide="hash"></i> <%= c.section %></span><% } %>
+        </div>
+        <div class="course-stats">
+          <span><i data-lucide="file-text"></i> <%= c.examCount %> exams</span>
+          <span><i data-lucide="users"></i> <%= c.studentCount %> students</span>
+        </div>
+        <div class="card-actions">
+          <a href="/exams?course_id=<%= c.id %>" class="btn btn-sm btn-outline">Exams</a>
+          <a href="/roster?course_id=<%= c.id %>" class="btn btn-sm btn-outline">Roster</a>
+          <form method="POST" action="/courses/<%= c.id %>/delete" style="display:inline" onsubmit="return confirm('Delete this course and all its data?')">
+            <button class="btn btn-sm btn-danger"><i data-lucide="trash-2"></i></button>
+          </form>
+        </div>
+      </div>
+    </div>
+  <% }); %>
+</div>
+<% } else { %>
+<div class="empty-state">
+  <i data-lucide="book-open"></i>
+  <h3>No courses yet</h3>
+  <p>Create your first course to get started with AI grading.</p>
+  <button class="btn btn-primary" onclick="document.getElementById('addCourseModal').showModal()"><i data-lucide="plus"></i> New Course</button>
+</div>
+<% } %>
+
+<dialog id="addCourseModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>New Course</h3>
+      <button class="modal-close" onclick="this.closest('dialog').close()">&times;</button>
+    </div>
+    <form method="POST" action="/courses">
+      <div class="form-group"><label>Course Name</label><input type="text" name="name" required placeholder="Introduction to Computer Science"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Course Code</label><input type="text" name="code" required placeholder="CS101"></div>
+        <div class="form-group"><label>Semester</label><input type="text" name="semester" placeholder="Fall 2026"></div>
+      </div>
+      <div class="form-group"><label>Section (optional)</label><input type="text" name="section" placeholder="A"></div>
+      <div class="form-actions"><button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="btn btn-primary">Create Course</button></div>
+    </form>
+  </div>
+</dialog>

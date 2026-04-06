@@ -1,0 +1,140 @@
+<div class="page-header">
+  <h1><i data-lucide="bar-chart-3"></i> Analytics</h1>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/analytics" class="inline-form" id="analyticsFilter">
+    <label>Course:</label>
+    <select id="analyticsCourse" onchange="updateAnalyticsExams()">
+      <option value="">-- Select Course --</option>
+      <% courses.forEach(function(c) { %>
+        <option value="<%= c.id %>" data-exams='<%= JSON.stringify(allExams[c.id] || []) %>'><%= c.code %> - <%= c.name %></option>
+      <% }); %>
+    </select>
+    <label>Exam:</label>
+    <select name="exam_id" id="analyticsExam" onchange="this.form.submit()">
+      <option value="">-- Select Exam --</option>
+    </select>
+  </form>
+</div>
+
+<% if (!selectedExamId || !analytics) { %>
+  <div class="empty-state"><i data-lucide="bar-chart-3"></i><h3>Select an exam</h3><p>Choose a graded exam to see performance analytics.</p></div>
+<% } else if (analytics.gradedCount === 0) { %>
+  <div class="empty-state"><i data-lucide="bar-chart-3"></i><h3>No grading data</h3><p>Grade submissions first to see analytics.</p></div>
+<% } else { %>
+
+<div class="kpi-grid kpi-grid-5">
+  <div class="kpi-card"><div class="kpi-icon blue"><i data-lucide="users"></i></div><div class="kpi-data"><div class="kpi-value"><%= analytics.gradedCount %>/<%= analytics.totalStudents %></div><div class="kpi-label">Graded</div></div></div>
+  <div class="kpi-card"><div class="kpi-icon purple"><i data-lucide="trending-up"></i></div><div class="kpi-data"><div class="kpi-value"><%= analytics.classAvg %></div><div class="kpi-label">Average (/<%= analytics.maxPossible %>)</div></div></div>
+  <div class="kpi-card"><div class="kpi-icon green"><i data-lucide="target"></i></div><div class="kpi-data"><div class="kpi-value"><%= analytics.classMedian %></div><div class="kpi-label">Median</div></div></div>
+  <div class="kpi-card"><div class="kpi-icon amber"><i data-lucide="arrow-up-down"></i></div><div class="kpi-data"><div class="kpi-value"><%= analytics.lowest %>-<%= analytics.highest %></div><div class="kpi-label">Range</div></div></div>
+  <div class="kpi-card"><div class="kpi-icon <%= analytics.passRate >= 60 ? 'teal' : 'red' %>"><i data-lucide="percent"></i></div><div class="kpi-data"><div class="kpi-value"><%= analytics.passRate %>%</div><div class="kpi-label">Pass Rate</div></div></div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header"><i data-lucide="bar-chart-3"></i> Grade Distribution</div>
+    <div class="card-body">
+      <div class="distribution-chart">
+        <% const maxBucket = Math.max(...Object.values(analytics.distribution), 1); %>
+        <% Object.entries(analytics.distribution).forEach(function([label, count]) { %>
+          <div class="dist-bar-group">
+            <div class="dist-label"><%= label %></div>
+            <div class="dist-bar-bg"><div class="dist-bar-fill" style="width: <%= count / maxBucket * 100 %>%"><%= count %></div></div>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><i data-lucide="list-ordered"></i> Question Difficulty</div>
+    <div class="card-body">
+      <table class="table table-compact">
+        <thead><tr><th>Question</th><th>Avg Score</th><th>Score %</th><th>Difficulty</th><th>Confidence</th></tr></thead>
+        <tbody>
+          <% analytics.questionStats.forEach(function(q) { %>
+            <tr>
+              <td><strong>Q<%= q.questionNo %></strong></td>
+              <td><%= q.avgScore %>/<%= q.maxMarks %></td>
+              <td>
+                <div class="mini-bar"><div class="mini-fill" style="width:<%= q.scorePct %>%; background: <%= q.scorePct >= 70 ? '#1a7d3f' : q.scorePct >= 40 ? '#b08600' : '#ba1a1a' %>"></div></div>
+                <%= q.scorePct %>%
+              </td>
+              <td><span class="diff-badge diff-<%= q.difficulty.toLowerCase() %>"><%= q.difficulty %></span></td>
+              <td><%= q.avgConfidence %>%</td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="trophy"></i> Student Leaderboard</div>
+  <div class="card-body">
+    <table class="table">
+      <thead><tr><th>Rank</th><th>Student</th><th>Roll Number</th><th>Total</th><th>Percentage</th><th>Status</th></tr></thead>
+      <tbody>
+        <% analytics.studentScores.forEach(function(s, i) { %>
+          <tr class="<%= s.pct < 40 ? 'row-danger' : '' %>">
+            <td><%= i + 1 %></td>
+            <td><strong><%= s.studentName %></strong></td>
+            <td><%= s.rollNumber %></td>
+            <td><%= s.total %>/<%= analytics.maxPossible %></td>
+            <td>
+              <div class="mini-bar"><div class="mini-fill" style="width:<%= s.pct %>%; background: <%= s.pct >= 80 ? '#1a7d3f' : s.pct >= 60 ? '#1a5fb4' : s.pct >= 40 ? '#b08600' : '#ba1a1a' %>"></div></div>
+              <%= s.pct %>%
+            </td>
+            <td><%= s.pct >= 40 ? 'Pass' : 'Fail' %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<% if (insights) { %>
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="lightbulb"></i> AI-Powered Insights</div>
+  <div class="card-body insights-content">
+    <pre class="insights-text"><%= insights %></pre>
+  </div>
+</div>
+<% } %>
+
+<% } %>
+
+<script>
+const analyticsExams = {};
+<% courses.forEach(function(c) { %>
+  analyticsExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+<% }); %>
+const selAExamId = <%= selectedExamId || 'null' %>;
+
+function updateAnalyticsExams() {
+  const cid = document.getElementById('analyticsCourse').value;
+  const sel = document.getElementById('analyticsExam');
+  sel.innerHTML = '<option value="">-- Select Exam --</option>';
+  (analyticsExams[cid] || []).forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id; opt.textContent = e.name;
+    if (e.id === selAExamId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+<% if (selectedExamId) { %>
+(function() {
+  const cs = document.getElementById('analyticsCourse');
+  for (const [cid, exams] of Object.entries(analyticsExams)) {
+    if (exams.some(e => e.id === selAExamId)) { cs.value = cid; break; }
+  }
+  updateAnalyticsExams();
+})();
+<% } else { %>
+updateAnalyticsExams();
+<% } %>
+</script>

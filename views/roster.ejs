@@ -1,0 +1,67 @@
+<div class="page-header">
+  <h1><i data-lucide="users"></i> Student Roster</h1>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/roster" class="inline-form">
+    <label>Course:</label>
+    <select name="course_id" onchange="this.form.submit()">
+      <option value="">-- Select Course --</option>
+      <% courses.forEach(function(c) { %>
+        <option value="<%= c.id %>" <%= selectedCourseId === c.id ? 'selected' : '' %>><%= c.code %> - <%= c.name %></option>
+      <% }); %>
+    </select>
+  </form>
+  <% if (selectedCourseId) { %>
+    <button class="btn btn-primary btn-sm" onclick="document.getElementById('uploadRosterModal').showModal()"><i data-lucide="upload"></i> Import CSV</button>
+  <% } %>
+</div>
+
+<% if (!selectedCourseId) { %>
+  <div class="empty-state"><i data-lucide="users"></i><h3>Select a course</h3><p>Choose a course to view or import its student roster.</p></div>
+<% } else if (!students.length) { %>
+  <div class="empty-state"><i data-lucide="users"></i><h3>No students yet</h3><p>Import a CSV roster file to populate students.</p>
+    <button class="btn btn-primary" onclick="document.getElementById('uploadRosterModal').showModal()"><i data-lucide="upload"></i> Import CSV</button>
+  </div>
+<% } else { %>
+<div class="card">
+  <div class="card-header"><i data-lucide="users"></i> <%= students.length %> Students</div>
+  <div class="card-body">
+    <table class="table">
+      <thead><tr><th>#</th><th>Name</th><th>Roll Number</th><th>Email</th><th></th></tr></thead>
+      <tbody>
+        <% students.forEach(function(s, i) { %>
+          <tr>
+            <td><%= i + 1 %></td>
+            <td><strong><%= s.name %></strong></td>
+            <td><%= s.roll_number || '-' %></td>
+            <td><%= s.email || '-' %></td>
+            <td>
+              <form method="POST" action="/roster/student/<%= s.id %>/delete?course_id=<%= selectedCourseId %>" style="display:inline" onsubmit="return confirm('Remove student?')">
+                <button class="btn btn-sm btn-danger"><i data-lucide="trash-2"></i></button>
+              </form>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<% if (selectedCourseId) { %>
+<dialog id="uploadRosterModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header"><h3>Import Roster</h3><button class="modal-close" onclick="this.closest('dialog').close()">&times;</button></div>
+    <form method="POST" action="/roster/upload" enctype="multipart/form-data">
+      <input type="hidden" name="course_id" value="<%= selectedCourseId %>">
+      <div class="form-group">
+        <label>CSV File</label>
+        <input type="file" name="roster_file" accept=".csv" required>
+        <small class="form-hint">CSV must have columns: Name (required), Roll Number, Email. First row = headers.</small>
+      </div>
+      <div class="form-actions"><button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="btn btn-primary">Import</button></div>
+    </form>
+  </div>
+</dialog>
+<% } %>

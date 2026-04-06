@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intelligrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <i data-lucide="brain-circuit"></i>
+        <span>Intelligrade</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard" class="<%= currentPath === '/dashboard' ? 'active' : '' %>"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
+        <a href="/courses" class="<%= currentPath.startsWith('/courses') ? 'active' : '' %>"><i data-lucide="book-open"></i><span>Courses</span></a>
+        <a href="/exams" class="<%= currentPath.startsWith('/exams') ? 'active' : '' %>"><i data-lucide="file-text"></i><span>Exams</span></a>
+        <a href="/roster" class="<%= currentPath.startsWith('/roster') ? 'active' : '' %>"><i data-lucide="users"></i><span>Roster</span></a>
+        <a href="/rubric" class="<%= currentPath.startsWith('/rubric') ? 'active' : '' %>"><i data-lucide="clipboard-list"></i><span>Rubric</span></a>
+        <a href="/submissions" class="<%= currentPath.startsWith('/submissions') ? 'active' : '' %>"><i data-lucide="upload"></i><span>Submissions</span></a>
+        <a href="/grading" class="<%= currentPath.startsWith('/grading') ? 'active' : '' %>"><i data-lucide="check-circle"></i><span>Grading</span></a>
+        <a href="/analytics" class="<%= currentPath.startsWith('/analytics') ? 'active' : '' %>"><i data-lucide="bar-chart-3"></i><span>Analytics</span></a>
+        <a href="/chat" class="<%= currentPath.startsWith('/chat') ? 'active' : '' %>"><i data-lucide="message-circle"></i><span>AI Chat</span></a>
+        <a href="/export" class="<%= currentPath.startsWith('/export') ? 'active' : '' %>"><i data-lucide="download"></i><span>Export</span></a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <i data-lucide="user-circle"></i>
+          <div>
+            <div class="user-name"><%= session.userName || '' %></div>
+            <div class="user-role"><%= session.role === 'admin' ? 'Admin' : 'Professor' %><% if (session.collegeName) { %> &middot; <%= session.collegeName %><% } %></div>
+          </div>
+        </div>
+        <a href="/logout" class="logout-link"><i data-lucide="log-out"></i><span>Sign Out</span></a>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-title"></div>
+      </header>
+
+      <% if (success && success.length) { %>
+        <% success.forEach(function(msg) { %>
+          <div class="alert alert-success"><i data-lucide="check-circle-2"></i><span><%= msg %></span><button class="alert-close" onclick="this.parentElement.remove()">&times;</button></div>
+        <% }); %>
+      <% } %>
+      <% if (error && error.length) { %>
+        <% error.forEach(function(msg) { %>
+          <div class="alert alert-error"><i data-lucide="alert-triangle"></i><span><%= msg %></span><button class="alert-close" onclick="this.parentElement.remove()">&times;</button></div>
+        <% }); %>
+      <% } %>
+
+      <div class="page-content">
+        <%- body %>
+      </div>
+    </main>
+  </div>
+  <script src="/js/app.js"></script>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

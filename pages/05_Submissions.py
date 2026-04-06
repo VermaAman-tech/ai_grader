@@ -7,7 +7,7 @@ import streamlit as st
 
 from db.database import session_scope
 from db.models import Course, Exam, Rubric, Student, Submission
-from ui.theme import inject_theme_css, render_header
+from ui.theme import inject_theme_css, render_header, render_divider, render_section_title
 from utils.helpers import normalize_roll
 
 
@@ -19,19 +19,29 @@ def infer_roll_from_filename(file_name: str) -> str:
     return normalize_roll(candidate)
 
 
-st.set_page_config(page_title="Submissions", page_icon="G", layout="wide")
+st.set_page_config(page_title="Submissions — Grader", page_icon="🎓", layout="wide")
 inject_theme_css()
-render_header("05. Upload Student PDFs", "Upload one PDF per student. File name should include roll number.")
+render_header(
+    "Upload Submissions",
+    "Upload student answer PDFs — filenames should include the roll number.",
+    "📄",
+)
 
 with session_scope() as db:
     courses = db.query(Course).order_by(Course.code.asc()).all()
 
 if not courses:
-    st.warning("Create a course first.")
+    st.markdown(
+        '<div class="gw-warning-card">📚 No courses found. Create a course first.</div>',
+        unsafe_allow_html=True,
+    )
     st.stop()
 
-course_labels = [f"{course.id} | {course.code} | {course.name}" for course in courses]
-selected_course_label = st.selectbox("Select course", course_labels)
+# ── Selectors ──
+render_section_title("Select Course & Exam")
+col_a, col_b = st.columns(2)
+course_labels = [f"{course.id} | {course.code} — {course.name}" for course in courses]
+selected_course_label = col_a.selectbox("Course", course_labels)
 selected_course_id = int(selected_course_label.split("|", 1)[0].strip())
 
 with session_scope() as db:
@@ -43,11 +53,14 @@ with session_scope() as db:
     )
 
 if not exams:
-    st.warning("Create an exam first.")
+    st.markdown(
+        '<div class="gw-warning-card">📝 No exams found. Create an exam first.</div>',
+        unsafe_allow_html=True,
+    )
     st.stop()
 
 exam_labels = [f"{exam.id} | {exam.name}" for exam in exams]
-selected_exam_label = st.selectbox("Select exam", exam_labels)
+selected_exam_label = col_b.selectbox("Exam", exam_labels)
 selected_exam_id = int(selected_exam_label.split("|", 1)[0].strip())
 
 with session_scope() as db:
@@ -60,27 +73,87 @@ with session_scope() as db:
     rubric_count = db.query(Rubric).filter(Rubric.exam_id == selected_exam_id).count()
 
 if not students:
-    st.warning("Upload roster before uploading PDFs.")
+    st.markdown(
+        '<div class="gw-warning-card">👥 No students found. Upload a roster first on the Roster page.</div>',
+        unsafe_allow_html=True,
+    )
     st.stop()
 
+# ── Info bar ──
+ic1, ic2, ic3 = st.columns(3)
+ic1.metric("Students in course", len(students))
+ic2.metric("Rubric questions", rubric_count)
+
 if rubric_count == 0:
-    st.info("⚠️ Note: You have not defined any rubrics yet. You can still upload PDFs, but you cannot grade them until rubrics are added in the '04. Rubric' page.")
+    st.markdown(
+        '<div class="gw-warning-card">⚠️ <strong style="color:#fbbf24">No rubric defined yet.</strong>'
+        ' <span style="color:#94a3b8; font-size:0.85rem">You can upload PDFs now, but grading requires rubrics to be defined first.</span></div>',
+        unsafe_allow_html=True,
+    )
+
+render_divider()
+
+# ── Upload ──
+render_section_title("Upload Student PDFs")
+st.markdown(
+    """
+    <div class="gw-info-card">
+        <strong style="color:#7dd3fc; font-size:0.85rem;">💡 Naming Convention</strong>
+        <div style="color:#64748b; font-size:0.82rem; margin-top:0.3rem;">
+            Name files with the student's roll number for automatic matching:
+            <code>22CS014_midterm.pdf</code> or <code>22CS014.pdf</code>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 uploaded_files = st.file_uploader(
-    "Upload student PDFs",
+    "Drop student PDFs here (multiple files supported)",
     type=["pdf"],
     accept_multiple_files=True,
-    help="Use filenames like 22CS014_midterm.pdf so roll matching is automatic.",
+    help="Upload one PDF per student. Filename must contain the roll number.",
 )
 
 if uploaded_files:
-    if st.button("Save uploads", type="primary"):
+    st.markdown(f"**{len(uploaded_files)} file(s) selected**")
+
+    # Preview matches
+    with session_scope() as db:
+        fresh_students = db.query(Student).filter(Student.course_id == selected_course_id).all()
+        by_roll = {
+            normalize_roll(student.roll_number): student
+            for student in fresh_students
+            if student.roll_number
+        }
+
+    preview_rows = []
+    for uf in uploaded_files:
+        inferred = infer_roll_from_filename(uf.name)
+        matched = by_roll.get(inferred)
+        preview_rows.append({
+            "File": uf.name,
+            "Inferred Roll": inferred,
+            "Matched Student": matched.name if matched else "❌ No match",
+            "Status": "✅ Ready" if matched else "⚠️ Unmatched",
+        })
+
+    matched_count = sum(1 for r in preview_rows if "Ready" in r["Status"])
+    unmatched_count = len(preview_rows) - matched_count
+
+    pm1, pm2 = st.columns(2)
+    pm1.metric("Matched", matched_count, delta=f"{matched_count}/{len(preview_rows)}")
+    pm2.metric("Unmatched", unmatched_count, delta_color="inverse")
+
+    st.dataframe(pd.DataFrame(preview_rows), use_container_width=True, hide_index=True)
+
+    if st.button(f"💾 Save {matched_count} Matched Uploads", type="primary", disabled=matched_count == 0):
         upload_root = Path(os.getenv("UPLOAD_DIR", "data/uploads")) / f"exam_{selected_exam_id}"
         upload_root.mkdir(parents=True, exist_ok=True)
 
         matched = 0
         replaced = 0
-        unmatched: list[str] = []
+        unmatched_files: list[str] = []
 
         with session_scope() as db:
             fresh_students = db.query(Student).filter(Student.course_id == selected_course_id).all()
@@ -94,7 +167,7 @@ if uploaded_files:
                 inferred_roll = infer_roll_from_filename(uploaded.name)
                 student = by_roll.get(inferred_roll)
                 if not student:
-                    unmatched.append(uploaded.name)
+                    unmatched_files.append(uploaded.name)
                     continue
 
                 save_path = upload_root / f"student_{student.id}.pdf"
@@ -127,12 +200,14 @@ if uploaded_files:
                     )
                 matched += 1
 
-        st.success(f"Matched and saved: {matched} files. Replaced existing: {replaced}.")
-        if unmatched:
-            st.warning("These files did not match any student roll number:")
-            st.write(unmatched)
+        st.success(f"✅ Saved **{matched}** files ({replaced} replaced existing submissions).")
+        if unmatched_files:
+            st.warning(f"⚠️ {len(unmatched_files)} files did not match any student: {', '.join(unmatched_files)}")
         st.rerun()
 
+render_divider()
+
+# ── Submission Status ──
 with session_scope() as db:
     submissions = (
         db.query(Submission, Student)
@@ -142,29 +217,59 @@ with session_scope() as db:
         .all()
     )
 
-st.markdown("### Current Submission Status")
+render_section_title(f"Submission Status ({len(submissions)} students)")
+
 if submissions:
+    # Status summary
+    status_counts = {}
+    for sub, _ in submissions:
+        status_counts[sub.status] = status_counts.get(sub.status, 0) + 1
+
+    sc_cols = st.columns(len(status_counts) or 1)
+    status_icons = {"pending": "⏳", "grading": "⚙️", "done": "✅", "error": "❌"}
+    for i, (status, count) in enumerate(status_counts.items()):
+        sc_cols[i].metric(f"{status_icons.get(status, '•')} {status.title()}", count)
+
+    # Progress
+    total = len(submissions)
+    done = status_counts.get("done", 0)
+    if total > 0:
+        st.progress(done / total, text=f"Grading progress: {done}/{total}")
+
     table = []
     for submission, student in submissions:
         table.append(
             {
-                "Submission ID": submission.id,
-                "Roll number": student.roll_number or "",
+                "Roll": student.roll_number or "—",
                 "Student": student.name,
                 "File": submission.file_name,
-                "Status": submission.status,
+                "Status": submission.status.title(),
                 "Error": submission.error_message or "",
             }
         )
-    st.dataframe(pd.DataFrame(table), use_container_width=True, hide_index=True)
+    st.dataframe(
+        pd.DataFrame(table),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Status": st.column_config.TextColumn("Status"),
+        },
+    )
 
-    if st.button("Reset all submissions to pending"):
+    render_divider()
+    if st.button("🔄 Reset All Submissions to Pending", type="secondary"):
         with session_scope() as db:
             targets = db.query(Submission).filter(Submission.exam_id == selected_exam_id).all()
             for row in targets:
                 row.status = "pending"
                 row.error_message = None
-        st.success("Submission statuses reset to pending.")
+        st.success("All submissions reset to pending.")
         st.rerun()
 else:
-    st.info("No PDFs uploaded for this exam yet.")
+    st.markdown(
+        '<div class="gw-info-card" style="text-align:center; padding: 2rem;">'
+        '<div style="font-size:2rem; margin-bottom:0.5rem;">📂</div>'
+        '<div style="color:#475569;">No PDFs uploaded for this exam yet.</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )

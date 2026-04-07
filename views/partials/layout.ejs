@@ -29,6 +29,14 @@
         <a href="/export" class="<%= currentPath.startsWith('/export') ? 'active' : '' %>"><i data-lucide="download"></i><span>Export</span></a>
       </nav>
       <div class="sidebar-footer">
+        <% if (typeof subscription !== 'undefined' && subscription) { %>
+        <a href="/plans" class="plan-badge-link">
+          <div class="plan-indicator <%= (typeof planTier !== 'undefined' && planTier === 'PRO') ? 'plan-pro' : 'plan-free' %>">
+            <i data-lucide="<%= (typeof planTier !== 'undefined' && planTier === 'PRO') ? 'crown' : 'clock' %>"></i>
+            <span><%= typeof planTier !== 'undefined' ? planTier : 'FREE' %></span>
+          </div>
+        </a>
+        <% } %>
         <div class="user-info">
           <i data-lucide="user-circle"></i>
           <div>

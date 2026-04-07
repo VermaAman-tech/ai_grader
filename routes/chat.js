@@ -1,9 +1,8 @@
 const router = require('express').Router();
-const { ensureAuth, ensureSubscription } = require('../middleware/auth');
-const { ChatMessage, Course, Exam, Grade, Rubric, Submission, Student } = require('../models');
+const { ensureAuth, ensureSubscription, asyncHandler, assertExamOwner } = require('../middleware/auth');
+const { ChatMessage, Course, Exam } = require('../models');
 const LLMService = require('../services/llm');
 const { getExamAnalytics } = require('../services/analytics');
-const { Op } = require('sequelize');
 
 const CHAT_SYSTEM_PROMPT = `You are Intelligrade AI Assistant, an expert educational technology advisor embedded in a university exam grading platform. You have access to the professor's exam data, grading results, and analytics.
 
@@ -18,7 +17,7 @@ Your capabilities:
 
 Be specific, data-driven, and actionable. Reference actual numbers from the provided context. Format responses clearly with headers and bullet points when helpful.`;
 
-router.get('/', ensureAuth, ensureSubscription, async (req, res) => {
+router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courses = await Course.findAll({ where: { user_id: req.session.userId }, order: [['name', 'ASC']] });
   const allExams = {};
   for (const c of courses) {
@@ -26,6 +25,11 @@ router.get('/', ensureAuth, ensureSubscription, async (req, res) => {
   }
 
   const examId = parseInt(req.query.exam_id) || null;
+
+  if (examId) {
+    await assertExamOwner(req, examId);
+  }
+
   const history = await ChatMessage.findAll({
     where: { user_id: req.session.userId, ...(examId ? { exam_id: examId } : {}) },
     order: [['created_at', 'ASC']],
@@ -33,9 +37,9 @@ router.get('/', ensureAuth, ensureSubscription, async (req, res) => {
   });
 
   res.render('chat', { courses, allExams, selectedExamId: examId, history });
-});
+}));
 
-router.post('/send', ensureAuth, ensureSubscription, async (req, res) => {
+router.post('/send', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const { message, exam_id } = req.body;
   if (!message?.trim()) {
     return res.json({ error: 'Message cannot be empty.' });
@@ -43,11 +47,15 @@ router.post('/send', ensureAuth, ensureSubscription, async (req, res) => {
 
   const examId = parseInt(exam_id) || null;
 
+  if (examId) {
+    await assertExamOwner(req, examId);
+  }
+
   await ChatMessage.create({
     user_id: req.session.userId,
     exam_id: examId,
     role: 'user',
-    content: message.trim(),
+    content: message.trim().slice(0, 2000),
   });
 
   let contextBlock = '';
@@ -89,14 +97,17 @@ router.post('/send', ensureAuth, ensureSubscription, async (req, res) => {
   } catch (err) {
     res.json({ error: `AI error: ${err.message}` });
   }
-});
+}));
 
-router.post('/clear', ensureAuth, async (req, res) => {
+router.post('/clear', ensureAuth, asyncHandler(async (req, res) => {
   const examId = parseInt(req.body.exam_id) || null;
+  if (examId) {
+    await assertExamOwner(req, examId);
+  }
   await ChatMessage.destroy({
     where: { user_id: req.session.userId, ...(examId ? { exam_id: examId } : {}) },
   });
   res.redirect(`/chat${examId ? `?exam_id=${examId}` : ''}`);
-});
+}));
 
 module.exports = router;

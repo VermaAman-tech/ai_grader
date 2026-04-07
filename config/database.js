@@ -13,4 +13,8 @@ const sequelize = new Sequelize({
   },
 });
 
+sequelize.query('PRAGMA journal_mode = WAL;').catch(() => {});
+sequelize.query('PRAGMA busy_timeout = 5000;').catch(() => {});
+sequelize.query('PRAGMA foreign_keys = ON;').catch(() => {});
+
 module.exports = sequelize;

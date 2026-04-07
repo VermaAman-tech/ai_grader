@@ -1,9 +1,9 @@
 const router = require('express').Router();
-const { ensureAuth, ensureSubscription } = require('../middleware/auth');
+const { ensureAuth, ensureSubscription, asyncHandler, assertExamOwner } = require('../middleware/auth');
 const { Course, Exam } = require('../models');
 const { getExamAnalytics, generateInsights } = require('../services/analytics');
 
-router.get('/', ensureAuth, ensureSubscription, async (req, res) => {
+router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courses = await Course.findAll({ where: { user_id: req.session.userId }, order: [['name', 'ASC']] });
   const allExams = {};
   for (const c of courses) {
@@ -14,13 +14,18 @@ router.get('/', ensureAuth, ensureSubscription, async (req, res) => {
   let analytics = null, insights = '';
 
   if (examId) {
+    await assertExamOwner(req, examId);
     analytics = await getExamAnalytics(examId);
     if (analytics && analytics.gradedCount > 0) {
-      insights = await generateInsights(analytics);
+      try {
+        insights = await generateInsights(analytics);
+      } catch {
+        insights = 'Unable to generate insights at this time.';
+      }
     }
   }
 
   res.render('analytics', { courses, allExams, analytics, insights, selectedExamId: examId });
-});
+}));
 
 module.exports = router;

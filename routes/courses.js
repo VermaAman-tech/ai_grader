@@ -1,8 +1,9 @@
 const router = require('express').Router();
-const { ensureAuth, ensureSubscription } = require('../middleware/auth');
+const { ensureAuth, ensureSubscription, asyncHandler, assertCourseOwner } = require('../middleware/auth');
+const { requireString, optionalString } = require('../middleware/validate');
 const { Course, Exam, Student } = require('../models');
 
-router.get('/', ensureAuth, ensureSubscription, async (req, res) => {
+router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courses = await Course.findAll({
     where: { user_id: req.session.userId },
     order: [['created_at', 'DESC']],
@@ -16,38 +17,28 @@ router.get('/', ensureAuth, ensureSubscription, async (req, res) => {
   }
 
   res.render('courses', { courses: data });
-});
+}));
 
-router.post('/', ensureAuth, ensureSubscription, async (req, res) => {
-  const { name, code, semester, section } = req.body;
-  if (!name || !code) {
-    req.flash('error', 'Course name and code are required.');
-    return res.redirect('/courses');
-  }
+router.post('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
+  const name = requireString(req.body.name, 'Course name', { maxLen: 200 });
+  const code = requireString(req.body.code, 'Course code', { maxLen: 50 });
+  const semester = optionalString(req.body.semester, { maxLen: 100 });
+  const section = optionalString(req.body.section, { maxLen: 50 });
 
-  try {
-    await Course.create({
-      user_id: req.session.userId,
-      name: name.trim(), code: code.trim(),
-      semester: (semester || '').trim() || null,
-      section: (section || '').trim() || null,
-    });
-    req.flash('success', `Course "${name}" created.`);
-  } catch (err) {
-    req.flash('error', `Error: ${err.message}`);
-  }
+  await Course.create({
+    user_id: req.session.userId,
+    name, code, semester, section,
+  });
+  req.flash('success', `Course "${name}" created.`);
   res.redirect('/courses');
-});
+}));
 
-router.post('/:id/delete', ensureAuth, async (req, res) => {
-  const course = await Course.findOne({ where: { id: req.params.id, user_id: req.session.userId } });
-  if (course) {
-    await course.destroy();
-    req.flash('success', `Course "${course.name}" deleted.`);
-  } else {
-    req.flash('error', 'Course not found.');
-  }
+router.post('/:id/delete', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
+  const course = await assertCourseOwner(req, parseInt(req.params.id));
+  const courseName = course.name;
+  await course.destroy();
+  req.flash('success', `Course "${courseName}" deleted.`);
   res.redirect('/courses');
-});
+}));
 
 module.exports = router;

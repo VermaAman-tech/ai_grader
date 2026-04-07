@@ -1,14 +1,18 @@
 const router = require('express').Router();
-const { ensureAuth, ensureSubscription } = require('../middleware/auth');
-const { Course, Exam, Student, Submission, Grade, Rubric, Subscription } = require('../models');
+const { ensureAuth, ensureSubscription, asyncHandler } = require('../middleware/auth');
+const { Course, Exam, Student, Submission, Grade, Rubric } = require('../models');
 const { Op } = require('sequelize');
 
-router.get('/dashboard', ensureAuth, ensureSubscription, async (req, res) => {
+router.get('/dashboard', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const userId = req.session.userId;
 
-  const courses = await Course.count({ where: { user_id: userId } });
-  const courseIds = (await Course.findAll({ where: { user_id: userId }, attributes: ['id'] })).map(c => c.id);
+  const userCourses = await Course.findAll({
+    where: { user_id: userId },
+    attributes: ['id'],
+  });
+  const courseIds = userCourses.map(c => c.id);
 
+  const courses = courseIds.length;
   const exams = courseIds.length ? await Exam.count({ where: { course_id: { [Op.in]: courseIds } } }) : 0;
   const students = courseIds.length ? await Student.count({ where: { course_id: { [Op.in]: courseIds } } }) : 0;
 
@@ -20,8 +24,13 @@ router.get('/dashboard', ensureAuth, ensureSubscription, async (req, res) => {
   const done = examIds.length ? await Submission.count({ where: { exam_id: { [Op.in]: examIds }, status: 'done' } }) : 0;
   const pending = examIds.length ? await Submission.count({ where: { exam_id: { [Op.in]: examIds }, status: 'pending' } }) : 0;
   const errors = examIds.length ? await Submission.count({ where: { exam_id: { [Op.in]: examIds }, status: 'error' } }) : 0;
-  const grades = examIds.length ? await Grade.count({ where: { submission_id: { [Op.in]: (await Submission.findAll({ where: { exam_id: { [Op.in]: examIds } }, attributes: ['id'] })).map(s => s.id) } } }) : 0;
-  const rubrics = examIds.length ? await Rubric.count({ where: { exam_id: { [Op.in]: examIds } } }) : 0;
+
+  let grades = 0, rubrics = 0;
+  if (examIds.length) {
+    const subIds = (await Submission.findAll({ where: { exam_id: { [Op.in]: examIds } }, attributes: ['id'] })).map(s => s.id);
+    grades = subIds.length ? await Grade.count({ where: { submission_id: { [Op.in]: subIds } } }) : 0;
+    rubrics = await Rubric.count({ where: { exam_id: { [Op.in]: examIds } } });
+  }
 
   const recentCourses = await Course.findAll({ where: { user_id: userId }, order: [['created_at', 'DESC']], limit: 5 });
   const recentSubs = examIds.length ? await Submission.findAll({
@@ -36,6 +45,6 @@ router.get('/dashboard', ensureAuth, ensureSubscription, async (req, res) => {
     stats: { courses, exams, students, submissions, done, pending, errors, grades, rubrics },
     recentCourses, recentSubs, sub,
   });
-});
+}));
 
 module.exports = router;

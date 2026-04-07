@@ -2,31 +2,24 @@ const router = require('express').Router();
 const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
-const { ensureAuth, ensureSubscription } = require('../middleware/auth');
+const { ensureAuth, ensureSubscription, asyncHandler, assertExamOwner } = require('../middleware/auth');
+const { requireInt } = require('../middleware/validate');
 const { Course, Exam, Student, Submission, Grade, Rubric } = require('../models');
 
-router.get('/', ensureAuth, ensureSubscription, async (req, res) => {
+router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courses = await Course.findAll({ where: { user_id: req.session.userId }, order: [['name', 'ASC']] });
   const allExams = {};
   for (const c of courses) {
     allExams[c.id] = (await Exam.findAll({ where: { course_id: c.id } })).map(e => ({ id: e.id, name: e.name }));
   }
   res.render('export', { courses, allExams });
-});
+}));
 
-router.post('/download', ensureAuth, ensureSubscription, async (req, res) => {
-  const examId = parseInt(req.body.exam_id);
-  if (!examId) {
-    req.flash('error', 'Select an exam.');
-    return res.redirect('/export');
-  }
+router.post('/download', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
+  const examId = requireInt(req.body.exam_id, 'Exam');
+  const exam = await assertExamOwner(req, examId);
 
-  const exam = await Exam.findByPk(examId, { include: [{ model: Course, where: { user_id: req.session.userId } }] });
-  if (!exam) {
-    req.flash('error', 'Exam not found.');
-    return res.redirect('/export');
-  }
-
+  const course = await Course.findByPk(exam.course_id);
   const rubrics = await Rubric.findAll({ where: { exam_id: examId }, order: [['question_order', 'ASC']] });
   const submissions = await Submission.findAll({
     where: { exam_id: examId },
@@ -36,7 +29,6 @@ router.post('/download', ensureAuth, ensureSubscription, async (req, res) => {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Intelligrade';
 
-  // Gradebook sheet
   const ws = wb.addWorksheet('Gradebook');
   const headers = ['Student', 'Roll Number', ...rubrics.map(r => `Q${r.question_no} (/${r.max_marks})`), 'Total', 'Percentage', 'Status'];
   const headerRow = ws.addRow(headers);
@@ -68,7 +60,6 @@ router.post('/download', ensureAuth, ensureSubscription, async (req, res) => {
 
   ws.columns.forEach(col => { col.width = 16; });
 
-  // Feedback sheet
   const ws2 = wb.addWorksheet('Detailed Feedback');
   const h2 = ws2.addRow(['Student', 'Roll Number', 'Question', 'Awarded', 'Max', 'Feedback', 'Confidence']);
   h2.eachCell(cell => { cell.font = { bold: true }; });
@@ -88,11 +79,18 @@ router.post('/download', ensureAuth, ensureSubscription, async (req, res) => {
 
   const exportDir = path.resolve(process.env.EXPORT_DIR || './data/exports');
   fs.mkdirSync(exportDir, { recursive: true });
-  const fileName = `${exam.Course?.code || 'exam'}_${exam.name.replace(/[^a-zA-Z0-9]/g, '_')}_grades.xlsx`;
+  const fileName = `${course?.code || 'exam'}_${exam.name.replace(/[^a-zA-Z0-9]/g, '_')}_grades.xlsx`;
   const filePath = path.join(exportDir, fileName);
 
   await wb.xlsx.writeFile(filePath);
-  res.download(filePath, fileName);
-});
+
+  res.download(filePath, fileName, (err) => {
+    try { fs.unlinkSync(filePath); } catch {}
+    if (err && !res.headersSent) {
+      req.flash('error', 'Export failed.');
+      res.redirect('/export');
+    }
+  });
+}));
 
 module.exports = router;

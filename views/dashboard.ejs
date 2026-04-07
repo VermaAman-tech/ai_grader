@@ -5,9 +5,22 @@
 
 <% if (sub) { %>
 <div class="sub-banner">
-  <i data-lucide="crown"></i>
-  <span><strong><%= sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) %></strong> plan &middot; <%= sub.scope === 'college' ? 'College-wide' : 'Individual' %> &middot; Expires <%= new Date(sub.end_date).toLocaleDateString() %></span>
-  <a href="/plans" class="btn btn-sm btn-outline">Manage</a>
+  <div class="sub-banner-left">
+    <span class="sub-tier-chip <%= sub.plan === 'trial' ? 'chip-free' : 'chip-pro' %>">
+      <i data-lucide="<%= sub.plan === 'trial' ? 'clock' : 'crown' %>"></i>
+      <%= sub.plan === 'trial' ? 'FREE' : 'PRO' %>
+    </span>
+    <span>
+      <strong><%= sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) %></strong> plan
+      &middot; <%= sub.scope === 'college' ? 'College-wide' : 'Individual' %>
+      &middot; Expires <%= new Date(sub.end_date).toLocaleDateString() %>
+      <% const dLeft = Math.ceil((new Date(sub.end_date) - new Date()) / (1000*60*60*24)); %>
+      <% if (dLeft <= 7) { %><span class="text-warning">(<%= dLeft %> day<%= dLeft !== 1 ? 's' : '' %> left)</span><% } %>
+    </span>
+  </div>
+  <% if (session.role === 'admin') { %>
+    <a href="/plans" class="btn btn-sm btn-outline">Manage Plan</a>
+  <% } %>
 </div>
 <% } %>
 

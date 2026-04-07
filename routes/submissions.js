@@ -2,7 +2,8 @@ const router = require('express').Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { ensureAuth, ensureSubscription } = require('../middleware/auth');
+const { ensureAuth, ensureSubscription, asyncHandler, assertCourseOwner, assertExamOwner, assertSubmissionOwner } = require('../middleware/auth');
+const { requireInt } = require('../middleware/validate');
 const { Course, Exam, Student, Submission } = require('../models');
 
 const uploadDir = process.env.UPLOAD_DIR || './data/uploads';
@@ -17,21 +18,27 @@ const storage = multer.diskStorage({
     cb(null, `${ts}_${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 }, fileFilter(req, file, cb) {
-  cb(null, file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf'));
-}});
+const upload = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    cb(null, file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf'));
+  },
+});
 
-router.get('/', ensureAuth, ensureSubscription, async (req, res) => {
+router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courses = await Course.findAll({ where: { user_id: req.session.userId }, order: [['name', 'ASC']] });
   const courseId = parseInt(req.query.course_id) || null;
   const examId = parseInt(req.query.exam_id) || null;
 
   let exams = [], students = [], submissions = [];
   if (courseId) {
+    await assertCourseOwner(req, courseId);
     exams = await Exam.findAll({ where: { course_id: courseId }, order: [['name', 'ASC']] });
     students = await Student.findAll({ where: { course_id: courseId }, order: [['name', 'ASC']] });
   }
   if (examId) {
+    await assertExamOwner(req, examId);
     submissions = await Submission.findAll({
       where: { exam_id: examId },
       include: [{ model: Student }],
@@ -40,18 +47,19 @@ router.get('/', ensureAuth, ensureSubscription, async (req, res) => {
   }
 
   res.render('submissions', { courses, exams, students, submissions, selectedCourseId: courseId, selectedExamId: examId });
-});
+}));
 
-router.post('/upload', ensureAuth, ensureSubscription, upload.array('pdf_files', 100), async (req, res) => {
-  const { exam_id, student_ids } = req.body;
-  const examId = parseInt(exam_id);
-  const courseId = req.query.course_id || '';
+router.post('/upload', ensureAuth, ensureSubscription, upload.array('pdf_files', 100), asyncHandler(async (req, res) => {
+  const examId = requireInt(req.body.exam_id, 'Exam');
+  const exam = await assertExamOwner(req, examId);
+  const courseId = exam.course_id;
 
-  if (!examId || !req.files?.length) {
-    req.flash('error', 'Exam and at least one PDF file are required.');
-    return res.redirect(`/submissions?course_id=${courseId}&exam_id=${examId || ''}`);
+  if (!req.files?.length) {
+    req.flash('error', 'At least one PDF file is required.');
+    return res.redirect(`/submissions?course_id=${courseId}&exam_id=${examId}`);
   }
 
+  const { student_ids } = req.body;
   const students = student_ids
     ? (Array.isArray(student_ids) ? student_ids : [student_ids]).map(Number)
     : [];
@@ -77,16 +85,15 @@ router.post('/upload', ensureAuth, ensureSubscription, upload.array('pdf_files',
 
   req.flash('success', `${uploaded} submission(s) uploaded.`);
   res.redirect(`/submissions?course_id=${courseId}&exam_id=${examId}`);
-});
+}));
 
-router.post('/:id/delete', ensureAuth, async (req, res) => {
-  const sub = await Submission.findByPk(req.params.id);
-  if (sub) {
-    try { fs.unlinkSync(sub.file_path); } catch {}
-    await sub.destroy();
-    req.flash('success', 'Submission deleted.');
-  }
-  res.redirect('back');
-});
+router.post('/:id/delete', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
+  const sub = await assertSubmissionOwner(req, parseInt(req.params.id));
+  try { fs.unlinkSync(sub.file_path); } catch {}
+  const examId = sub.exam_id;
+  await sub.destroy();
+  req.flash('success', 'Submission deleted.');
+  res.redirect(`/submissions?exam_id=${examId}`);
+}));
 
 module.exports = router;

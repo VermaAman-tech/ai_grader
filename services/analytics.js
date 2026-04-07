@@ -42,7 +42,7 @@ async function getExamAnalytics(examId) {
   const highest = allTotals.length ? allTotals[0] : 0;
   const lowest = allTotals.length ? allTotals[allTotals.length - 1] : 0;
   const passCount = studentScores.filter(s => s.pct >= 40).length;
-  const passRate = totalStudents > 0 ? Math.round(passCount / totalStudents * 10000) / 100 : 0;
+  const passRate = gradedSubs.length > 0 ? Math.round(passCount / gradedSubs.length * 10000) / 100 : 0;
 
   // Per-question analysis
   const questionStats = rubrics.map(r => {

@@ -1,4 +1,4 @@
-const { Subscription, College } = require('../models');
+const { Subscription, College, Course, Exam, Submission, Grade, Rubric, Student } = require('../models');
 const { Op } = require('sequelize');
 
 function ensureAuth(req, res, next) {
@@ -14,8 +14,8 @@ async function ensureSubscription(req, res, next) {
   }
 
   const now = new Date();
+  let activeSub = null;
 
-  // Check individual subscription
   const individual = await Subscription.findOne({
     where: {
       user_id: req.session.userId,
@@ -24,13 +24,9 @@ async function ensureSubscription(req, res, next) {
       end_date: { [Op.gt]: now },
     },
   });
-  if (individual) {
-    req.subscription = individual;
-    return next();
-  }
+  if (individual) activeSub = individual;
 
-  // Check college subscription
-  if (req.session.collegeId) {
+  if (!activeSub && req.session.collegeId) {
     const college = await Subscription.findOne({
       where: {
         college_id: req.session.collegeId,
@@ -39,13 +35,24 @@ async function ensureSubscription(req, res, next) {
         end_date: { [Op.gt]: now },
       },
     });
-    if (college) {
-      req.subscription = college;
-      return next();
-    }
+    if (college) activeSub = college;
   }
 
-  req.flash('error', 'Your subscription has expired. Please renew to continue.');
+  if (activeSub) {
+    req.subscription = activeSub;
+    res.locals.subscription = activeSub;
+    res.locals.planTier = activeSub.plan === 'trial' ? 'FREE' : 'PRO';
+    res.locals.planLabel = activeSub.plan === 'trial'
+      ? 'Free Trial'
+      : activeSub.plan.charAt(0).toUpperCase() + activeSub.plan.slice(1);
+    return next();
+  }
+
+  if (req.session.role === 'professor' && req.session.collegeId) {
+    req.flash('error', 'Your college subscription has expired. Please ask your college admin to renew.');
+  } else {
+    req.flash('error', 'Your subscription has expired. Please renew to continue.');
+  }
   res.redirect('/plans');
 }
 
@@ -55,4 +62,67 @@ function ensureAdmin(req, res, next) {
   res.redirect('/dashboard');
 }
 
-module.exports = { ensureAuth, ensureSubscription, ensureAdmin };
+function asyncHandler(fn) {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(err => {
+      if (err.message === 'ACCESS_DENIED') {
+        req.flash('error', 'You do not have permission to access that resource.');
+        return res.redirect('/dashboard');
+      }
+      console.error(`[${req.method} ${req.originalUrl}]`, err.message);
+      req.flash('error', 'Something went wrong. Please try again.');
+      const back = req.get('Referer') || '/dashboard';
+      return res.redirect(back);
+    });
+  };
+}
+
+async function assertCourseOwner(req, courseId) {
+  const course = await Course.findOne({
+    where: { id: courseId, user_id: req.session.userId }
+  });
+  if (!course) throw new Error('ACCESS_DENIED');
+  return course;
+}
+
+async function assertExamOwner(req, examId) {
+  const exam = await Exam.findOne({
+    where: { id: examId },
+    include: [{ model: Course, where: { user_id: req.session.userId } }]
+  });
+  if (!exam) throw new Error('ACCESS_DENIED');
+  return exam;
+}
+
+async function assertSubmissionOwner(req, submissionId) {
+  const sub = await Submission.findOne({
+    where: { id: submissionId },
+    include: [{ model: Exam, include: [{ model: Course, where: { user_id: req.session.userId } }] }]
+  });
+  if (!sub) throw new Error('ACCESS_DENIED');
+  return sub;
+}
+
+async function assertGradeOwner(req, gradeId) {
+  const grade = await Grade.findOne({
+    where: { id: gradeId },
+    include: [{ model: Submission, include: [{ model: Exam, include: [{ model: Course, where: { user_id: req.session.userId } }] }] }]
+  });
+  if (!grade) throw new Error('ACCESS_DENIED');
+  return grade;
+}
+
+async function assertStudentOwner(req, studentId) {
+  const student = await Student.findOne({
+    where: { id: studentId },
+    include: [{ model: Course, where: { user_id: req.session.userId } }]
+  });
+  if (!student) throw new Error('ACCESS_DENIED');
+  return student;
+}
+
+module.exports = {
+  ensureAuth, ensureSubscription, ensureAdmin, asyncHandler,
+  assertCourseOwner, assertExamOwner, assertSubmissionOwner,
+  assertGradeOwner, assertStudentOwner,
+};

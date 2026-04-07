@@ -32,7 +32,32 @@ class OCRService {
 
   _splitByPages(fullText, numPages) {
     if (numPages <= 1) return [fullText];
+
+    const markers = [];
     const lines = fullText.split('\n');
+    const formFeedPattern = /\f/;
+    const pageBreakPattern = /^-{3,}$|^\s*page\s+\d+/i;
+
+    for (let i = 0; i < lines.length; i++) {
+      if (formFeedPattern.test(lines[i]) || pageBreakPattern.test(lines[i].trim())) {
+        markers.push(i);
+      }
+    }
+
+    if (markers.length >= numPages - 1) {
+      const pages = [];
+      let start = 0;
+      for (let i = 0; i < numPages; i++) {
+        const end = i < markers.length ? markers[i] : lines.length;
+        pages.push(lines.slice(start, end).join('\n'));
+        start = end + 1;
+      }
+      if (start < lines.length) {
+        pages[pages.length - 1] += '\n' + lines.slice(start).join('\n');
+      }
+      return pages;
+    }
+
     const perPage = Math.ceil(lines.length / numPages);
     const pages = [];
     for (let i = 0; i < numPages; i++) {

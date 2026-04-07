@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Choose a Plan - Intelligrade</title>
+  <title>Plans - Intelligrade</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
@@ -13,8 +13,7 @@
   <div class="plans-container">
     <div class="plans-header">
       <a href="/" class="landing-brand"><i data-lucide="brain-circuit"></i> Intelligrade</a>
-      <h2>Choose Your Plan</h2>
-      <p>Select a subscription to activate your account. Start with a free trial or go straight to a paid plan.</p>
+      <h2>Subscription Plans</h2>
     </div>
 
     <% if (typeof success !== 'undefined' && success && success.length) { %>
@@ -24,38 +23,99 @@
       <% error.forEach(function(msg) { %><div class="alert alert-error"><%= msg %></div><% }); %>
     <% } %>
 
-    <div class="pricing-grid pricing-grid-5">
-      <% const plans = [
-        { key: 'trial', name: 'Free Trial', price: 'Free', period: '7 days', features: ['Full feature access', 'Up to 50 submissions', 'AI grading + analytics'] },
-        { key: 'monthly', name: 'Monthly', price: '$29', period: '1 month', features: ['Unlimited submissions', 'AI grading + analytics', 'AI chat assistant'] },
-        { key: 'quarterly', name: 'Quarterly', price: '$79', period: '3 months', featured: true, features: ['Unlimited submissions', 'Priority support', 'AI chat assistant', 'Save 9%'] },
-        { key: 'semiannual', name: 'Semi-Annual', price: '$149', period: '6 months', features: ['Unlimited submissions', 'Priority support', 'AI chat assistant', 'Save 14%'] },
-        { key: 'annual', name: 'Annual', price: '$249', period: '12 months', features: ['Unlimited submissions', 'Dedicated support', 'AI chat assistant', 'Best value -- save 28%'] },
-      ]; %>
-      <% plans.forEach(function(plan) { %>
-        <div class="price-card<%= plan.featured ? ' featured' : '' %>">
-          <% if (plan.featured) { %><div class="price-badge">Popular</div><% } %>
-          <div class="price-label"><%= plan.name %></div>
-          <div class="price-amount"><%= plan.price %></div>
-          <div class="price-period"><%= plan.period %></div>
-          <ul class="price-features">
-            <% plan.features.forEach(function(f) { %>
-              <li><i data-lucide="check"></i><%= f %></li>
-            <% }); %>
-          </ul>
-          <form method="POST" action="/subscribe">
-            <input type="hidden" name="plan" value="<%= plan.key %>">
-            <input type="hidden" name="scope" value="<%= session.role === 'admin' ? 'college' : 'individual' %>">
-            <button type="submit" class="btn <%= plan.featured ? 'btn-primary' : 'btn-outline' %> btn-block">
-              <%= plan.key === 'trial' ? 'Start Trial' : 'Subscribe' %>
-            </button>
-          </form>
+    <% if (activeSub) { %>
+      <div class="plan-status-card">
+        <div class="plan-status-badge <%= activeSub.plan === 'trial' ? 'badge-free' : 'badge-pro' %>">
+          <i data-lucide="<%= activeSub.plan === 'trial' ? 'clock' : 'crown' %>"></i>
+          <%= activeSub.plan === 'trial' ? 'FREE TRIAL' : 'PRO' %>
         </div>
-      <% }); %>
-    </div>
-    <% if (session.role === 'admin') { %>
-      <p class="pricing-note">As a College Admin, your subscription covers all professors with a matching email domain.</p>
+        <div class="plan-status-info">
+          <h3>
+            <% if (collegeName) { %><%= collegeName %> &mdash; <% } %>
+            <%= activeSub.plan.charAt(0).toUpperCase() + activeSub.plan.slice(1) %> Plan
+          </h3>
+          <p>
+            <strong>Scope:</strong> <%= activeSub.scope === 'college' ? 'College-wide (all professors)' : 'Individual' %> &middot;
+            <strong>Expires:</strong> <%= new Date(activeSub.end_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %>
+            <% const daysLeft = Math.ceil((new Date(activeSub.end_date) - new Date()) / (1000 * 60 * 60 * 24)); %>
+            <% if (daysLeft <= 7) { %>
+              <span class="text-warning">&middot; <%= daysLeft %> day<%= daysLeft !== 1 ? 's' : '' %> remaining</span>
+            <% } %>
+          </p>
+        </div>
+      </div>
+    <% } else { %>
+      <div class="plan-status-card plan-status-expired">
+        <div class="plan-status-badge badge-expired">
+          <i data-lucide="alert-circle"></i>
+          NO ACTIVE PLAN
+        </div>
+        <div class="plan-status-info">
+          <h3>No active subscription</h3>
+          <% if (session.role === 'professor') { %>
+            <p>Your college does not have an active plan. Please contact your college administrator to activate a subscription.</p>
+          <% } else { %>
+            <p>Choose a plan below to activate your institution.</p>
+          <% } %>
+        </div>
+      </div>
     <% } %>
+
+    <% if (session.role === 'admin') { %>
+      <p class="plans-subheading">As College Admin, your subscription covers all professors with a matching email domain.</p>
+
+      <div class="pricing-grid pricing-grid-5">
+        <% const plans = [
+          { key: 'trial', name: 'Free Trial', price: 'Free', period: '7 days', tier: 'FREE', features: ['Full feature access', 'Up to 50 submissions', 'AI grading + analytics', 'All professors covered'] },
+          { key: 'monthly', name: 'Monthly', price: '$29', period: '1 month', tier: 'PRO', features: ['Unlimited submissions', 'AI grading + analytics', 'AI chat assistant', 'All professors covered'] },
+          { key: 'quarterly', name: 'Quarterly', price: '$79', period: '3 months', tier: 'PRO', featured: true, features: ['Unlimited submissions', 'Priority support', 'AI chat assistant', 'All professors covered', 'Save 9%'] },
+          { key: 'semiannual', name: 'Semi-Annual', price: '$149', period: '6 months', tier: 'PRO', features: ['Unlimited submissions', 'Priority support', 'AI chat assistant', 'All professors covered', 'Save 14%'] },
+          { key: 'annual', name: 'Annual', price: '$249', period: '12 months', tier: 'PRO', features: ['Unlimited submissions', 'Dedicated support', 'AI chat assistant', 'All professors covered', 'Best value — save 28%'] },
+        ]; %>
+        <% plans.forEach(function(plan) { %>
+          <div class="price-card<%= plan.featured ? ' featured' : '' %>">
+            <% if (plan.featured) { %><div class="price-badge">Popular</div><% } %>
+            <div class="price-tier-badge <%= plan.tier === 'FREE' ? 'tier-free' : 'tier-pro' %>"><%= plan.tier %></div>
+            <div class="price-label"><%= plan.name %></div>
+            <div class="price-amount"><%= plan.price %></div>
+            <div class="price-period"><%= plan.period %></div>
+            <ul class="price-features">
+              <% plan.features.forEach(function(f) { %>
+                <li><i data-lucide="check"></i><%= f %></li>
+              <% }); %>
+            </ul>
+            <form method="POST" action="/subscribe">
+              <input type="hidden" name="plan" value="<%= plan.key %>">
+              <button type="submit" class="btn <%= plan.featured ? 'btn-primary' : 'btn-outline' %> btn-block"
+                <% if (activeSub && activeSub.plan === plan.key) { %>disabled<% } %>>
+                <% if (activeSub && activeSub.plan === plan.key) { %>
+                  Current Plan
+                <% } else if (plan.key === 'trial') { %>
+                  Start Free Trial
+                <% } else { %>
+                  Upgrade
+                <% } %>
+              </button>
+            </form>
+          </div>
+        <% }); %>
+      </div>
+    <% } else { %>
+      <div class="prof-plan-notice">
+        <i data-lucide="info"></i>
+        <div>
+          <h3>Subscription managed by your college</h3>
+          <p>
+            Your access to Intelligrade is managed by your college administrator<% if (collegeName) { %> at <strong><%= collegeName %></strong><% } %>.
+            If you need access or your subscription has expired, please contact your college admin.
+          </p>
+        </div>
+      </div>
+    <% } %>
+
+    <div class="plans-footer">
+      <a href="/dashboard" class="btn btn-outline">Back to Dashboard</a>
+    </div>
   </div>
   <script>lucide.createIcons();</script>
 </body>

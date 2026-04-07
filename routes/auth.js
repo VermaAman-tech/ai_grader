@@ -1,5 +1,7 @@
 const router = require('express').Router();
 const { User, College, Subscription } = require('../models');
+const { asyncHandler } = require('../middleware/auth');
+const { Op } = require('sequelize');
 
 const PLAN_DURATIONS = {
   trial:      7,
@@ -14,14 +16,15 @@ router.get('/login', (req, res) => {
   res.render('login', { layout: false });
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     req.flash('error', 'Email and password are required.');
     return res.redirect('/login');
   }
 
-  const user = await User.findOne({ where: { email: email.trim().toLowerCase() }, include: [College] });
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const user = await User.findOne({ where: { email: cleanEmail }, include: [College] });
   if (!user || !user.checkPassword(password)) {
     req.flash('error', 'Invalid email or password.');
     return res.redirect('/login');
@@ -31,29 +34,40 @@ router.post('/login', async (req, res) => {
     return res.redirect('/login');
   }
 
-  req.session.userId = user.id;
-  req.session.userName = user.full_name;
-  req.session.userEmail = user.email;
-  req.session.role = user.role;
-  req.session.collegeId = user.college_id;
-  req.session.collegeName = user.College?.name || null;
+  req.session.regenerate(function (err) {
+    if (err) {
+      req.flash('error', 'Session error. Please try again.');
+      return res.redirect('/login');
+    }
+    req.session.userId = user.id;
+    req.session.userName = user.full_name;
+    req.session.userEmail = user.email;
+    req.session.role = user.role;
+    req.session.collegeId = user.college_id;
+    req.session.collegeName = user.College?.name || null;
 
-  req.flash('success', `Welcome back, ${user.full_name}!`);
-  res.redirect('/dashboard');
-});
+    req.session.save(function (saveErr) {
+      if (saveErr) {
+        req.flash('error', 'Session error. Please try again.');
+        return res.redirect('/login');
+      }
+      res.redirect('/dashboard');
+    });
+  });
+}));
 
 router.get('/register', (req, res) => {
   if (req.session.userId) return res.redirect('/dashboard');
   res.render('register', { layout: false });
 });
 
-router.post('/register', async (req, res) => {
+router.post('/register', asyncHandler(async (req, res) => {
   const { full_name, email, password, confirm_password, role, college_name, department } = req.body;
   const errors = [];
 
   if (!full_name || full_name.trim().length < 2) errors.push('Full name is required.');
   const cleanEmail = (email || '').trim().toLowerCase();
-  if (!cleanEmail || !cleanEmail.includes('@')) errors.push('A valid email address is required.');
+  if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) errors.push('A valid email address is required.');
   if (!password || password.length < 6) errors.push('Password must be at least 6 characters.');
   if (password !== confirm_password) errors.push('Passwords do not match.');
 
@@ -85,10 +99,14 @@ router.post('/register', async (req, res) => {
     college = await College.create({ name: college_name.trim(), domain });
   } else {
     college = await College.findOne({ where: { domain } });
+    if (!college) {
+      req.flash('error', `No college is registered for @${domain}. Your college admin must register the institution first, or register as a College Admin to set up your institution.`);
+      return res.redirect('/register');
+    }
   }
 
   const user = await User.create({
-    college_id: college?.id || null,
+    college_id: college.id,
     full_name: full_name.trim(),
     email: cleanEmail,
     password_hash: User.hashPassword(password),
@@ -96,46 +114,89 @@ router.post('/register', async (req, res) => {
     department: (department || '').trim() || null,
   });
 
-  req.session.userId = user.id;
-  req.session.userName = user.full_name;
-  req.session.userEmail = user.email;
-  req.session.role = user.role;
-  req.session.collegeId = college?.id || null;
-  req.session.collegeName = college?.name || null;
+  req.session.regenerate(function (err) {
+    if (err) {
+      req.flash('error', 'Session error. Please try again.');
+      return res.redirect('/login');
+    }
+    req.session.userId = user.id;
+    req.session.userName = user.full_name;
+    req.session.userEmail = user.email;
+    req.session.role = user.role;
+    req.session.collegeId = college.id;
+    req.session.collegeName = college.name;
 
-  req.flash('success', 'Account created! Choose a plan to get started.');
-  res.redirect('/plans');
-});
+    req.session.save(function (saveErr) {
+      if (saveErr) {
+        req.flash('error', 'Session error. Please try again.');
+        return res.redirect('/login');
+      }
+      if (userRole === 'admin') {
+        req.flash('success', 'College registered! Choose a plan to activate your institution.');
+        return res.redirect('/plans');
+      }
+      req.flash('success', `Welcome to ${college.name}! Your access is managed by your college admin.`);
+      res.redirect('/dashboard');
+    });
+  });
+}));
 
-router.get('/plans', (req, res) => {
+router.get('/plans', asyncHandler(async (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
-  res.render('plans', { layout: false, session: req.session });
-});
 
-router.post('/subscribe', async (req, res) => {
+  const now = new Date();
+  let activeSub = null;
+
+  activeSub = await Subscription.findOne({
+    where: { user_id: req.session.userId, scope: 'individual', status: 'active', end_date: { [Op.gt]: now } },
+  });
+
+  if (!activeSub && req.session.collegeId) {
+    activeSub = await Subscription.findOne({
+      where: { college_id: req.session.collegeId, scope: 'college', status: 'active', end_date: { [Op.gt]: now } },
+    });
+  }
+
+  const collegeName = req.session.collegeName || null;
+
+  res.render('plans', {
+    layout: false,
+    session: req.session,
+    activeSub,
+    collegeName,
+  });
+}));
+
+router.post('/subscribe', asyncHandler(async (req, res) => {
   if (!req.session.userId) return res.redirect('/login');
-  const { plan, scope } = req.body;
+
+  if (req.session.role !== 'admin') {
+    req.flash('error', 'Only college admins can purchase subscriptions. Your plan is managed by your institution.');
+    return res.redirect('/plans');
+  }
+
+  if (!req.session.collegeId) {
+    req.flash('error', 'No college is linked to your account.');
+    return res.redirect('/plans');
+  }
+
+  const { plan } = req.body;
 
   if (!PLAN_DURATIONS[plan]) {
     req.flash('error', 'Invalid plan selected.');
     return res.redirect('/plans');
   }
 
-  const subScope = scope === 'college' && req.session.role === 'admin' ? 'college' : 'individual';
   const existingSub = await Subscription.findOne({
-    where: subScope === 'college'
-      ? { college_id: req.session.collegeId, scope: 'college', status: 'active' }
-      : { user_id: req.session.userId, scope: 'individual', status: 'active' },
+    where: { college_id: req.session.collegeId, scope: 'college', status: 'active' },
   });
 
   if (plan === 'trial') {
     const trialUsed = await Subscription.findOne({
-      where: subScope === 'college'
-        ? { college_id: req.session.collegeId, plan: 'trial' }
-        : { user_id: req.session.userId, plan: 'trial' },
+      where: { college_id: req.session.collegeId, plan: 'trial' },
     });
     if (trialUsed) {
-      req.flash('error', 'Free trial has already been used.');
+      req.flash('error', 'Free trial has already been used for your college.');
       return res.redirect('/plans');
     }
   }
@@ -151,19 +212,23 @@ router.post('/subscribe', async (req, res) => {
 
   await Subscription.create({
     user_id: req.session.userId,
-    college_id: subScope === 'college' ? req.session.collegeId : null,
-    plan, scope: subScope,
-    start_date: now, end_date: end,
+    college_id: req.session.collegeId,
+    plan,
+    scope: 'college',
+    start_date: now,
+    end_date: end,
     status: 'active',
   });
 
-  req.flash('success', `${plan.charAt(0).toUpperCase() + plan.slice(1)} plan activated!`);
+  const label = plan === 'trial' ? 'Free Trial' : plan.charAt(0).toUpperCase() + plan.slice(1);
+  req.flash('success', `${label} plan activated for your college! All professors with your domain now have access.`);
   res.redirect('/dashboard');
-});
+}));
 
 router.get('/logout', (req, res) => {
-  req.session.destroy();
-  res.redirect('/');
+  req.session.destroy(() => {
+    res.redirect('/');
+  });
 });
 
 module.exports = router;

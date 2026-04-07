@@ -19,6 +19,11 @@ const User = sequelize.define('User', {
   role:          { type: DataTypes.ENUM('admin', 'professor'), allowNull: false, defaultValue: 'professor' },
   department:    { type: DataTypes.STRING(200) },
   is_active:     { type: DataTypes.BOOLEAN, defaultValue: true },
+}, {
+  indexes: [
+    { fields: ['email'], unique: true },
+    { fields: ['college_id'] },
+  ],
 });
 
 User.prototype.checkPassword = function (pw) {
@@ -39,6 +44,12 @@ const Subscription = sequelize.define('Subscription', {
   end_date:   { type: DataTypes.DATE, allowNull: false },
   status:     { type: DataTypes.ENUM('active', 'expired', 'cancelled'), defaultValue: 'active' },
   amount:     { type: DataTypes.FLOAT, defaultValue: 0 },
+}, {
+  indexes: [
+    { fields: ['user_id', 'status'] },
+    { fields: ['college_id', 'status'] },
+    { fields: ['end_date'] },
+  ],
 });
 
 // ── Course ──
@@ -48,6 +59,10 @@ const Course = sequelize.define('Course', {
   code:     { type: DataTypes.STRING(50), allowNull: false },
   semester: { type: DataTypes.STRING(100) },
   section:  { type: DataTypes.STRING(50) },
+}, {
+  indexes: [
+    { fields: ['user_id'] },
+  ],
 });
 
 // ── Exam ──
@@ -57,6 +72,10 @@ const Exam = sequelize.define('Exam', {
   exam_type:   { type: DataTypes.STRING(50), defaultValue: 'exam' },
   total_marks: { type: DataTypes.FLOAT, defaultValue: 100 },
   instructions:{ type: DataTypes.TEXT },
+}, {
+  indexes: [
+    { fields: ['course_id'] },
+  ],
 });
 
 // ── Student ──
@@ -65,6 +84,11 @@ const Student = sequelize.define('Student', {
   name:        { type: DataTypes.STRING(200), allowNull: false },
   roll_number: { type: DataTypes.STRING(100) },
   email:       { type: DataTypes.STRING(200) },
+}, {
+  indexes: [
+    { fields: ['course_id'] },
+    { fields: ['course_id', 'roll_number'] },
+  ],
 });
 
 // ── Rubric ──
@@ -76,6 +100,11 @@ const Rubric = sequelize.define('Rubric', {
   max_marks:      { type: DataTypes.FLOAT, allowNull: false },
   key_points:     { type: DataTypes.TEXT, defaultValue: '[]' },
   grading_notes:  { type: DataTypes.TEXT },
+}, {
+  indexes: [
+    { fields: ['exam_id'] },
+    { fields: ['exam_id', 'question_order'] },
+  ],
 });
 
 // ── Submission ──
@@ -87,6 +116,12 @@ const Submission = sequelize.define('Submission', {
   status:        { type: DataTypes.STRING(20), defaultValue: 'pending' },
   error_message: { type: DataTypes.TEXT },
   page_count:    { type: DataTypes.INTEGER, defaultValue: 0 },
+}, {
+  indexes: [
+    { fields: ['exam_id'] },
+    { fields: ['student_id'] },
+    { fields: ['exam_id', 'status'] },
+  ],
 });
 
 // ── Grade ──
@@ -104,6 +139,12 @@ const Grade = sequelize.define('Grade', {
   raw_response:   { type: DataTypes.TEXT },
   override_marks: { type: DataTypes.FLOAT },
   override_note:  { type: DataTypes.TEXT },
+}, {
+  indexes: [
+    { fields: ['submission_id'] },
+    { fields: ['rubric_id'] },
+    { fields: ['submission_id', 'rubric_id'], unique: true },
+  ],
 });
 
 // ── ChatMessage ──
@@ -112,6 +153,11 @@ const ChatMessage = sequelize.define('ChatMessage', {
   exam_id:  { type: DataTypes.INTEGER },
   role:     { type: DataTypes.STRING(20), allowNull: false },
   content:  { type: DataTypes.TEXT, allowNull: false },
+}, {
+  indexes: [
+    { fields: ['user_id', 'exam_id'] },
+    { fields: ['user_id', 'created_at'] },
+  ],
 });
 
 // ── Relationships ──

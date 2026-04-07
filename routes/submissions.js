@@ -46,6 +46,8 @@ router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =>
     });
   }
 
+  res.locals.examId = examId;
+  res.locals.courseId = courseId;
   res.render('submissions', { courses, exams, students, submissions, selectedCourseId: courseId, selectedExamId: examId });
 }));
 

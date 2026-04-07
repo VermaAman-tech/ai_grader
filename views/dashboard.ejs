@@ -49,6 +49,15 @@
     <div class="kpi-icon red"><i data-lucide="alert-circle"></i></div>
     <div class="kpi-data"><div class="kpi-value"><%= stats.errors %></div><div class="kpi-label">Errors</div></div>
   </div>
+  <% if (trialInfo) { %>
+  <div class="kpi-card">
+    <div class="kpi-icon amber"><i data-lucide="file-clock"></i></div>
+    <div class="kpi-data">
+      <div class="kpi-value"><%= trialInfo.used %> / <%= trialInfo.limit %></div>
+      <div class="kpi-label">Trial Papers Used</div>
+    </div>
+  </div>
+  <% } %>
 </div>
 
 <div class="grid-2">

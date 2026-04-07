@@ -86,8 +86,9 @@ app.use('/rubric', require('./routes/rubric'));
 app.use('/submissions', require('./routes/submissions'));
 app.use('/grading', gradingLimiter, require('./routes/grading'));
 app.use('/analytics', require('./routes/analytics'));
-app.use('/chat', require('./routes/chat'));
+app.use('/assistant', require('./routes/assistant'));
 app.use('/export', require('./routes/export'));
+app.use('/api/session', require('./routes/session-activity'));
 
 app.use((req, res) => {
   res.status(404).render('404', { layout: false });

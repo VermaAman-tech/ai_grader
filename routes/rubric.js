@@ -24,6 +24,7 @@ router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =>
       });
   }
 
+  res.locals.examId = examId;
   res.render('rubric', { courses, allExams, rubrics, examInfo, selectedExamId: examId });
 }));
 

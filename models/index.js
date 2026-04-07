@@ -19,6 +19,7 @@ const User = sequelize.define('User', {
   role:          { type: DataTypes.ENUM('admin', 'professor'), allowNull: false, defaultValue: 'professor' },
   department:    { type: DataTypes.STRING(200) },
   is_active:     { type: DataTypes.BOOLEAN, defaultValue: true },
+  papers_graded_total: { type: DataTypes.INTEGER, defaultValue: 0 },
 }, {
   indexes: [
     { fields: ['email'], unique: true },
@@ -139,6 +140,7 @@ const Grade = sequelize.define('Grade', {
   raw_response:   { type: DataTypes.TEXT },
   override_marks: { type: DataTypes.FLOAT },
   override_note:  { type: DataTypes.TEXT },
+  modified_by_session: { type: DataTypes.STRING(100) },
 }, {
   indexes: [
     { fields: ['submission_id'] },
@@ -157,6 +159,19 @@ const ChatMessage = sequelize.define('ChatMessage', {
   indexes: [
     { fields: ['user_id', 'exam_id'] },
     { fields: ['user_id', 'created_at'] },
+  ],
+});
+
+// ── ActiveSession ──
+const ActiveSession = sequelize.define('ActiveSession', {
+  user_id:        { type: DataTypes.INTEGER, allowNull: false, references: { model: User, key: 'id' } },
+  session_token:  { type: DataTypes.STRING(100), allowNull: false },
+  exam_id:        { type: DataTypes.INTEGER },
+  last_active_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+}, {
+  indexes: [
+    { fields: ['user_id'] },
+    { fields: ['exam_id', 'last_active_at'] },
   ],
 });
 
@@ -194,9 +209,13 @@ Grade.belongsTo(Rubric, { foreignKey: 'rubric_id' });
 User.hasMany(ChatMessage, { foreignKey: 'user_id', onDelete: 'CASCADE' });
 ChatMessage.belongsTo(User, { foreignKey: 'user_id' });
 
+User.hasMany(ActiveSession, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+ActiveSession.belongsTo(User, { foreignKey: 'user_id' });
+
 module.exports = {
   sequelize,
   College, User, Subscription,
   Course, Exam, Student, Rubric,
   Submission, Grade, ChatMessage,
+  ActiveSession,
 };

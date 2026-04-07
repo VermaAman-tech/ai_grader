@@ -18,6 +18,7 @@ router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =>
     }
   }
 
+  res.locals.courseId = courseId;
   res.render('exams', { courses, exams, selectedCourseId: courseId });
 }));
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -25,7 +25,6 @@
         <a href="/submissions" class="<%= currentPath.startsWith('/submissions') ? 'active' : '' %>"><i data-lucide="upload"></i><span>Submissions</span></a>
         <a href="/grading" class="<%= currentPath.startsWith('/grading') ? 'active' : '' %>"><i data-lucide="check-circle"></i><span>Grading</span></a>
         <a href="/analytics" class="<%= currentPath.startsWith('/analytics') ? 'active' : '' %>"><i data-lucide="bar-chart-3"></i><span>Analytics</span></a>
-        <a href="/chat" class="<%= currentPath.startsWith('/chat') ? 'active' : '' %>"><i data-lucide="message-circle"></i><span>AI Chat</span></a>
         <a href="/export" class="<%= currentPath.startsWith('/export') ? 'active' : '' %>"><i data-lucide="download"></i><span>Export</span></a>
       </nav>
       <div class="sidebar-footer">
@@ -37,6 +36,10 @@
           </div>
         </a>
         <% } %>
+        <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+          <i data-lucide="sun" class="theme-icon-light"></i>
+          <i data-lucide="moon" class="theme-icon-dark"></i>
+        </button>
         <div class="user-info">
           <i data-lucide="user-circle"></i>
           <div>
@@ -71,6 +74,38 @@
         <%- body %>
       </div>
     </main>
+
+    <!-- AI Assistant Panel (Copilot-style) -->
+    <div id="ai-assistant"
+         data-exam-id="<%= typeof examId !== 'undefined' && examId ? examId : '' %>"
+         data-course-id="<%= typeof courseId !== 'undefined' && courseId ? courseId : '' %>"
+         data-page="<%= currentPath.replace(/^\//, '') || 'dashboard' %>">
+      <button id="assistant-toggle" class="assistant-fab" title="AI Assistant">
+        <i data-lucide="sparkles"></i>
+      </button>
+      <div id="assistant-panel" class="assistant-panel">
+        <div class="assistant-header">
+          <div class="assistant-header-left">
+            <i data-lucide="sparkles"></i>
+            <span>AI Assistant</span>
+          </div>
+          <div class="assistant-header-right">
+            <button id="assistant-clear" class="assistant-btn" title="Clear chat"><i data-lucide="trash-2"></i></button>
+            <button id="assistant-close" class="assistant-btn" title="Close">&times;</button>
+          </div>
+        </div>
+        <div class="assistant-messages" id="assistant-messages">
+          <div class="assistant-welcome">
+            <i data-lucide="sparkles"></i>
+            <p>Hi! I'm your AI teaching assistant. Ask me about your exams, grades, students, or anything else.</p>
+          </div>
+        </div>
+        <form id="assistant-form" class="assistant-input">
+          <input type="text" id="assistant-input" placeholder="Ask anything..." autocomplete="off">
+          <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="send"></i></button>
+        </form>
+      </div>
+    </div>
   </div>
   <script src="/js/app.js"></script>
   <script>lucide.createIcons();</script>

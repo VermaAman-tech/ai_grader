@@ -3,7 +3,7 @@ const { ensureAuth, ensureSubscription, asyncHandler } = require('../middleware/
 const { Course, Exam, Student, Submission, Grade, Rubric, User } = require('../models');
 const { Op } = require('sequelize');
 
-const TRIAL_LIMIT = parseInt(process.env.TRIAL_PAPER_LIMIT || '10', 10);
+const FREE_PAPER_LIMIT = parseInt(process.env.FREE_PAPER_LIMIT || '10', 10);
 
 router.get('/dashboard', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const userId = req.session.userId;
@@ -40,13 +40,14 @@ router.get('/dashboard', ensureAuth, ensureSubscription, asyncHandler(async (req
 
   const sub = req.subscription;
   const user = await User.findByPk(userId);
-  const trialInfo = sub && sub.plan === 'trial'
-    ? { used: user.papers_graded_total, limit: TRIAL_LIMIT }
+  const isFree = sub && (sub.plan === 'free' || sub.plan === 'trial');
+  const freeInfo = isFree
+    ? { used: user.papers_graded_total, limit: FREE_PAPER_LIMIT }
     : null;
 
   res.render('dashboard', {
     stats: { courses, exams, students, submissions, done, pending, errors, grades, rubrics },
-    recentCourses, recentSubs, sub, trialInfo,
+    recentCourses, recentSubs, sub, freeInfo,
   });
 }));
 

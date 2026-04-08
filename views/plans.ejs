@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Plans - Intelligrade</title>
+  <title>Plans & Pricing - Intelligrade</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
@@ -13,7 +13,8 @@
   <div class="plans-container">
     <div class="plans-header">
       <a href="/" class="landing-brand"><i data-lucide="brain-circuit"></i> Intelligrade</a>
-      <h2>Subscription Plans</h2>
+      <h2>Course Intelligence Pricing</h2>
+      <p class="plans-sub">Transparent per-professor pricing. Scale with your institution. No hidden fees.</p>
     </div>
 
     <% if (typeof success !== 'undefined' && success && success.length) { %>
@@ -25,98 +26,348 @@
 
     <% if (activeSub) { %>
       <div class="plan-status-card">
-        <div class="plan-status-badge <%= activeSub.plan === 'trial' ? 'badge-free' : 'badge-pro' %>">
-          <i data-lucide="<%= activeSub.plan === 'trial' ? 'clock' : 'crown' %>"></i>
-          <%= activeSub.plan === 'trial' ? 'FREE TRIAL' : 'PRO' %>
+        <div class="plan-status-badge <%= activeSub.plan === 'free' || activeSub.plan === 'starter' ? 'badge-free' : 'badge-pro' %>">
+          <i data-lucide="<%= activeSub.plan === 'free' || activeSub.plan === 'starter' ? 'gift' : 'crown' %>"></i>
+          <%= activeSub.plan === 'free' || activeSub.plan === 'starter' ? 'STARTER' : activeSub.plan.toUpperCase() %>
         </div>
         <div class="plan-status-info">
-          <h3>
-            <% if (collegeName) { %><%= collegeName %> &mdash; <% } %>
-            <%= activeSub.plan.charAt(0).toUpperCase() + activeSub.plan.slice(1) %> Plan
-          </h3>
+          <h3><% if (collegeName) { %><%= collegeName %> &mdash; <% } %><%= activeSub.plan.charAt(0).toUpperCase() + activeSub.plan.slice(1) %> Plan</h3>
           <p>
-            <strong>Scope:</strong> <%= activeSub.scope === 'college' ? 'College-wide (all professors)' : 'Individual' %> &middot;
-            <strong>Expires:</strong> <%= new Date(activeSub.end_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %>
-            <% const daysLeft = Math.ceil((new Date(activeSub.end_date) - new Date()) / (1000 * 60 * 60 * 24)); %>
-            <% if (daysLeft <= 7) { %>
-              <span class="text-warning">&middot; <%= daysLeft %> day<%= daysLeft !== 1 ? 's' : '' %> remaining</span>
+            <strong>Scope:</strong> <%= activeSub.scope === 'college' ? 'Institution-wide' : 'Individual' %>
+            <% if (activeSub.plan === 'free' || activeSub.plan === 'starter') { %>
+              &middot; <strong>Papers:</strong> <%= papersUsed %> / <%= paperLimit %>
+            <% } else { %>
+              &middot; <strong>Expires:</strong> <%= new Date(activeSub.end_date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) %>
             <% } %>
           </p>
         </div>
       </div>
-    <% } else { %>
-      <div class="plan-status-card plan-status-expired">
-        <div class="plan-status-badge badge-expired">
-          <i data-lucide="alert-circle"></i>
-          NO ACTIVE PLAN
-        </div>
-        <div class="plan-status-info">
-          <h3>No active subscription</h3>
-          <% if (session.role === 'professor') { %>
-            <p>Your college does not have an active plan. Please contact your college administrator to activate a subscription.</p>
-          <% } else { %>
-            <p>Choose a plan below to activate your institution.</p>
-          <% } %>
-        </div>
-      </div>
     <% } %>
 
-    <% if (session.role === 'admin') { %>
-      <p class="plans-subheading">As College Admin, your subscription covers all professors with a matching email domain.</p>
-
-      <div class="pricing-grid pricing-grid-5">
-        <% const plans = [
-          { key: 'trial', name: 'Free Trial', price: 'Free', period: '7 days', tier: 'FREE', features: ['Full feature access', 'Up to 50 submissions', 'AI grading + analytics', 'All professors covered'] },
-          { key: 'monthly', name: 'Monthly', price: '$29', period: '1 month', tier: 'PRO', features: ['Unlimited submissions', 'AI grading + analytics', 'AI chat assistant', 'All professors covered'] },
-          { key: 'quarterly', name: 'Quarterly', price: '$79', period: '3 months', tier: 'PRO', featured: true, features: ['Unlimited submissions', 'Priority support', 'AI chat assistant', 'All professors covered', 'Save 9%'] },
-          { key: 'semiannual', name: 'Semi-Annual', price: '$149', period: '6 months', tier: 'PRO', features: ['Unlimited submissions', 'Priority support', 'AI chat assistant', 'All professors covered', 'Save 14%'] },
-          { key: 'annual', name: 'Annual', price: '$249', period: '12 months', tier: 'PRO', features: ['Unlimited submissions', 'Dedicated support', 'AI chat assistant', 'All professors covered', 'Best value — save 28%'] },
-        ]; %>
-        <% plans.forEach(function(plan) { %>
-          <div class="price-card<%= plan.featured ? ' featured' : '' %>">
-            <% if (plan.featured) { %><div class="price-badge">Popular</div><% } %>
-            <div class="price-tier-badge <%= plan.tier === 'FREE' ? 'tier-free' : 'tier-pro' %>"><%= plan.tier %></div>
-            <div class="price-label"><%= plan.name %></div>
-            <div class="price-amount"><%= plan.price %></div>
-            <div class="price-period"><%= plan.period %></div>
-            <ul class="price-features">
-              <% plan.features.forEach(function(f) { %>
-                <li><i data-lucide="check"></i><%= f %></li>
-              <% }); %>
-            </ul>
-            <form method="POST" action="/subscribe">
-              <input type="hidden" name="plan" value="<%= plan.key %>">
-              <button type="submit" class="btn <%= plan.featured ? 'btn-primary' : 'btn-outline' %> btn-block"
-                <% if (activeSub && activeSub.plan === plan.key) { %>disabled<% } %>>
-                <% if (activeSub && activeSub.plan === plan.key) { %>
-                  Current Plan
-                <% } else if (plan.key === 'trial') { %>
-                  Start Free Trial
-                <% } else { %>
-                  Upgrade
-                <% } %>
-              </button>
-            </form>
-          </div>
-        <% }); %>
+    <!-- Toggle Controls -->
+    <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;margin:1.5rem 0">
+      <div class="currency-toggle-bar">
+        <span>Currency:</span>
+        <button class="currency-btn active" data-currency="inr"><span class="currency-flag">&#x20B9;</span> INR</button>
+        <button class="currency-btn" data-currency="usd"><span class="currency-flag">$</span> USD</button>
       </div>
-    <% } else { %>
-      <div class="prof-plan-notice">
-        <i data-lucide="info"></i>
+      <div class="currency-toggle-bar">
+        <span>Billing:</span>
+        <button class="billing-btn active" data-billing="monthly">Monthly</button>
+        <button class="billing-btn" data-billing="semester">Semester (5mo)</button>
+        <button class="billing-btn" data-billing="yearly">Yearly <span style="color:var(--success);font-size:0.7rem">save 25%</span></button>
+      </div>
+    </div>
+
+    <!-- Coupon Code -->
+    <div class="coupon-bar">
+      <div class="coupon-input-group">
+        <i data-lucide="ticket"></i>
+        <input type="text" id="couponInput" placeholder="Coupon code (LAUNCH30, EDUCATOR50)" maxlength="20">
+        <button type="button" id="applyCoupon" class="btn btn-sm btn-outline">Apply</button>
+      </div>
+      <div id="couponResult" class="coupon-result"></div>
+    </div>
+
+    <!-- 3 Plan Cards -->
+    <div class="pricing-grid pricing-grid-3">
+      <!-- ASSESS -->
+      <div class="price-card">
+        <div class="price-tier-badge tier-free">ASSESS</div>
+        <div class="price-label">AI Grading + Analytics</div>
+        <div class="price-amount" data-plan="assess" data-monthly-inr="799" data-monthly-usd="10" data-semester-inr="3,599" data-semester-usd="45" data-yearly-inr="6,999" data-yearly-usd="89">&#x20B9;799</div>
+        <div class="price-period">/month per professor (0-100 students)</div>
+        <ul class="price-features">
+          <li><i data-lucide="check"></i>AI-powered exam grading</li>
+          <li><i data-lucide="check"></i>Deep analytics & insights</li>
+          <li><i data-lucide="check"></i>Student learning reports</li>
+          <li><i data-lucide="check"></i>Knowledge graph tracking</li>
+          <li><i data-lucide="check"></i>AI exam designer</li>
+          <li><i data-lucide="check"></i>Grade boundaries & curves</li>
+          <li><i data-lucide="check"></i>Human review queue</li>
+          <li><i data-lucide="check"></i>LaTeX rendering</li>
+          <li><i data-lucide="check"></i>Excel/PDF export</li>
+          <li><i data-lucide="x" style="color:var(--error)"></i><span style="opacity:0.5">No student portal</span></li>
+          <li><i data-lucide="x" style="color:var(--error)"></i><span style="opacity:0.5">No TA workflow</span></li>
+        </ul>
+        <button class="btn btn-outline btn-block checkout-btn" data-plan="assess" data-scope="individual">Get Started</button>
+      </div>
+
+      <!-- ACADEMIC -->
+      <div class="price-card featured">
+        <div class="price-badge">Most Popular</div>
+        <div class="price-tier-badge tier-pro">ACADEMIC</div>
+        <div class="price-label">Grading + Course Management</div>
+        <div class="price-amount" data-plan="academic" data-monthly-inr="1,499" data-monthly-usd="19" data-semester-inr="6,799" data-semester-usd="85" data-yearly-inr="13,999" data-yearly-usd="175">&#x20B9;1,499</div>
+        <div class="price-period">/month per professor (0-100 students)</div>
+        <ul class="price-features">
+          <li><i data-lucide="check"></i>Everything in Assess</li>
+          <li><i data-lucide="check"></i>Student portal (OTP login)</li>
+          <li><i data-lucide="check"></i>TA workflow & management</li>
+          <li><i data-lucide="check"></i>Announcements system</li>
+          <li><i data-lucide="check"></i>Course documents (RAG)</li>
+          <li><i data-lucide="check"></i>Discussion board</li>
+          <li><i data-lucide="check"></i>Crib/regrade portal</li>
+          <li><i data-lucide="check"></i>Class session planner</li>
+          <li><i data-lucide="check"></i>Auto-enrollment from roster</li>
+          <li><i data-lucide="x" style="color:var(--error)"></i><span style="opacity:0.5">No live polls</span></li>
+          <li><i data-lucide="x" style="color:var(--error)"></i><span style="opacity:0.5">No Moodle/Piazza</span></li>
+        </ul>
+        <button class="btn btn-primary btn-block checkout-btn" data-plan="academic" data-scope="<%= session.role === 'admin' ? 'college' : 'individual' %>">Upgrade</button>
+      </div>
+
+      <!-- ENTERPRISE -->
+      <div class="price-card">
+        <div class="price-badge" style="background:#6366f1">Full Platform</div>
+        <div class="price-tier-badge tier-pro" style="background:#6366f1">ENTERPRISE</div>
+        <div class="price-label">All Features</div>
+        <div class="price-amount" data-plan="enterprise" data-monthly-inr="1,999" data-monthly-usd="25" data-semester-inr="8,999" data-semester-usd="115" data-yearly-inr="18,999" data-yearly-usd="239">&#x20B9;1,999</div>
+        <div class="price-period">/month per professor (0-100 students)</div>
+        <ul class="price-features">
+          <li><i data-lucide="check"></i>Everything in Academic</li>
+          <li><i data-lucide="check"></i>Live polls & engagement</li>
+          <li><i data-lucide="check"></i>Agentic AI (full tool access)</li>
+          <li><i data-lucide="check"></i>Active feedback conversations</li>
+          <li><i data-lucide="check"></i>Speech-to-action voice</li>
+          <li><i data-lucide="check"></i>RAG document reasoning</li>
+          <li><i data-lucide="check"></i>Moodle LTI integration</li>
+          <li><i data-lucide="check"></i>Piazza sync</li>
+          <li><i data-lucide="check"></i>SSO / SAML</li>
+          <li><i data-lucide="check"></i>API access</li>
+        </ul>
+        <button class="btn btn-outline btn-block checkout-btn" data-plan="enterprise" data-scope="<%= session.role === 'admin' ? 'college' : 'individual' %>" style="border-color:#6366f1;color:#6366f1">Upgrade</button>
+      </div>
+    </div>
+
+    <!-- College Plans -->
+    <h3 class="plans-section-title" style="margin-top:2rem"><i data-lucide="building-2"></i> College / Institution Plans</h3>
+    <p class="plans-section-desc">Pre-bundled for 10 professors. Scale up with per-professor add-ons. Every 12 professors = 2 free.</p>
+    <div class="pricing-grid pricing-grid-3">
+      <div class="price-card">
+        <div class="price-tier-badge tier-free">ASSESS COLLEGE</div>
+        <div class="price-amount" data-plan="assess-college" data-monthly-inr="7,999" data-monthly-usd="99" data-semester-inr="35,999" data-semester-usd="449" data-yearly-inr="69,999" data-yearly-usd="879">&#x20B9;7,999</div>
+        <div class="price-period">/month &middot; 10 professors &middot; 0-100 students</div>
+        <button class="btn btn-outline btn-block checkout-btn" data-plan="assess" data-scope="college" <%= session.role !== 'admin' ? 'disabled title="Admin access required"' : '' %>>
+          <%= session.role === 'admin' ? 'Get College Plan' : 'Admin Required' %>
+        </button>
+      </div>
+      <div class="price-card featured">
+        <div class="price-badge">Best Value</div>
+        <div class="price-tier-badge tier-pro">ACADEMIC COLLEGE</div>
+        <div class="price-amount" data-plan="academic-college" data-monthly-inr="14,999" data-monthly-usd="189" data-semester-inr="67,499" data-semester-usd="849" data-yearly-inr="1,39,999" data-yearly-usd="1,749">&#x20B9;14,999</div>
+        <div class="price-period">/month &middot; 10 professors &middot; 0-100 students</div>
+        <button class="btn btn-primary btn-block checkout-btn" data-plan="academic" data-scope="college" <%= session.role !== 'admin' ? 'disabled' : '' %>>
+          <%= session.role === 'admin' ? 'Get College Plan' : 'Admin Required' %>
+        </button>
+      </div>
+      <div class="price-card">
+        <div class="price-tier-badge tier-pro" style="background:#6366f1">ENTERPRISE COLLEGE</div>
+        <div class="price-amount" data-plan="enterprise-college" data-monthly-inr="19,999" data-monthly-usd="249" data-semester-inr="89,999" data-semester-usd="1,129" data-yearly-inr="1,89,999" data-yearly-usd="2,379">&#x20B9;19,999</div>
+        <div class="price-period">/month &middot; 10 professors &middot; 0-100 students</div>
+        <button class="btn btn-outline btn-block checkout-btn" data-plan="enterprise" data-scope="college" <%= session.role !== 'admin' ? 'disabled' : '' %> style="border-color:#6366f1;color:#6366f1">
+          <%= session.role === 'admin' ? 'Get College Plan' : 'Admin Required' %>
+        </button>
+      </div>
+    </div>
+
+    <!-- Price Calculator -->
+    <div style="background:var(--surface-container-low);border-radius:16px;padding:1.5rem;margin:2rem 0;border:1px solid var(--outline-variant)">
+      <h3 style="margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem"><i data-lucide="calculator"></i> Custom Price Calculator</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1rem">
         <div>
-          <h3>Subscription managed by your college</h3>
-          <p>
-            Your access to Intelligrade is managed by your college administrator<% if (collegeName) { %> at <strong><%= collegeName %></strong><% } %>.
-            If you need access or your subscription has expired, please contact your college admin.
-          </p>
+          <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">Plan</label>
+          <select id="calcPlan" class="form-control" style="padding:0.5rem;border-radius:8px;width:100%;border:1px solid var(--outline-variant)">
+            <option value="assess">Assess</option>
+            <option value="academic" selected>Academic</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">Billing</label>
+          <select id="calcBilling" class="form-control" style="padding:0.5rem;border-radius:8px;width:100%;border:1px solid var(--outline-variant)">
+            <option value="monthly">Monthly</option>
+            <option value="semester">Semester (5 months)</option>
+            <option value="yearly">Yearly (save 25%)</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">Number of Professors</label>
+          <input type="number" id="calcProfs" min="1" max="500" value="1" class="form-control" style="padding:0.5rem;border-radius:8px;width:100%;border:1px solid var(--outline-variant)">
+        </div>
+        <div>
+          <label style="font-size:0.8rem;font-weight:600;display:block;margin-bottom:4px">Total Students</label>
+          <input type="number" id="calcStudents" min="1" max="50000" value="60" class="form-control" style="padding:0.5rem;border-radius:8px;width:100%;border:1px solid var(--outline-variant)">
         </div>
       </div>
-    <% } %>
+
+      <div id="calcResult" style="background:var(--surface);border-radius:12px;padding:1.25rem;border:2px solid var(--primary);text-align:center">
+        <div style="font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;opacity:0.7;margin-bottom:4px">Estimated Total</div>
+        <div id="calcTotal" style="font-size:2rem;font-weight:800;color:var(--primary)">&#x20B9;1,499</div>
+        <div id="calcBreakdown" style="font-size:0.8rem;opacity:0.7;margin-top:4px">per month &middot; 1 professor &middot; 1 batch of 100 students</div>
+        <div id="calcSavings" style="font-size:0.75rem;color:var(--success);margin-top:4px;display:none"></div>
+      </div>
+    </div>
+
+    <!-- Bundle Discount -->
+    <div style="background:linear-gradient(135deg,var(--primary-container),var(--tertiary-container,var(--primary-container)));border-radius:12px;padding:1.25rem;margin:1rem 0">
+      <h4 style="margin:0 0 0.5rem;display:flex;align-items:center;gap:0.5rem"><i data-lucide="gift"></i> Volume Discount</h4>
+      <p style="margin:0;font-size:0.9rem">For every <strong>12 professors</strong>, get <strong>2 professors free</strong> (pay for 10). Applies automatically at checkout.</p>
+      <p style="margin:0.5rem 0 0;font-size:0.85rem;opacity:0.8">Student batches: pricing multiplies per 100 students. 0-100 = 1x, 101-200 = 2x, 201-300 = 3x, and so on.</p>
+    </div>
+
+    <p class="pricing-note">Prices shown exclude applicable taxes. All plans include LaTeX support, speech input, and secure data handling.<br><a href="/terms">Terms & Conditions</a> &middot; <a href="/privacy">Privacy Policy</a></p>
 
     <div class="plans-footer">
       <a href="/dashboard" class="btn btn-outline">Back to Dashboard</a>
     </div>
   </div>
-  <script>lucide.createIcons();</script>
+
+  <script>
+    lucide.createIcons();
+
+    let currentCurrency = 'inr';
+    let currentBilling = 'monthly';
+
+    const priceData = {
+      assess:    { monthly: { inr: 799, usd: 10 }, semester: { inr: 3599, usd: 45 }, yearly: { inr: 6999, usd: 89 } },
+      academic:  { monthly: { inr: 1499, usd: 19 }, semester: { inr: 6799, usd: 85 }, yearly: { inr: 13999, usd: 175 } },
+      enterprise:{ monthly: { inr: 1999, usd: 25 }, semester: { inr: 8999, usd: 115 }, yearly: { inr: 18999, usd: 239 } },
+      'assess-college':    { monthly: { inr: 7999, usd: 99 }, semester: { inr: 35999, usd: 449 }, yearly: { inr: 69999, usd: 879 } },
+      'academic-college':  { monthly: { inr: 14999, usd: 189 }, semester: { inr: 67499, usd: 849 }, yearly: { inr: 139999, usd: 1749 } },
+      'enterprise-college':{ monthly: { inr: 19999, usd: 249 }, semester: { inr: 89999, usd: 1129 }, yearly: { inr: 189999, usd: 2379 } },
+    };
+
+    function fmt(n, cur) {
+      if (cur === 'usd') return '$' + n.toLocaleString('en-US');
+      return '\u20B9' + n.toLocaleString('en-IN');
+    }
+
+    function updatePrices() {
+      document.querySelectorAll('.price-amount[data-plan]').forEach(el => {
+        const key = currentBilling + '-' + currentCurrency;
+        const val = el.dataset[key.replace('-', '')] || el.dataset['monthly' + currentCurrency.charAt(0).toUpperCase() + currentCurrency.slice(1)];
+        if (val) {
+          el.textContent = (currentCurrency === 'inr' ? '\u20B9' : '$') + val;
+        }
+      });
+      updateCalculator();
+    }
+
+    document.querySelectorAll('.currency-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.currency-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentCurrency = btn.dataset.currency;
+        updatePrices();
+      });
+    });
+
+    document.querySelectorAll('.billing-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.billing-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentBilling = btn.dataset.billing;
+        updatePrices();
+      });
+    });
+
+    function updateCalculator() {
+      const plan = document.getElementById('calcPlan').value;
+      const billing = document.getElementById('calcBilling').value;
+      const profs = Math.max(1, parseInt(document.getElementById('calcProfs').value) || 1);
+      const students = Math.max(1, parseInt(document.getElementById('calcStudents').value) || 1);
+
+      const batches = Math.ceil(students / 100);
+      const pd = priceData[plan];
+      if (!pd || !pd[billing]) return;
+
+      const base = pd[billing][currentCurrency];
+      const bundleSets = Math.floor(profs / 12);
+      const freeProfs = bundleSets * 2;
+      const paidProfs = profs - freeProfs;
+      const total = base * paidProfs * batches;
+
+      const monthlyEquiv = billing === 'yearly' ? Math.round(total / 12) : billing === 'semester' ? Math.round(total / 5) : total;
+
+      document.getElementById('calcTotal').textContent = fmt(total, currentCurrency);
+
+      let breakdown = billing === 'monthly' ? 'per month' : billing === 'semester' ? 'per semester (5 months)' : 'per year';
+      breakdown += ' \u00B7 ' + profs + ' professor' + (profs > 1 ? 's' : '');
+      if (freeProfs > 0) breakdown += ' (' + freeProfs + ' free)';
+      breakdown += ' \u00B7 ' + batches + ' batch' + (batches > 1 ? 'es' : '') + ' of 100 students';
+      document.getElementById('calcBreakdown').textContent = breakdown;
+
+      const savingsEl = document.getElementById('calcSavings');
+      if (billing !== 'monthly') {
+        const monthlyTotal = pd.monthly[currentCurrency] * paidProfs * batches;
+        const months = billing === 'semester' ? 5 : 12;
+        const wouldPay = monthlyTotal * months;
+        const saved = wouldPay - total;
+        if (saved > 0) {
+          savingsEl.style.display = 'block';
+          savingsEl.textContent = 'You save ' + fmt(saved, currentCurrency) + ' compared to monthly billing' + (billing === 'yearly' ? ' (~' + Math.round(saved / wouldPay * 100) + '% off)' : '');
+        } else {
+          savingsEl.style.display = 'none';
+        }
+      } else {
+        savingsEl.style.display = 'none';
+      }
+    }
+
+    ['calcPlan', 'calcBilling', 'calcProfs', 'calcStudents'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updateCalculator);
+      document.getElementById(id).addEventListener('change', updateCalculator);
+    });
+    updateCalculator();
+
+    let activeCoupon = null;
+    document.getElementById('applyCoupon').addEventListener('click', async () => {
+      const code = document.getElementById('couponInput').value.trim();
+      if (!code) return;
+      const res = await fetch('/checkout/validate-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      const el = document.getElementById('couponResult');
+      if (data.valid) {
+        activeCoupon = { code, discount: data.discount };
+        el.innerHTML = '<span class="coupon-valid"><i data-lucide="check-circle"></i> ' + data.message + '</span>';
+      } else {
+        activeCoupon = null;
+        el.innerHTML = '<span class="coupon-invalid"><i data-lucide="x-circle"></i> ' + data.message + '</span>';
+      }
+      lucide.createIcons();
+    });
+
+    document.querySelectorAll('.checkout-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const plan = btn.dataset.plan;
+        const scope = btn.dataset.scope;
+        btn.disabled = true;
+        btn.textContent = 'Processing...';
+        try {
+          const res = await fetch('/checkout/create-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              plan, scope, billing: currentBilling, currency: currentCurrency,
+              coupon_code: activeCoupon?.code || '',
+            }),
+          });
+          const data = await res.json();
+          if (data.url) {
+            window.location.href = data.url;
+          } else {
+            window.location.href = '/dashboard';
+          }
+        } catch {
+          btn.textContent = 'Upgrade';
+          btn.disabled = false;
+        }
+      });
+    });
+  </script>
 </body>
 </html>

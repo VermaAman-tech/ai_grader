@@ -1,0 +1,99 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="vote"></i> Live Polls</h1>
+    <p class="page-sub">In-class polling — students join via room code on their phone</p>
+  </div>
+</div>
+
+<div class="filter-bar card">
+  <form method="GET" action="/live-polls" class="filter-row">
+    <div class="filter-group">
+      <label>Course</label>
+      <select name="course_id" class="form-control" onchange="this.form.submit()">
+        <option value="">Select course…</option>
+        <% courses.forEach(c => { %>
+          <option value="<%= c.id %>" <%= selectedCourseId == c.id ? 'selected' : '' %>><%= c.code %> — <%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+  </form>
+</div>
+
+<% if (selectedCourseId) { %>
+  <div class="card" style="padding:1.25rem;margin-bottom:1.5rem">
+    <h3 style="margin-bottom:1rem"><i data-lucide="plus-circle"></i> Create Poll</h3>
+    <form method="POST" action="/live-polls/create">
+      <input type="hidden" name="course_id" value="<%= selectedCourseId %>">
+      <div class="form-group">
+        <label>Question</label>
+        <input type="text" name="question" class="form-control" placeholder="e.g., What is the time complexity of merge sort?" required>
+      </div>
+      <div class="form-row" style="display:flex;gap:1rem;margin-bottom:1rem">
+        <div class="form-group" style="flex:1">
+          <label>Type</label>
+          <select name="poll_type" class="form-control">
+            <option value="mcq">Multiple Choice</option>
+            <option value="word_cloud">Word Cloud</option>
+            <option value="confidence">Confidence Rating (1-5)</option>
+            <option value="ranked">Ranked Choice</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Concept Tag</label>
+          <input type="text" name="concept_tag" class="form-control" placeholder="e.g., Sorting">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Options (one per line, for MCQ/Ranked)</label>
+        <textarea name="options" class="form-control" rows="4" placeholder="O(n)\nO(n log n)\nO(n²)\nO(log n)"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="zap"></i> Launch Poll</button>
+    </form>
+  </div>
+
+  <% if (polls.length > 0) { %>
+    <% polls.forEach(poll => { %>
+      <div class="card" style="padding:1rem;margin-bottom:0.75rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
+          <div>
+            <strong><%= poll.question %></strong>
+            <div style="margin-top:0.25rem">
+              <span class="badge badge-<%= poll.is_active ? 'success' : 'outline' %>"><%= poll.is_active ? 'LIVE' : 'Closed' %></span>
+              <span class="badge badge-info"><%= poll.poll_type %></span>
+              <% if (poll.concept_tag) { %><span class="badge badge-outline"><%= poll.concept_tag %></span><% } %>
+              <span style="margin-left:0.5rem;font-family:monospace;font-size:1.1rem;font-weight:700;color:var(--accent)"><%= poll.room_code %></span>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.5rem;align-items:center">
+            <span><%= poll.PollResponses?.length || 0 %> responses</span>
+            <a href="/live-polls/results/<%= poll.id %>" class="btn btn-sm btn-outline"><i data-lucide="bar-chart-3" style="width:14px;height:14px"></i></a>
+            <form method="POST" action="/live-polls/close/<%= poll.id %>">
+              <button class="btn btn-sm <%= poll.is_active ? 'btn-danger' : 'btn-success' %>">
+                <%= poll.is_active ? 'Close' : 'Reopen' %>
+              </button>
+            </form>
+          </div>
+        </div>
+        <% if (poll.is_active) { %>
+          <div style="margin-top:0.75rem;padding:0.75rem;background:var(--bg-secondary);border-radius:8px;text-align:center">
+            <small>Students join at:</small>
+            <div style="font-size:1.5rem;font-weight:700;font-family:monospace;letter-spacing:2px;color:var(--accent)"><%= poll.room_code %></div>
+            <small>Share this code with your class</small>
+          </div>
+        <% } %>
+      </div>
+    <% }) %>
+  <% } else { %>
+    <div class="empty-state card">
+      <i data-lucide="vote" style="width:48px;height:48px;opacity:0.4"></i>
+      <h3>No Polls</h3>
+      <p>Create your first live poll above.</p>
+    </div>
+  <% } %>
+<% } else { %>
+  <div class="empty-state card">
+    <i data-lucide="vote" style="width:48px;height:48px;opacity:0.4"></i>
+    <h3>Select a Course</h3>
+    <p>Choose a course to create and manage live polls.</p>
+  </div>
+<% } %>

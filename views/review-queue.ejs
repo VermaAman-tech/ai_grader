@@ -1,0 +1,120 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="shield-alert"></i> Review Queue</h1>
+    <p class="page-sub">Grades with low AI confidence flagged for human review</p>
+  </div>
+</div>
+
+<div class="filter-bar card">
+  <form method="GET" action="/review-queue" class="filter-row">
+    <div class="filter-group">
+      <label>Course</label>
+      <select name="course_id_sel" id="rqCourseSel" class="form-control">
+        <option value="">Select course…</option>
+        <% courses.forEach(c => { %>
+          <option value="<%= c.id %>"><%= c.code %> — <%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>Exam</label>
+      <select name="exam_id" id="rqExamSel" class="form-control">
+        <option value="">Select exam…</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Load Queue</button>
+  </form>
+</div>
+
+<% if (selectedExamId && flaggedGrades.length > 0) { %>
+  <div class="card" style="margin-bottom:1rem;padding:1rem;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+      <div>
+        <strong>Exam:</strong> <%= examName %> &middot;
+        <strong>Threshold:</strong> &lt; <%= (threshold * 100).toFixed(0) %>% confidence &middot;
+        <strong>Flagged:</strong> <%= flaggedGrades.length %> grades
+      </div>
+      <span class="badge badge-warning"><i data-lucide="alert-triangle" style="width:14px;height:14px"></i> <%= flaggedGrades.length %> need review</span>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Question</th>
+          <th>AI Marks</th>
+          <th>Max</th>
+          <th>Confidence</th>
+          <th>Feedback</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% flaggedGrades.forEach(g => { %>
+          <tr>
+            <td><strong><%= g.Submission?.Student?.name || '—' %></strong><br><small><%= g.Submission?.Student?.roll_number || '' %></small></td>
+            <td><%= g.question_no %></td>
+            <td><%= g.awarded_marks %></td>
+            <td><%= g.Rubric?.max_marks || '—' %></td>
+            <td>
+              <span class="confidence-badge conf-<%= g.confidence < 0.4 ? 'low' : g.confidence < 0.6 ? 'med' : 'ok' %>">
+                <%= (g.confidence * 100).toFixed(0) %>%
+              </span>
+            </td>
+            <td style="max-width:300px"><small><%= (g.feedback || '').substring(0, 120) %><%= (g.feedback || '').length > 120 ? '…' : '' %></small></td>
+            <td>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <form method="POST" action="/review-queue/approve/<%= g.id %>" style="display:inline">
+                  <button class="btn btn-sm btn-success" title="Approve AI grade"><i data-lucide="check" style="width:14px;height:14px"></i></button>
+                </form>
+                <button class="btn btn-sm btn-outline" onclick="this.closest('td').querySelector('.override-form').style.display='block';this.style.display='none'" title="Override"><i data-lucide="edit-2" style="width:14px;height:14px"></i></button>
+                <form method="POST" action="/review-queue/override/<%= g.id %>" class="override-form" style="display:none">
+                  <div style="display:flex;gap:0.25rem;align-items:center">
+                    <input type="number" name="override_marks" step="0.5" min="0" max="<%= g.Rubric?.max_marks || 100 %>" placeholder="Marks" class="form-control form-control-sm" style="width:70px" required>
+                    <input type="text" name="override_note" placeholder="Note" class="form-control form-control-sm" style="width:120px">
+                    <button class="btn btn-sm btn-primary">Save</button>
+                  </div>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } else if (selectedExamId) { %>
+  <div class="empty-state card">
+    <i data-lucide="check-circle-2" style="width:48px;height:48px;color:var(--success)"></i>
+    <h3>All Clear!</h3>
+    <p>No grades below the confidence threshold for this exam.</p>
+  </div>
+<% } else { %>
+  <div class="empty-state card">
+    <i data-lucide="shield-alert" style="width:48px;height:48px;opacity:0.4"></i>
+    <h3>Select an Exam</h3>
+    <p>Choose a course and exam to see flagged grades that need human review.</p>
+  </div>
+<% } %>
+
+<script>
+  const allExams = <%- JSON.stringify(allExams) %>;
+  const selExam = '<%= selectedExamId || "" %>';
+  document.getElementById('rqCourseSel').addEventListener('change', function() {
+    const sel = document.getElementById('rqExamSel');
+    sel.innerHTML = '<option value="">Select exam…</option>';
+    (allExams[this.value] || []).forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id; opt.textContent = e.name;
+      if (String(e.id) === selExam) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  });
+  if (selExam) {
+    const cs = document.getElementById('rqCourseSel');
+    for (const [cid, exams] of Object.entries(allExams)) {
+      if (exams.find(e => String(e.id) === selExam)) { cs.value = cid; cs.dispatchEvent(new Event('change')); break; }
+    }
+  }
+</script>

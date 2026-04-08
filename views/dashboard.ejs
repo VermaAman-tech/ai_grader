@@ -4,23 +4,28 @@
 </div>
 
 <% if (sub) { %>
+<% const isFree = sub.plan === 'free' || sub.plan === 'trial'; %>
 <div class="sub-banner">
   <div class="sub-banner-left">
-    <span class="sub-tier-chip <%= sub.plan === 'trial' ? 'chip-free' : 'chip-pro' %>">
-      <i data-lucide="<%= sub.plan === 'trial' ? 'clock' : 'crown' %>"></i>
-      <%= sub.plan === 'trial' ? 'FREE' : 'PRO' %>
+    <span class="sub-tier-chip <%= isFree ? 'chip-free' : 'chip-pro' %>">
+      <i data-lucide="<%= isFree ? 'gift' : 'crown' %>"></i>
+      <%= isFree ? 'FREE' : 'PRO' %>
     </span>
     <span>
-      <strong><%= sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) %></strong> plan
-      &middot; <%= sub.scope === 'college' ? 'College-wide' : 'Individual' %>
-      &middot; Expires <%= new Date(sub.end_date).toLocaleDateString() %>
-      <% const dLeft = Math.ceil((new Date(sub.end_date) - new Date()) / (1000*60*60*24)); %>
-      <% if (dLeft <= 7) { %><span class="text-warning">(<%= dLeft %> day<%= dLeft !== 1 ? 's' : '' %> left)</span><% } %>
+      <% if (isFree) { %>
+        <strong>Free Plan</strong> &middot;
+        <%= freeInfo ? freeInfo.used + ' / ' + freeInfo.limit + ' papers used' : '' %>
+        <% if (freeInfo && freeInfo.used >= freeInfo.limit) { %><span class="text-warning">(limit reached)</span><% } %>
+      <% } else { %>
+        <strong><%= sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) %></strong> plan
+        &middot; <%= sub.scope === 'college' ? 'Institution-wide' : sub.scope === 'school' ? 'School-wide' : 'Individual' %>
+        &middot; Expires <%= new Date(sub.end_date).toLocaleDateString() %>
+        <% const dLeft = Math.ceil((new Date(sub.end_date) - new Date()) / (1000*60*60*24)); %>
+        <% if (dLeft <= 14) { %><span class="text-warning">(<%= dLeft %> day<%= dLeft !== 1 ? 's' : '' %> left)</span><% } %>
+      <% } %>
     </span>
   </div>
-  <% if (session.role === 'admin') { %>
-    <a href="/plans" class="btn btn-sm btn-outline">Manage Plan</a>
-  <% } %>
+  <a href="/plans" class="btn btn-sm btn-outline"><%= isFree ? 'Upgrade' : 'Manage Plan' %></a>
 </div>
 <% } %>
 
@@ -49,12 +54,12 @@
     <div class="kpi-icon red"><i data-lucide="alert-circle"></i></div>
     <div class="kpi-data"><div class="kpi-value"><%= stats.errors %></div><div class="kpi-label">Errors</div></div>
   </div>
-  <% if (trialInfo) { %>
+  <% if (freeInfo) { %>
   <div class="kpi-card">
     <div class="kpi-icon amber"><i data-lucide="file-clock"></i></div>
     <div class="kpi-data">
-      <div class="kpi-value"><%= trialInfo.used %> / <%= trialInfo.limit %></div>
-      <div class="kpi-label">Trial Papers Used</div>
+      <div class="kpi-value"><%= freeInfo.used %> / <%= freeInfo.limit %></div>
+      <div class="kpi-label">Free Evaluations Used</div>
     </div>
   </div>
   <% } %>

@@ -1,5 +1,8 @@
 <div class="page-header">
   <h1><i data-lucide="bar-chart-3"></i> Analytics</h1>
+  <% if (selectedExamId && analytics && analytics.gradedCount > 0) { %>
+    <button class="btn btn-outline btn-sm" onclick="window.print()"><i data-lucide="download"></i> Download PDF</button>
+  <% } %>
 </div>
 
 <div class="filter-bar">
@@ -98,12 +101,53 @@
 
 <% if (insights) { %>
 <div class="card mt-4">
-  <div class="card-header"><i data-lucide="lightbulb"></i> AI-Powered Insights</div>
+  <div class="card-header"><i data-lucide="lightbulb"></i> AI-Powered Insights &amp; Recommendations</div>
   <div class="card-body insights-content">
     <pre class="insights-text"><%= insights %></pre>
   </div>
 </div>
 <% } %>
+
+<!-- Actionable Summary -->
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="target"></i> Actionable Summary</div>
+  <div class="card-body">
+    <div class="action-grid">
+      <div class="action-item">
+        <div class="action-icon green"><i data-lucide="trophy"></i></div>
+        <div>
+          <strong>Top Performers</strong>
+          <p><%= analytics.studentScores.filter(s => s.pct >= 80).length %> students scored above 80%. Consider advanced challenges or peer mentoring roles.</p>
+        </div>
+      </div>
+      <div class="action-item">
+        <div class="action-icon red"><i data-lucide="alert-triangle"></i></div>
+        <div>
+          <strong>At-Risk Students</strong>
+          <p><%= analytics.studentScores.filter(s => s.pct < 40).length %> students below passing threshold. Schedule individual consultations or remedial sessions.</p>
+        </div>
+      </div>
+      <% const hardQs = analytics.questionStats.filter(q => q.difficulty === 'Hard'); %>
+      <% if (hardQs.length) { %>
+      <div class="action-item">
+        <div class="action-icon amber"><i data-lucide="book-open"></i></div>
+        <div>
+          <strong>Topics to Revisit</strong>
+          <p>Questions <%= hardQs.map(q => q.questionNo).join(', ') %> had &lt;40% avg score. Consider revisiting these topics or providing additional practice.</p>
+        </div>
+      </div>
+      <% } %>
+      <div class="action-item">
+        <div class="action-icon blue"><i data-lucide="bar-chart-3"></i></div>
+        <div>
+          <strong>Grade Distribution</strong>
+          <p>Class average is <%= analytics.classAvg %>/<%= analytics.maxPossible %> (<%= analytics.maxPossible > 0 ? Math.round(analytics.classAvg / analytics.maxPossible * 100) : 0 %>%). 
+            <% if (analytics.passRate < 60) { %>Consider applying a normalisation curve via <a href="/grading/boundaries/<%= selectedExamId %>">Grade Boundaries</a>.<% } else { %>Distribution looks healthy.<% } %></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
 <% } %>
 

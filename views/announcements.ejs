@@ -1,0 +1,128 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="megaphone"></i> Announcements</h1>
+    <p class="page-sub">Publish announcements, schedule reminders, and manage course communications</p>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/announcements" class="filter-row">
+    <div class="filter-group">
+      <label>Course</label>
+      <select name="course_id" class="form-control" onchange="this.form.submit()">
+        <option value="">Select course…</option>
+        <% courses.forEach(c => { %>
+          <option value="<%= c.id %>" <%= selectedCourseId == c.id ? 'selected' : '' %>><%= c.code %> — <%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+  </form>
+</div>
+
+<% if (selectedCourseId) { %>
+
+  <% if ((typeof slackActive !== 'undefined' && slackActive) || (typeof discordActive !== 'undefined' && discordActive)) { %>
+    <div class="card" style="padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:0.85rem">
+      <i data-lucide="bell" style="width:16px;height:16px;color:var(--primary)"></i>
+      <span>Announcements cross-posted to:</span>
+      <% if (slackActive) { %><span class="badge" style="background:#4a154b;color:#fff">Slack</span><% } %>
+      <% if (discordActive) { %><span class="badge" style="background:#5865f2;color:#fff">Discord</span><% } %>
+      <a href="/integrations?course_id=<%= selectedCourseId %>" style="margin-left:auto;font-size:0.78rem;color:var(--primary)">Manage integrations</a>
+    </div>
+  <% } %>
+
+  <!-- New Announcement -->
+  <div class="card" style="margin-bottom:24px">
+    <div class="card-header"><i data-lucide="plus-circle"></i> New Announcement</div>
+    <div class="card-body">
+      <form method="POST" action="/announcements/create">
+        <input type="hidden" name="course_id" value="<%= selectedCourseId %>">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" name="title" placeholder="Announcement title…" required>
+        </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:1">
+            <label>Type</label>
+            <select name="type">
+              <option value="general">General</option>
+              <option value="assignment">Assignment</option>
+              <option value="grade_release">Grade Release</option>
+              <option value="deadline">Deadline / Reminder</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label>Schedule (optional)</label>
+            <input type="datetime-local" name="scheduled_for" title="Leave empty to publish immediately">
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:6px;padding-top:24px">
+            <input type="checkbox" name="is_pinned" id="pinNew" style="width:16px;height:16px;accent-color:var(--primary)">
+            <label for="pinNew" style="margin-bottom:0;font-size:0.85rem;color:var(--on-surface)">Pin</label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Content</label>
+          <textarea name="content" rows="4" placeholder="Write your announcement here…" required></textarea>
+        </div>
+        <div class="form-row" style="gap:8px;margin-top:4px">
+          <div class="form-group" style="display:flex;align-items:center;gap:6px;margin-bottom:0">
+            <input type="checkbox" name="send_email" id="sendEmail" style="width:16px;height:16px;accent-color:var(--primary)">
+            <label for="sendEmail" style="margin-bottom:0;font-size:0.82rem;color:var(--on-surface-variant)">Email all students</label>
+          </div>
+          <div class="form-group" style="display:flex;align-items:center;gap:6px;margin-bottom:0">
+            <input type="checkbox" name="add_calendar" id="addCal" style="width:16px;height:16px;accent-color:var(--primary)" checked>
+            <label for="addCal" style="margin-bottom:0;font-size:0.82rem;color:var(--on-surface-variant)">Add to course calendar</label>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary"><i data-lucide="send"></i> Publish</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Announcement List -->
+  <% if (announcements.length > 0) { %>
+    <% announcements.forEach(ann => { %>
+      <%
+        const typeIcon = ann.type === 'deadline' ? 'clock' : ann.type === 'grade_release' ? 'check-circle-2' : ann.type === 'assignment' ? 'file-text' : 'info';
+        const typeBadge = ann.type === 'grade_release' ? 'success' : ann.type === 'deadline' ? 'warning' : ann.type === 'assignment' ? 'info' : 'outline';
+      %>
+      <div class="card" style="margin-bottom:14px;<%= ann.is_pinned ? 'border-left:3px solid var(--primary)' : '' %>">
+        <div class="card-body" style="padding:16px 20px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+                <% if (ann.is_pinned) { %><i data-lucide="pin" style="width:14px;height:14px;color:var(--primary);flex-shrink:0"></i><% } %>
+                <strong style="font-size:0.95rem"><%= ann.title %></strong>
+                <span class="badge badge-<%= typeBadge %>"><i data-lucide="<%= typeIcon %>" style="width:11px;height:11px"></i> <%= ann.type.replace('_', ' ') %></span>
+              </div>
+              <p style="margin:0 0 8px;white-space:pre-wrap;line-height:1.6;font-size:0.88rem;color:var(--on-surface-variant)"><%= ann.content %></p>
+              <div style="display:flex;align-items:center;gap:12px;font-size:0.78rem;color:var(--muted)">
+                <span><i data-lucide="user" style="width:12px;height:12px;vertical-align:-2px"></i> <%= ann.User?.full_name || 'Unknown' %></span>
+                <span><i data-lucide="calendar" style="width:12px;height:12px;vertical-align:-2px"></i> <%= new Date(ann.published_at || ann.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }) %></span>
+              </div>
+            </div>
+            <div style="display:flex;gap:4px;flex-shrink:0">
+              <form method="POST" action="/announcements/pin/<%= ann.id %>"><button class="btn btn-sm btn-outline" title="<%= ann.is_pinned ? 'Unpin' : 'Pin' %>"><i data-lucide="pin" style="width:13px;height:13px"></i></button></form>
+              <form method="POST" action="/announcements/delete/<%= ann.id %>"><button class="btn btn-sm btn-danger" onclick="return confirm('Delete this announcement?')" title="Delete"><i data-lucide="trash-2" style="width:13px;height:13px"></i></button></form>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% }) %>
+  <% } else { %>
+    <div class="empty-state card">
+      <i data-lucide="megaphone"></i>
+      <h3>No Announcements Yet</h3>
+      <p>Create your first announcement using the form above.</p>
+    </div>
+  <% } %>
+
+<% } else { %>
+  <div class="empty-state card">
+    <i data-lucide="megaphone"></i>
+    <h3>Select a Course</h3>
+    <p>Choose a course from the dropdown to manage announcements.</p>
+  </div>
+<% } %>

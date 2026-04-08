@@ -1,0 +1,42 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="message-circle"></i> Piazza Integration</h1>
+    <p class="page-desc">Import discussion threads and Q&A from Piazza into your course</p>
+  </div>
+</div>
+
+<div class="card" style="max-width:700px">
+  <div class="card-body">
+    <h3><i data-lucide="key-round"></i> API Configuration</h3>
+    <div style="background:var(--surface-container-low);border-radius:8px;padding:1rem;margin:1rem 0">
+      <p style="margin:0;font-size:0.9rem"><i data-lucide="info" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> Connect your Piazza account to sync Q&A threads and student discussions.</p>
+      <div style="margin-top:0.75rem">
+        <label style="font-size:0.8rem;font-weight:600">Piazza Email</label>
+        <input type="email" class="form-control" placeholder="your@piazza-email.com" style="padding:0.4rem;border-radius:6px;width:100%;border:1px solid var(--outline-variant);margin-top:4px" disabled>
+        <small style="opacity:0.6">Integration stub — will be activated in a future update.</small>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.5rem"><i data-lucide="download"></i> Import Threads</h3>
+    <form method="POST" action="/integrations/piazza/sync" style="display:flex;gap:0.5rem;align-items:end">
+      <div style="flex:1">
+        <label style="font-size:0.8rem">Course to import into</label>
+        <select name="course_id" class="form-control" style="padding:0.4rem;border-radius:6px;width:100%;border:1px solid var(--outline-variant)">
+          <% courses.forEach(c => { %><option value="<%= c.id %>"><%= c.code %> — <%= c.name %></option><% }); %>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Import</button>
+    </form>
+
+    <div style="margin-top:1.5rem;background:var(--surface-container-low);border-radius:8px;padding:1rem">
+      <h4 style="margin:0 0 0.5rem">Sync Features</h4>
+      <ul style="margin:0;padding-left:1.2rem;font-size:0.85rem">
+        <li>Import Q&A threads as discussion threads</li>
+        <li>Map Piazza tags to Intelligrade concepts</li>
+        <li>Sync instructor answers and endorsements</li>
+        <li>Auto-tag AI-generated answers</li>
+        <li>Bidirectional sync (coming soon)</li>
+      </ul>
+    </div>
+  </div>
+</div>

@@ -74,9 +74,18 @@ app.get('/', (req, res) => {
   res.render('landing', { layout: false });
 });
 
+app.get('/terms', (req, res) => {
+  res.render('terms', { layout: false });
+});
+
+app.get('/privacy', (req, res) => {
+  res.render('privacy', { layout: false });
+});
+
 app.post('/login', authLimiter);
 app.post('/register', authLimiter);
 
+// ── Core routes ──
 app.use('/', require('./routes/auth'));
 app.use('/', require('./routes/dashboard'));
 app.use('/courses', require('./routes/courses'));
@@ -88,7 +97,35 @@ app.use('/grading', gradingLimiter, require('./routes/grading'));
 app.use('/analytics', require('./routes/analytics'));
 app.use('/assistant', require('./routes/assistant'));
 app.use('/export', require('./routes/export'));
+app.use('/rubric/ai', require('./routes/rubric-ai'));
+app.use('/grading/boundaries', require('./routes/grade-boundaries'));
+app.use('/grading/email', require('./routes/email-grades'));
+app.use('/submissions', require('./routes/zip-upload'));
+app.use('/exam-design', require('./routes/exam-design'));
+app.use('/student-reports', require('./routes/student-reports'));
+app.use('/knowledge-graph', require('./routes/knowledge-graph'));
 app.use('/api/session', require('./routes/session-activity'));
+app.use('/checkout', require('./routes/checkout'));
+
+// ── New feature routes (features2.md) ──
+app.use('/review-queue', require('./routes/review-queue'));
+app.use('/ta', require('./routes/ta'));
+app.use('/cribs', require('./routes/cribs'));
+app.use('/announcements', require('./routes/announcements'));
+app.use('/course-documents', require('./routes/course-documents'));
+app.use('/discussions', require('./routes/discussions'));
+app.use('/live-polls', require('./routes/live-polls'));
+app.use('/class-sessions', require('./routes/class-sessions'));
+
+// ── Learning Objectives & Active Feedback ──
+app.use('/learning-objectives', require('./routes/learning-objectives'));
+app.use('/active-feedback', require('./routes/active-feedback'));
+
+// ── Integrations (Moodle, Piazza) ──
+app.use('/integrations', require('./routes/integrations'));
+
+// ── Student portal (separate auth flow) ──
+app.use('/student', require('./routes/student-portal'));
 
 app.use((req, res) => {
   res.status(404).render('404', { layout: false });

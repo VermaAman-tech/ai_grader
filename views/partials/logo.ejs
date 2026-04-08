@@ -1,0 +1,20 @@
+<svg class="ig-logo" width="<%= typeof logoSize !== 'undefined' ? logoSize : 32 %>" height="<%= typeof logoSize !== 'undefined' ? logoSize : 32 %>" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="igGrad<%= typeof logoId !== 'undefined' ? logoId : '' %>" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6C5CE7"/>
+      <stop offset="100%" stop-color="#00B894"/>
+    </linearGradient>
+  </defs>
+  <rect width="40" height="40" rx="10" fill="url(#igGrad<%= typeof logoId !== 'undefined' ? logoId : '' %>)"/>
+  <!-- Clipboard body -->
+  <rect x="10" y="11" width="20" height="22" rx="2.5" fill="rgba(255,255,255,0.25)"/>
+  <!-- Paper -->
+  <rect x="12" y="14" width="16" height="17" rx="1.5" fill="#fff"/>
+  <!-- Clip tab -->
+  <rect x="15" y="8" width="10" height="6" rx="2" fill="rgba(255,255,255,0.4)"/>
+  <rect x="17" y="7" width="6" height="3" rx="1.5" fill="#fff"/>
+  <!-- Lines on paper -->
+  <line x1="15" y1="19" x2="25" y2="19" stroke="#6C5CE7" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="15" y1="22.5" x2="23" y2="22.5" stroke="#00B894" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="15" y1="26" x2="21" y2="26" stroke="#6C5CE7" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+</svg>

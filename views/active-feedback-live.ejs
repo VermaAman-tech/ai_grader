@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submit Feedback - <%= course.code %></title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="auth-body">
+  <div class="auth-container" style="max-width:500px">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <h2><i data-lucide="hand-heart" style="width:28px;height:28px"></i> Class Feedback</h2>
+        <p><%= course.code %> — <%= session.title %></p>
+      </div>
+
+      <div id="feedbackForm">
+        <h3 style="text-align:center;margin-bottom:1rem">How well do you understand the current topic?</h3>
+
+        <div style="display:flex;justify-content:center;gap:0.75rem;margin:1rem 0" id="ratingBtns">
+          <% [1,2,3,4,5].forEach(n => { %>
+            <button type="button" class="rating-btn" data-rating="<%= n %>" style="width:50px;height:50px;border-radius:50%;border:2px solid var(--outline-variant);background:var(--surface);font-size:1.2rem;font-weight:700;cursor:pointer;transition:all 0.2s"><%= n %></button>
+          <% }); %>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;opacity:0.5;margin-bottom:1rem">
+          <span>Completely lost</span>
+          <span>Crystal clear</span>
+        </div>
+
+        <div class="form-group">
+          <label>Comment (optional, anonymous)</label>
+          <textarea id="feedbackContent" class="form-control" rows="3" placeholder="What's confusing? What would help?" style="border:1px solid var(--outline-variant);border-radius:8px;padding:0.5rem"></textarea>
+        </div>
+
+        <select id="feedbackType" class="form-control" style="padding:0.4rem;border-radius:6px;border:1px solid var(--outline-variant);width:100%;margin-bottom:1rem">
+          <option value="understanding">Understanding Check</option>
+          <option value="confusion">Confusion Signal</option>
+          <option value="question">Question</option>
+          <option value="suggestion">Suggestion</option>
+          <option value="pace">Pace Feedback</option>
+        </select>
+
+        <button type="button" id="submitFeedback" class="btn btn-primary btn-block">Submit Feedback</button>
+      </div>
+
+      <div id="thankYou" style="display:none;text-align:center;padding:2rem 0">
+        <i data-lucide="check-circle" style="width:48px;height:48px;color:var(--success,#10b981)"></i>
+        <h3 style="margin:0.5rem 0">Thanks for your feedback!</h3>
+        <p style="opacity:0.7">Your response is anonymous and helps your professor improve the class.</p>
+        <button type="button" class="btn btn-outline" onclick="location.reload()">Submit Another</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    lucide.createIcons();
+    let selectedRating = null;
+
+    document.querySelectorAll('.rating-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.rating-btn').forEach(b => {
+          b.style.background = 'var(--surface)';
+          b.style.borderColor = 'var(--outline-variant)';
+          b.style.color = 'inherit';
+        });
+        btn.style.background = 'var(--primary)';
+        btn.style.borderColor = 'var(--primary)';
+        btn.style.color = '#fff';
+        selectedRating = parseInt(btn.dataset.rating);
+      });
+    });
+
+    document.getElementById('submitFeedback').addEventListener('click', async () => {
+      if (!selectedRating) {
+        alert('Please select a rating.');
+        return;
+      }
+      const btn = document.getElementById('submitFeedback');
+      btn.disabled = true;
+      btn.textContent = 'Submitting...';
+
+      try {
+        await fetch('/active-feedback/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            session_id: '<%= session.id %>',
+            course_id: '<%= course.id %>',
+            rating: selectedRating,
+            content: document.getElementById('feedbackContent').value,
+            feedback_type: document.getElementById('feedbackType').value,
+          }),
+        });
+        document.getElementById('feedbackForm').style.display = 'none';
+        document.getElementById('thankYou').style.display = 'block';
+        lucide.createIcons();
+      } catch {
+        btn.textContent = 'Submit Feedback';
+        btn.disabled = false;
+        alert('Error submitting feedback. Please try again.');
+      }
+    });
+  </script>
+</body>
+</html>

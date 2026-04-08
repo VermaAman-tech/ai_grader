@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { ensureAuth, ensureSubscription, asyncHandler, assertCourseOwner, assertExamOwner, assertSubmissionOwner } = require('../middleware/auth');
 const { requireInt } = require('../middleware/validate');
-const { Course, Exam, Student, Submission } = require('../models');
+const { Course, Exam, Student, Submission, IntegrationConfig } = require('../models');
 
 const uploadDir = process.env.UPLOAD_DIR || './data/uploads';
 const storage = multer.diskStorage({
@@ -46,9 +46,17 @@ router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =>
     });
   }
 
+  let turnitinActive = false, gradescopeActive = false;
+  if (courseId) {
+    const tCfg = await IntegrationConfig.findOne({ where: { provider: 'turnitin', course_id: courseId, user_id: req.session.userId, is_active: true } });
+    turnitinActive = !!tCfg;
+    const gCfg = await IntegrationConfig.findOne({ where: { provider: 'gradescope', course_id: courseId, user_id: req.session.userId, is_active: true } });
+    gradescopeActive = !!gCfg;
+  }
+
   res.locals.examId = examId;
   res.locals.courseId = courseId;
-  res.render('submissions', { courses, exams, students, submissions, selectedCourseId: courseId, selectedExamId: examId });
+  res.render('submissions', { courses, exams, students, submissions, selectedCourseId: courseId, selectedExamId: examId, turnitinActive, gradescopeActive });
 }));
 
 router.post('/upload', ensureAuth, ensureSubscription, upload.array('pdf_files', 100), asyncHandler(async (req, res) => {

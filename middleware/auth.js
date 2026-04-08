@@ -1,5 +1,7 @@
-const { Subscription, College, Course, Exam, Submission, Grade, Rubric, Student } = require('../models');
+const { Subscription, College, User, Course, Exam, Submission, Grade, Rubric, Student } = require('../models');
 const { Op } = require('sequelize');
+
+const FREE_PAPER_LIMIT = 10;
 
 function ensureAuth(req, res, next) {
   if (req.session && req.session.userId) return next();
@@ -30,7 +32,6 @@ async function ensureSubscription(req, res, next) {
     const college = await Subscription.findOne({
       where: {
         college_id: req.session.collegeId,
-        scope: 'college',
         status: 'active',
         end_date: { [Op.gt]: now },
       },
@@ -41,17 +42,22 @@ async function ensureSubscription(req, res, next) {
   if (activeSub) {
     req.subscription = activeSub;
     res.locals.subscription = activeSub;
-    res.locals.planTier = activeSub.plan === 'trial' ? 'FREE' : 'PRO';
-    res.locals.planLabel = activeSub.plan === 'trial'
-      ? 'Free Trial'
-      : activeSub.plan.charAt(0).toUpperCase() + activeSub.plan.slice(1);
+    const isFree = activeSub.plan === 'free' || activeSub.plan === 'trial';
+    res.locals.planTier = isFree ? 'FREE' : 'PRO';
+    res.locals.planLabel = isFree ? 'Free' : activeSub.plan.charAt(0).toUpperCase() + activeSub.plan.slice(1);
+
+    if (isFree) {
+      const user = await User.findByPk(req.session.userId);
+      res.locals.papersUsed = user?.papers_graded_total || 0;
+      res.locals.paperLimit = FREE_PAPER_LIMIT;
+    }
     return next();
   }
 
-  if (req.session.role === 'professor' && req.session.collegeId) {
-    req.flash('error', 'Your college subscription has expired. Please ask your college admin to renew.');
+  if (req.session.collegeId) {
+    req.flash('error', 'Your institution\'s subscription has expired. Please ask your admin to renew.');
   } else {
-    req.flash('error', 'Your subscription has expired. Please renew to continue.');
+    req.flash('error', 'No active plan. Please choose a plan to continue.');
   }
   res.redirect('/plans');
 }

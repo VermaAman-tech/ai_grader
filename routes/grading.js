@@ -1,19 +1,19 @@
 const router = require('express').Router();
 const { ensureAuth, ensureSubscription, asyncHandler, assertExamOwner, assertSubmissionOwner, assertGradeOwner } = require('../middleware/auth');
 const { requireInt, optionalString } = require('../middleware/validate');
-const { Course, Exam, Student, Submission, Grade, Rubric, User, ActiveSession } = require('../models');
+const { Course, Exam, Student, Submission, Grade, Rubric, User, ActiveSession, OverrideLog } = require('../models');
 const { gradeSubmission } = require('../services/grading');
 const { Op } = require('sequelize');
 
-const TRIAL_LIMIT = parseInt(process.env.TRIAL_PAPER_LIMIT || '10', 10);
+const FREE_PAPER_LIMIT = parseInt(process.env.FREE_PAPER_LIMIT || '10', 10);
 
-async function checkTrialLimit(req) {
+async function checkFreeLimit(req) {
   const sub = req.subscription;
-  if (!sub || sub.plan !== 'trial') return;
+  if (!sub || (sub.plan !== 'free' && sub.plan !== 'trial')) return;
   const user = await User.findByPk(req.session.userId);
-  if (user.papers_graded_total >= TRIAL_LIMIT) {
-    const err = new Error('TRIAL_LIMIT');
-    err.limit = TRIAL_LIMIT;
+  if (user.papers_graded_total >= FREE_PAPER_LIMIT) {
+    const err = new Error('FREE_LIMIT');
+    err.limit = FREE_PAPER_LIMIT;
     throw err;
   }
 }
@@ -56,10 +56,10 @@ router.post('/grade/:submissionId', ensureAuth, ensureSubscription, asyncHandler
   const sub = await assertSubmissionOwner(req, submissionId);
 
   try {
-    await checkTrialLimit(req);
+    await checkFreeLimit(req);
   } catch (err) {
-    if (err.message === 'TRIAL_LIMIT') {
-      req.flash('error', `You've used all ${err.limit} papers in your free trial. Upgrade to continue grading.`);
+    if (err.message === 'FREE_LIMIT') {
+      req.flash('error', `You've used all ${err.limit} free evaluations. Upgrade to continue grading.`);
       return res.redirect('/plans');
     }
     throw err;
@@ -76,10 +76,10 @@ router.post('/grade-all/:examId', ensureAuth, ensureSubscription, asyncHandler(a
   await assertExamOwner(req, examId);
 
   try {
-    await checkTrialLimit(req);
+    await checkFreeLimit(req);
   } catch (err) {
-    if (err.message === 'TRIAL_LIMIT') {
-      req.flash('error', `You've used all ${err.limit} papers in your free trial. Upgrade to continue grading.`);
+    if (err.message === 'FREE_LIMIT') {
+      req.flash('error', `You've used all ${err.limit} free evaluations. Upgrade to continue grading.`);
       return res.redirect('/plans');
     }
     throw err;
@@ -89,11 +89,12 @@ router.post('/grade-all/:examId', ensureAuth, ensureSubscription, asyncHandler(a
     where: { exam_id: examId, status: { [Op.in]: ['pending', 'error'] } },
   });
 
+  const isFree = req.subscription?.plan === 'free' || req.subscription?.plan === 'trial';
   let ok = 0, fail = 0;
   for (const sub of subs) {
     const user = await User.findByPk(req.session.userId);
-    if (req.subscription?.plan === 'trial' && user.papers_graded_total >= TRIAL_LIMIT) {
-      req.flash('error', `Trial limit reached after grading ${ok} papers. Upgrade to continue.`);
+    if (isFree && user.papers_graded_total >= FREE_PAPER_LIMIT) {
+      req.flash('error', `Free limit reached after grading ${ok} papers. Upgrade to continue.`);
       break;
     }
     try {
@@ -113,7 +114,7 @@ router.get('/review/:submissionId', ensureAuth, ensureSubscription, asyncHandler
     where: { id: submissionId },
     include: [
       { model: Student },
-      { model: Exam, include: [{ model: Course, where: { user_id: req.session.userId } }] },
+      { model: Exam, required: true, include: [{ model: Course, required: true, where: { user_id: req.session.userId } }] },
       { model: Grade, include: [{ model: Rubric }] },
     ],
   });
@@ -149,15 +150,37 @@ router.get('/review/:submissionId', ensureAuth, ensureSubscription, asyncHandler
 
 router.post('/override/:gradeId', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const gradeId = requireInt(req.params.gradeId, 'Grade');
-  const grade = await assertGradeOwner(req, gradeId);
+  const grade = await Grade.findOne({
+    where: { id: gradeId },
+    include: [
+      { model: Rubric },
+      { model: Submission, include: [{ model: Exam, required: true, include: [{ model: Course, required: true, where: { user_id: req.session.userId } }] }] },
+    ],
+  });
+  if (!grade) throw new Error('ACCESS_DENIED');
 
   const { override_marks, override_note } = req.body;
+  const previousMarks = grade.awarded_marks;
   grade.override_marks = override_marks !== '' && override_marks != null
     ? Math.max(0, parseFloat(override_marks) || 0)
     : null;
   grade.override_note = optionalString(override_note, { maxLen: 1000 });
   grade.modified_by_session = req.sessionID;
+  grade.review_status = 'overridden';
   await grade.save();
+
+  if (grade.override_marks !== null) {
+    await OverrideLog.create({
+      grade_id: grade.id,
+      user_id: req.session.userId,
+      ocr_text: grade.ocr_text,
+      rubric_text: grade.Rubric ? grade.Rubric.question_text : '',
+      ai_grade: previousMarks,
+      ai_reasoning: grade.feedback,
+      professor_override: grade.override_marks,
+      override_note: grade.override_note,
+    }).catch(() => {});
+  }
 
   req.flash('success', `Q${grade.question_no} override saved.`);
   res.redirect(`/grading/review/${grade.submission_id}`);

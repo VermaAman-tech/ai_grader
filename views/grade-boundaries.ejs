@@ -1,0 +1,70 @@
+<div class="page-header">
+  <h1><i data-lucide="sliders"></i> Grade Boundaries & Curves</h1>
+  <p class="text-muted"><%= course.code %> — <%= exam.name %></p>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header"><i data-lucide="bar-chart-3"></i> Grade Distribution (<%= studentCount %> students)</div>
+    <div class="card-body">
+      <% Object.entries(distribution).forEach(function([label, count]) { %>
+        <div class="dist-row">
+          <span class="dist-label"><%= label %></span>
+          <div class="dist-bar-track">
+            <div class="dist-bar-fill" style="width: <%= studentCount > 0 ? (count/studentCount*100) : 0 %>%; background: <%= boundaries.find(b => b.label === label)?.color || '#666' %>"></div>
+          </div>
+          <span class="dist-count"><%= count %></span>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><i data-lucide="settings"></i> Edit Boundaries</div>
+    <div class="card-body">
+      <form method="POST" action="/grading/boundaries/<%= exam.id %>/save">
+        <table class="table table-sm">
+          <thead><tr><th>Grade</th><th>Min %</th><th>Max %</th><th>Color</th></tr></thead>
+          <tbody>
+            <% boundaries.forEach(function(b) { %>
+            <tr>
+              <td><input type="text" name="label" value="<%= b.label %>" class="input-sm" style="width:60px"></td>
+              <td><input type="number" name="min_pct" value="<%= b.min_pct %>" step="0.01" class="input-sm" style="width:70px"></td>
+              <td><input type="number" name="max_pct" value="<%= b.max_pct %>" step="0.01" class="input-sm" style="width:70px"></td>
+              <td><input type="color" name="color" value="<%= b.color || '#666666' %>" style="width:40px;height:28px;border:none;cursor:pointer"></td>
+            </tr>
+            <% }); %>
+          </tbody>
+        </table>
+        <div class="form-actions mt-2">
+          <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="save"></i> Save Boundaries</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="users"></i> Student Grades</div>
+  <div class="card-body">
+    <table class="table">
+      <thead><tr><th>Student</th><th>Roll Number</th><th>Total</th><th>Percentage</th><th>Grade</th></tr></thead>
+      <tbody>
+        <% scores.forEach(function(s) { %>
+        <tr>
+          <td><%= s.studentName %></td>
+          <td><%= s.rollNumber %></td>
+          <td><%= s.total %> / <%= s.maxPossible %></td>
+          <td><%= s.pct %>%</td>
+          <td><span class="grade-chip" style="background: <%= s.gradeColor %>"><%= s.grade %></span></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="action-bar mt-4">
+  <a href="/grading?exam_id=<%= exam.id %>" class="btn btn-outline"><i data-lucide="arrow-left"></i> Back to Grading</a>
+  <a href="/grading/email/<%= exam.id %>" class="btn btn-primary"><i data-lucide="mail"></i> Email Results</a>
+</div>

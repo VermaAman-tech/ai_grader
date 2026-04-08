@@ -4,7 +4,8 @@ const fs = require('fs');
 const ExcelJS = require('exceljs');
 const { ensureAuth, ensureSubscription, asyncHandler, assertExamOwner } = require('../middleware/auth');
 const { requireInt } = require('../middleware/validate');
-const { Course, Exam, Student, Submission, Grade, Rubric } = require('../models');
+const { Course, Exam, Student, Submission, Grade, Rubric, GradeBoundary } = require('../models');
+const { applyBoundaries, getDefaultBoundaries } = require('../services/normalizer');
 
 router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courses = await Course.findAll({ where: { user_id: req.session.userId }, order: [['name', 'ASC']] });
@@ -26,11 +27,14 @@ router.post('/download', ensureAuth, ensureSubscription, asyncHandler(async (req
     include: [{ model: Student }, { model: Grade }],
   });
 
+  let boundaries = await GradeBoundary.findAll({ where: { exam_id: examId }, order: [['min_pct', 'DESC']] });
+  if (!boundaries.length) boundaries = getDefaultBoundaries();
+
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Intelligrade';
 
   const ws = wb.addWorksheet('Gradebook');
-  const headers = ['Student', 'Roll Number', ...rubrics.map(r => `Q${r.question_no} (/${r.max_marks})`), 'Total', 'Percentage', 'Status'];
+  const headers = ['Student', 'Roll Number', ...rubrics.map(r => `Q${r.question_no} (/${r.max_marks})`), 'Total', 'Percentage', 'Grade', 'Status'];
   const headerRow = ws.addRow(headers);
   headerRow.eachCell(cell => {
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -54,7 +58,8 @@ router.post('/download', ensureAuth, ensureSubscription, asyncHandler(async (req
       }
     }
     const pct = maxTotal > 0 ? Math.round(total / maxTotal * 10000) / 100 : 0;
-    row.push(Math.round(total * 100) / 100, `${pct}%`, sub.status);
+    const gradeResult = boundaries.find(b => pct >= b.min_pct && pct <= b.max_pct);
+    row.push(Math.round(total * 100) / 100, `${pct}%`, gradeResult?.label || 'N/A', sub.status);
     ws.addRow(row);
   }
 

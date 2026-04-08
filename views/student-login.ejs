@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Login - Intelligrade</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="auth-body">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <%- include('partials/logo', { logoSize: 36, logoId: 'slogin' }) %>
+        <h2>Student Portal</h2>
+        <p>Sign in with your enrolled email to view grades, submit regrade requests, and track performance</p>
+      </div>
+
+      <% if (typeof error !== 'undefined' && error && error.length) { %>
+        <% error.forEach(function(msg) { %><div class="alert alert-error"><%= msg %></div><% }); %>
+      <% } %>
+      <% if (typeof success !== 'undefined' && success && success.length) { %>
+        <% success.forEach(function(msg) { %><div class="alert alert-success"><%= msg %></div><% }); %>
+      <% } %>
+
+      <% if (typeof step === 'undefined' || step === 'email') { %>
+        <!-- Step 1: Enter Email -->
+        <form method="POST" action="/student/request-otp">
+          <div class="form-group">
+            <label><i data-lucide="mail" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> Enrolled Email</label>
+            <input type="email" name="email" class="form-control" placeholder="your.email@university.edu" required autofocus>
+            <small style="opacity:0.6;display:block;margin-top:4px">Your professor must have added you to the course roster</small>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Send OTP</button>
+        </form>
+
+      <% } else if (step === 'otp') { %>
+        <!-- Step 2: Enter OTP -->
+        <div style="background:var(--primary-container,#e3f0ff);border-radius:8px;padding:0.75rem 1rem;margin-bottom:1rem;font-size:0.85rem">
+          OTP sent to <strong><%= email %></strong>
+        </div>
+
+        <form method="POST" action="/student/verify-otp">
+          <div class="form-group">
+            <label><i data-lucide="key-round" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> One-Time Password</label>
+            <input type="text" name="otp" class="form-control" placeholder="6-digit code" maxlength="6" pattern="[0-9]{6}" required autofocus style="font-size:1.5rem;letter-spacing:0.5rem;text-align:center">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Verify & Sign In</button>
+        </form>
+
+        <% if (typeof mockOTP !== 'undefined' && mockOTP) { %>
+          <div style="background:var(--surface-container-low);border:1px dashed var(--outline-variant);border-radius:8px;padding:0.75rem;margin-top:1rem;text-align:center">
+            <small style="opacity:0.6">Dev Mode OTP:</small>
+            <div style="font-size:1.5rem;font-weight:700;letter-spacing:0.5rem;color:var(--primary)"><%= mockOTP %></div>
+          </div>
+        <% } %>
+
+        <form method="POST" action="/student/resend-otp" style="text-align:center;margin-top:0.75rem">
+          <button type="submit" class="btn btn-sm btn-outline">Resend OTP</button>
+        </form>
+
+        <div style="text-align:center;margin-top:0.5rem">
+          <a href="/student/login" style="opacity:0.7;font-size:0.8rem">Use a different email</a>
+        </div>
+      <% } %>
+
+      <div style="text-align:center;margin-top:1.5rem">
+        <a href="/login" style="opacity:0.7;font-size:0.875rem">Professor login</a>
+        &middot;
+        <a href="/" style="opacity:0.7;font-size:0.875rem">Home</a>
+      </div>
+    </div>
+  </div>
+  <script>
+    const t = localStorage.getItem('ig-theme');
+    if (t) document.documentElement.setAttribute('data-theme', t);
+    lucide.createIcons();
+  </script>
+</body>
+</html>

@@ -9,16 +9,20 @@
     <div class="card course-card">
       <div class="card-body">
         <div class="course-code"><%= c.code %></div>
-        <h3><%= c.name %></h3>
+        <h3><a href="/courses/<%= c.id %>" class="course-title-link"><%= c.name %></a></h3>
+        <% if (c.description) { %><p class="course-desc"><%= c.description.slice(0, 100) %><%= c.description.length > 100 ? '...' : '' %></p><% } %>
         <div class="course-meta">
           <span><i data-lucide="calendar"></i> <%= c.semester || 'N/A' %></span>
           <% if (c.section) { %><span><i data-lucide="hash"></i> <%= c.section %></span><% } %>
+          <% if (c.credits) { %><span><i data-lucide="award"></i> <%= c.credits %> cr</span><% } %>
+          <% if (c.department) { %><span><i data-lucide="building"></i> <%= c.department.slice(0,20) %></span><% } %>
         </div>
         <div class="course-stats">
           <span><i data-lucide="file-text"></i> <%= c.examCount %> exams</span>
           <span><i data-lucide="users"></i> <%= c.studentCount %> students</span>
         </div>
         <div class="card-actions">
+          <a href="/courses/<%= c.id %>" class="btn btn-sm btn-primary">View</a>
           <a href="/exams?course_id=<%= c.id %>" class="btn btn-sm btn-outline">Exams</a>
           <a href="/roster?course_id=<%= c.id %>" class="btn btn-sm btn-outline">Roster</a>
           <form method="POST" action="/courses/<%= c.id %>/delete" style="display:inline" onsubmit="return confirm('Delete this course and all its data?')">
@@ -39,7 +43,7 @@
 <% } %>
 
 <dialog id="addCourseModal" class="modal">
-  <div class="modal-content">
+  <div class="modal-content" style="max-width:600px">
     <div class="modal-header">
       <h3>New Course</h3>
       <button class="modal-close" onclick="this.closest('dialog').close()">&times;</button>
@@ -50,7 +54,14 @@
         <div class="form-group"><label>Course Code</label><input type="text" name="code" required placeholder="CS101"></div>
         <div class="form-group"><label>Semester</label><input type="text" name="semester" placeholder="Fall 2026"></div>
       </div>
-      <div class="form-group"><label>Section (optional)</label><input type="text" name="section" placeholder="A"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Department</label><input type="text" name="department" placeholder="Computer Science"></div>
+        <div class="form-group" style="flex:0 0 100px"><label>Credits</label><input type="number" name="credits" placeholder="4" min="1" max="10"></div>
+        <div class="form-group" style="flex:0 0 100px"><label>Section</label><input type="text" name="section" placeholder="A"></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea name="description" rows="2" placeholder="Brief course description..."></textarea></div>
+      <div class="form-group"><label>Learning Objectives</label><textarea name="objectives" rows="3" placeholder="1. Understand fundamental data structures&#10;2. Implement sorting algorithms&#10;3. Analyze time and space complexity"></textarea></div>
+      <div class="form-group"><label>Syllabus / Course Outline</label><textarea name="syllabus" rows="3" placeholder="Unit 1: Introduction to Data Structures&#10;Unit 2: Arrays and Linked Lists&#10;Unit 3: Trees and Graphs"></textarea></div>
       <div class="form-actions"><button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="btn btn-primary">Create Course</button></div>
     </form>
   </div>

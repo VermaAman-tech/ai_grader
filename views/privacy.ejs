@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy - Intelligrade</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="auth-body auth-body--legal">
+  <div class="auth-container auth-container--legal">
+    <div class="auth-card legal-doc-card">
+      <a href="/" class="legal-back"><i data-lucide="arrow-left"></i> Back to Home</a>
+      <article class="legal-doc">
+        <h1>Privacy Policy</h1>
+        <p class="legal-updated">Last updated: April 6, 2026</p>
+
+        <h2>1. Data We Collect</h2>
+        <ul>
+          <li><strong>Account Information:</strong> Full name, email address, phone number, institution name, department, role.</li>
+          <li><strong>Exam Data:</strong> Course details, exam configurations, rubric definitions, student rosters.</li>
+          <li><strong>Uploaded Files:</strong> Student answer sheet PDFs, reference materials for AI analysis.</li>
+          <li><strong>Grading Data:</strong> AI-generated grades, feedback, confidence scores, manual overrides.</li>
+          <li><strong>Usage Data:</strong> Session information, page visits, feature usage patterns.</li>
+          <li><strong>Payment Data:</strong> Processed by Stripe — we do not store credit card numbers.</li>
+        </ul>
+
+        <h2>2. How We Use Your Data</h2>
+        <ul>
+          <li>To provide AI-powered grading, analytics, and exam design services.</li>
+          <li>To generate knowledge graphs, performance insights, and teaching recommendations.</li>
+          <li>To authenticate and manage your account and subscription.</li>
+          <li>To send OTP verification codes and optional grade reports to students.</li>
+          <li>To improve our AI models and platform features (aggregated, anonymized data only).</li>
+        </ul>
+
+        <h2>3. Data Storage and Security</h2>
+        <ul>
+          <li>Data is stored in a secure SQLite database on our servers.</li>
+          <li>Passwords are hashed using bcrypt with salt rounds.</li>
+          <li>Sessions use httpOnly, sameSite cookies with secure flag in production.</li>
+          <li>Uploaded files are stored in restricted server directories with access controls.</li>
+          <li>Rate limiting is applied to prevent abuse.</li>
+        </ul>
+
+        <h2>4. Third-Party Services</h2>
+        <ul>
+          <li><strong>Hugging Face:</strong> AI language models for grading, rubric generation, and analytics. Uploaded answer text may be sent to these models for processing.</li>
+          <li><strong>Stripe:</strong> Payment processing for subscriptions. Subject to <a href="https://stripe.com/privacy" target="_blank">Stripe's Privacy Policy</a>.</li>
+        </ul>
+
+        <h2>5. Data Retention</h2>
+        <ul>
+          <li>Account data is retained as long as your account is active.</li>
+          <li>Uploaded PDFs and grading data are retained for the duration of your subscription.</li>
+          <li>After account deletion or subscription cancellation, data is retained for 30 days before permanent removal.</li>
+          <li>Anonymized, aggregated analytics may be retained indefinitely for service improvement.</li>
+        </ul>
+
+        <h2>6. Your Rights</h2>
+        <ul>
+          <li><strong>Access:</strong> Request a copy of your data at any time.</li>
+          <li><strong>Correction:</strong> Update inaccurate information through your account settings.</li>
+          <li><strong>Deletion:</strong> Request complete deletion of your account and associated data.</li>
+          <li><strong>Export:</strong> Download your grading data in Excel/CSV format via the Export feature.</li>
+          <li><strong>Portability:</strong> Your exam and grading data can be exported and used elsewhere.</li>
+        </ul>
+
+        <h2>7. Children's Privacy</h2>
+        <p>Intelligrade is designed for use by educators (teachers, professors, administrators). Student data uploaded to the platform is the responsibility of the educator. We do not knowingly collect data directly from children under 13.</p>
+
+        <h2>8. Changes to This Policy</h2>
+        <p>We may update this Privacy Policy periodically. Material changes will be communicated via email or in-app notification. Continued use constitutes acceptance.</p>
+
+        <h2>9. Contact</h2>
+        <p>For privacy-related inquiries, contact us at <strong>privacy@intelligrade.space</strong>.</p>
+      </article>
+    </div>
+  </div>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

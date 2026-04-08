@@ -1,0 +1,66 @@
+<div class="page-header">
+  <h1><i data-lucide="brain"></i> Student Learning Reports</h1>
+  <p class="text-muted">Per-student concept mastery analysis and personalized learning gap reports</p>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/student-reports/generate" class="inline-form">
+    <label>Course:</label>
+    <select id="srCourse" onchange="updateSrExams()">
+      <option value="">-- Select Course --</option>
+      <% courses.forEach(function(c) { %>
+        <option value="<%= c.id %>"><%= c.code %> - <%= c.name %></option>
+      <% }); %>
+    </select>
+    <label>Exam:</label>
+    <select name="exam_id" id="srExam" required>
+      <option value="">-- Select Exam --</option>
+    </select>
+    <button class="btn btn-primary btn-sm"><i data-lucide="bar-chart-3"></i> Generate Reports</button>
+  </form>
+</div>
+
+<% if (typeof reports !== 'undefined' && reports && reports.length) { %>
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="users"></i> <%= reports.length %> Student Reports — <%= exam.name %></div>
+  <div class="card-body">
+    <table class="table">
+      <thead><tr><th>Student</th><th>Roll</th><th>Score</th><th>%</th><th>Weak Areas</th><th>Strengths</th><th></th></tr></thead>
+      <tbody>
+        <% reports.forEach(function(r) { %>
+        <tr>
+          <td><strong><%= r.student.name %></strong></td>
+          <td><%= r.student.roll_number || '-' %></td>
+          <td><%= r.total %> / <%= r.maxPossible %></td>
+          <td><span class="<%= r.pct >= 60 ? 'text-success' : r.pct >= 40 ? 'text-warning' : 'text-danger' %>"><%= r.pct %>%</span></td>
+          <td><%= r.weakTopics.length ? r.weakTopics.map(t => t.split(':')[0]).join(', ') : 'None' %></td>
+          <td><%= r.strongTopics.length ? r.strongTopics.map(t => t.split(':')[0]).join(', ') : '-' %></td>
+          <td><a href="/student-reports/detail/<%= r.student.id %>/<%= exam.id %>" class="btn btn-sm btn-outline"><i data-lucide="file-text"></i> Full Report</a></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } else if (typeof reports !== 'undefined' && reports) { %>
+  <div class="empty-state"><i data-lucide="bar-chart-3"></i><h3>No graded submissions</h3><p>Grade submissions first, then generate learning reports.</p></div>
+<% } else { %>
+  <div class="empty-state"><i data-lucide="brain"></i><h3>Select an exam</h3><p>Choose a course and exam to generate per-student learning reports with AI-powered gap analysis.</p></div>
+<% } %>
+
+<script>
+const srExams = {};
+<% courses.forEach(function(c) { %>
+  srExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+<% }); %>
+function updateSrExams() {
+  const cid = document.getElementById('srCourse').value;
+  const sel = document.getElementById('srExam');
+  sel.innerHTML = '<option value="">-- Select Exam --</option>';
+  (srExams[cid] || []).forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id; opt.textContent = e.name;
+    sel.appendChild(opt);
+  });
+}
+</script>

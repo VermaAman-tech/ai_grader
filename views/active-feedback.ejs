@@ -1,0 +1,93 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="hand-heart"></i> Active Feedback</h1>
+    <p class="page-desc">Collect real-time student feedback during class sessions — understanding checks, confusion signals, and comments</p>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/active-feedback" style="display:flex;gap:0.5rem;align-items:center">
+    <select name="course_id" class="form-control" onchange="this.form.submit()" style="max-width:350px">
+      <option value="">Select a course...</option>
+      <% courses.forEach(c => { %>
+        <option value="<%= c.id %>" <%= selectedCourseId == c.id ? 'selected' : '' %>><%= c.code %> — <%= c.name %></option>
+      <% }); %>
+    </select>
+  </form>
+</div>
+
+<% if (selectedCourseId) { %>
+  <% if (feedbackStats.overall) { %>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin:1rem 0">
+      <div class="stat-card">
+        <div class="stat-value"><%= feedbackStats.overall.totalFeedback %></div>
+        <div class="stat-label">Total Responses</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= feedbackStats.overall.avgRating || 'N/A' %></div>
+        <div class="stat-label">Avg Understanding (1-5)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= feedbackStats.overall.totalComments %></div>
+        <div class="stat-label">Written Comments</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value"><%= sessions.length %></div>
+        <div class="stat-label">Sessions Tracked</div>
+      </div>
+    </div>
+  <% } %>
+
+  <h3 style="margin-top:1.5rem">Session Feedback</h3>
+  <% if (sessions.length === 0) { %>
+    <div class="empty-state">
+      <i data-lucide="hand-heart"></i>
+      <p>No class sessions found. Create sessions in Class Sessions to start collecting feedback.</p>
+    </div>
+  <% } else { %>
+    <div style="display:grid;gap:0.75rem">
+      <% sessions.forEach(ses => {
+        const stats = feedbackStats[ses.id] || {};
+      %>
+        <div class="card">
+          <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+            <div>
+              <strong><%= ses.title %></strong>
+              <div style="font-size:0.8rem;opacity:0.6"><%= ses.session_date %> · <%= ses.status %></div>
+            </div>
+            <div style="display:flex;gap:1rem;align-items:center">
+              <div style="text-align:center">
+                <div style="font-size:1.2rem;font-weight:700"><%= stats.count || 0 %></div>
+                <div style="font-size:0.65rem;opacity:0.6">responses</div>
+              </div>
+              <% if (stats.avgRating) { %>
+                <div style="text-align:center">
+                  <div style="font-size:1.2rem;font-weight:700;color:<%= parseFloat(stats.avgRating) >= 3.5 ? 'var(--success,#10b981)' : parseFloat(stats.avgRating) >= 2.5 ? '#f59e0b' : 'var(--error)' %>"><%= stats.avgRating %>/5</div>
+                  <div style="font-size:0.65rem;opacity:0.6">avg rating</div>
+                </div>
+              <% } %>
+              <% if (ses.status === 'in_progress') { %>
+                <a href="/active-feedback/live/<%= ses.id %>" class="btn btn-primary btn-sm" target="_blank">Live View</a>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% } %>
+
+  <div class="card" style="margin-top:1.5rem">
+    <div class="card-body">
+      <h3><i data-lucide="qr-code"></i> Student Feedback Link</h3>
+      <p style="font-size:0.85rem;opacity:0.7">Share this link with students to collect anonymous feedback during class:</p>
+      <div style="background:var(--surface-container-low);border-radius:8px;padding:0.75rem;font-family:monospace;font-size:0.85rem;word-break:break-all">
+        <%= typeof req !== 'undefined' ? '' : '' %>/student/feedback/<%= selectedCourseId %>
+      </div>
+    </div>
+  </div>
+<% } else { %>
+  <div class="empty-state" style="margin-top:2rem">
+    <i data-lucide="hand-heart"></i>
+    <p>Select a course to view and manage active feedback</p>
+  </div>
+<% } %>

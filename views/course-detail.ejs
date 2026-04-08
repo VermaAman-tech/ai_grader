@@ -1,0 +1,94 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="book-open"></i> <%= course.code %> — <%= course.name %></h1>
+    <div class="page-meta">
+      <% if (course.semester) { %><span class="meta-chip"><i data-lucide="calendar"></i> <%= course.semester %></span><% } %>
+      <% if (course.section) { %><span class="meta-chip"><i data-lucide="hash"></i> Section <%= course.section %></span><% } %>
+      <% if (course.credits) { %><span class="meta-chip"><i data-lucide="award"></i> <%= course.credits %> Credits</span><% } %>
+      <% if (course.department) { %><span class="meta-chip"><i data-lucide="building"></i> <%= course.department %></span><% } %>
+      <span class="meta-chip"><i data-lucide="file-text"></i> <%= course.examCount %> exams</span>
+      <span class="meta-chip"><i data-lucide="users"></i> <%= course.studentCount %> students</span>
+    </div>
+  </div>
+  <button class="btn btn-outline" onclick="document.getElementById('editCourseModal').showModal()"><i data-lucide="edit-3"></i> Edit</button>
+</div>
+
+<div class="grid-2">
+  <% if (course.description) { %>
+  <div class="card">
+    <div class="card-header"><i data-lucide="info"></i> Description</div>
+    <div class="card-body"><p class="prose"><%= course.description %></p></div>
+  </div>
+  <% } %>
+
+  <% if (course.objectives) { %>
+  <div class="card">
+    <div class="card-header"><i data-lucide="target"></i> Learning Objectives</div>
+    <div class="card-body"><div class="prose"><%- course.objectives.replace(/\n/g, '<br>') %></div></div>
+  </div>
+  <% } %>
+</div>
+
+<% if (course.syllabus) { %>
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="list"></i> Syllabus / Course Outline</div>
+  <div class="card-body"><div class="prose"><%- course.syllabus.replace(/\n/g, '<br>') %></div></div>
+</div>
+<% } %>
+
+<% if (exams.length) { %>
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="file-text"></i> Exams (<%= exams.length %>)</div>
+  <div class="card-body">
+    <table class="table">
+      <thead><tr><th>Exam</th><th>Type</th><th>Total Marks</th><th>Created</th><th></th></tr></thead>
+      <tbody>
+        <% exams.forEach(function(e) { %>
+        <tr>
+          <td><strong><%= e.name %></strong></td>
+          <td><span class="meta-chip"><%= e.exam_type %></span></td>
+          <td><%= e.total_marks %></td>
+          <td><%= new Date(e.created_at).toLocaleDateString() %></td>
+          <td>
+            <a href="/rubric?exam_id=<%= e.id %>" class="btn btn-sm btn-outline">Rubric</a>
+            <a href="/grading?exam_id=<%= e.id %>" class="btn btn-sm btn-outline">Grade</a>
+          </td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<div class="action-bar mt-4">
+  <a href="/courses" class="btn btn-outline"><i data-lucide="arrow-left"></i> All Courses</a>
+  <div style="display:flex;gap:8px;">
+    <a href="/roster?course_id=<%= course.id %>" class="btn btn-outline"><i data-lucide="users"></i> Roster</a>
+    <a href="/exam-design" class="btn btn-primary"><i data-lucide="wand-2"></i> Design Exam</a>
+  </div>
+</div>
+
+<dialog id="editCourseModal" class="modal">
+  <div class="modal-content" style="max-width:600px">
+    <div class="modal-header"><h3>Edit Course</h3><button class="modal-close" onclick="this.closest('dialog').close()">&times;</button></div>
+    <form method="POST" action="/courses/<%= course.id %>/update">
+      <div class="form-row">
+        <div class="form-group"><label>Course Name</label><input type="text" name="name" required value="<%= course.name %>"></div>
+        <div class="form-group" style="flex:0 0 120px"><label>Code</label><input type="text" name="code" required value="<%= course.code %>"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Semester</label><input type="text" name="semester" value="<%= course.semester || '' %>"></div>
+        <div class="form-group"><label>Section</label><input type="text" name="section" value="<%= course.section || '' %>"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Department</label><input type="text" name="department" value="<%= course.department || '' %>"></div>
+        <div class="form-group" style="flex:0 0 100px"><label>Credits</label><input type="number" name="credits" value="<%= course.credits || '' %>" min="1" max="10"></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea name="description" rows="3" placeholder="Brief course description..."><%= course.description || '' %></textarea></div>
+      <div class="form-group"><label>Learning Objectives</label><textarea name="objectives" rows="4" placeholder="1. Understand data structures&#10;2. Implement sorting algorithms&#10;3. Analyze algorithm complexity..."><%= course.objectives || '' %></textarea></div>
+      <div class="form-group"><label>Syllabus / Course Outline</label><textarea name="syllabus" rows="5" placeholder="Unit 1: Introduction to Data Structures&#10;Unit 2: Arrays and Linked Lists&#10;Unit 3: Trees and Graphs..."><%= course.syllabus || '' %></textarea></div>
+      <div class="form-actions"><button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="btn btn-primary">Save Changes</button></div>
+    </form>
+  </div>
+</dialog>

@@ -1,0 +1,238 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="message-square-warning"></i> Crib / Regrade Portal</h1>
+    <p class="page-sub">Review and resolve student regrade requests across your courses</p>
+  </div>
+</div>
+
+<!-- ── Filter Bar ── -->
+<div class="filter-bar">
+  <form method="GET" action="/cribs" class="filter-row" style="display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;width:100%">
+    <div class="filter-group">
+      <label for="cribCourseSel">Course</label>
+      <select name="course_id_sel" id="cribCourseSel" class="form-control">
+        <option value="">Select course…</option>
+        <% courses.forEach(c => { %>
+          <option value="<%= c.id %>"><%= c.code %> — <%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="cribExamSel">Exam</label>
+      <select name="exam_id" id="cribExamSel" class="form-control">
+        <option value="">Select exam…</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="search"></i> Load Cribs</button>
+  </form>
+</div>
+
+<% if (selectedExamId) { %>
+
+  <!-- ── KPI Stats ── -->
+  <div class="kpi-grid kpi-grid-4">
+    <div class="kpi-card">
+      <div class="kpi-icon blue"><i data-lucide="inbox"></i></div>
+      <div class="kpi-data">
+        <div class="kpi-value"><%= stats.total %></div>
+        <div class="kpi-label">Total Cribs</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon amber"><i data-lucide="clock"></i></div>
+      <div class="kpi-data">
+        <div class="kpi-value"><%= stats.pending %></div>
+        <div class="kpi-label">Pending</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon green"><i data-lucide="check-circle-2"></i></div>
+      <div class="kpi-data">
+        <div class="kpi-value"><%= stats.accepted %></div>
+        <div class="kpi-label">Accepted</div>
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon red"><i data-lucide="x-circle"></i></div>
+      <div class="kpi-data">
+        <div class="kpi-value"><%= stats.rejected %></div>
+        <div class="kpi-label">Rejected</div>
+      </div>
+    </div>
+  </div>
+
+  <% if (cribs.length > 0) { %>
+    <% cribs.forEach(crib => { %>
+      <%
+        const currentMarks = crib.Grade?.override_marks != null ? crib.Grade.override_marks : crib.Grade?.awarded_marks;
+        const maxMarks = crib.Grade?.Rubric?.max_marks;
+        const hasAI = crib.ai_confidence != null;
+        const statusClass = crib.status === 'pending' ? 'warning' : crib.status === 'accepted' ? 'success' : 'danger';
+        const confLevel = hasAI ? (crib.ai_confidence < 0.4 ? 'low' : crib.ai_confidence < 0.7 ? 'med' : 'ok') : '';
+      %>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <strong><%= crib.Student?.name || 'Unknown Student' %></strong>
+            <span class="badge badge-outline"><%= crib.Student?.roll_number || '—' %></span>
+            <span class="badge badge-info">Q<%= crib.question_no %></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <small style="color:var(--muted)"><i data-lucide="calendar" style="width:13px;height:13px;vertical-align:-2px"></i> <%= new Date(crib.createdAt).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) %></small>
+            <span class="badge badge-<%= statusClass %>"><%= crib.status.toUpperCase() %></span>
+          </div>
+        </div>
+
+        <div class="card-body">
+
+          <!-- Student Reasoning -->
+          <div style="background:var(--surface-container-low);border-left:3px solid var(--primary);border-radius:6px;padding:14px 16px;margin-bottom:20px">
+            <div style="font-size:0.78rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:6px">Student's Reasoning</div>
+            <p style="margin:0;line-height:1.6"><%= crib.student_reasoning %></p>
+          </div>
+
+          <!-- Marks + AI side by side -->
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start;margin-bottom:20px">
+
+            <!-- Current Marks -->
+            <div style="text-align:center;background:var(--surface-container-lowest);border:1px solid var(--outline-variant);border-radius:var(--radius-lg);padding:16px 24px;min-width:120px">
+              <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:6px">Current Marks</div>
+              <div style="font-family:var(--font-display);font-size:1.8rem;font-weight:800;letter-spacing:-0.02em;color:var(--on-surface)">
+                <%= currentMarks != null ? currentMarks : '—' %><span style="font-size:1rem;font-weight:500;color:var(--muted)"> / <%= maxMarks || '—' %></span>
+              </div>
+            </div>
+
+            <!-- AI Analysis -->
+            <% if (hasAI) { %>
+              <div style="background:var(--surface-container-lowest);border:1px solid var(--outline-variant);border-radius:var(--radius-lg);padding:16px 20px">
+                <div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);margin-bottom:10px">
+                  <i data-lucide="sparkles" style="width:13px;height:13px;vertical-align:-2px"></i> AI Analysis
+                </div>
+                <div style="display:flex;gap:20px;flex-wrap:wrap;align-items:center">
+                  <div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px">Confidence</div>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div style="width:80px;height:6px;background:var(--outline-variant);border-radius:3px;overflow:hidden">
+                        <div style="width:<%= (crib.ai_confidence * 100).toFixed(0) %>%;height:100%;border-radius:3px" class="conf-<%= confLevel %>"></div>
+                      </div>
+                      <span class="confidence-badge conf-<%= confLevel %>"><%= (crib.ai_confidence * 100).toFixed(0) %>%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px">Recommendation</div>
+                    <span class="badge badge-<%= crib.ai_recommendation === 'uphold' ? 'success' : 'danger' %>">
+                      <i data-lucide="<%= crib.ai_recommendation === 'uphold' ? 'thumbs-up' : 'thumbs-down' %>" style="width:12px;height:12px"></i>
+                      <%= crib.ai_recommendation === 'uphold' ? 'Likely Valid' : 'Likely Invalid' %>
+                    </span>
+                  </div>
+                  <div>
+                    <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px">Suggested Marks</div>
+                    <strong style="font-size:1.1rem"><%= crib.ai_suggested_marks %></strong><span style="color:var(--muted)"> / <%= maxMarks || '—' %></span>
+                  </div>
+                </div>
+                <% if (crib.ai_reasoning) { %>
+                  <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--outline-variant);font-size:0.85rem;line-height:1.55;color:var(--on-surface-variant)">
+                    <%= crib.ai_reasoning %>
+                  </div>
+                <% } %>
+              </div>
+            <% } else { %>
+              <div></div>
+            <% } %>
+          </div>
+
+          <!-- Action Area -->
+          <% if (crib.status === 'pending') { %>
+            <div style="border-top:1px solid var(--outline-variant);padding-top:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">
+              <% if (!hasAI) { %>
+                <form method="POST" action="/cribs/ai-screen/<%= crib.id %>">
+                  <button class="btn btn-sm btn-outline"><i data-lucide="sparkles"></i> AI Screen</button>
+                </form>
+              <% } %>
+
+              <form method="POST" action="/cribs/resolve/<%= crib.id %>" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+                <input type="hidden" name="action" value="accept">
+                <div class="form-group" style="margin-bottom:0">
+                  <label style="font-size:0.72rem;margin-bottom:3px">New Marks</label>
+                  <input type="number" name="resolved_marks" step="0.5" min="0" max="<%= maxMarks || 100 %>"
+                         placeholder="0" class="form-control" style="width:90px;padding:6px 10px;font-size:0.85rem"
+                         <% if (hasAI && crib.ai_suggested_marks != null) { %>value="<%= crib.ai_suggested_marks %>"<% } %>>
+                </div>
+                <div class="form-group" style="margin-bottom:0">
+                  <label style="font-size:0.72rem;margin-bottom:3px">Note</label>
+                  <input type="text" name="resolved_note" placeholder="Optional note…" class="form-control" style="width:160px;padding:6px 10px;font-size:0.85rem">
+                </div>
+                <button class="btn btn-sm btn-success"><i data-lucide="check"></i> Accept</button>
+              </form>
+
+              <form method="POST" action="/cribs/resolve/<%= crib.id %>" style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+                <input type="hidden" name="action" value="reject">
+                <div class="form-group" style="margin-bottom:0">
+                  <label style="font-size:0.72rem;margin-bottom:3px">Reason</label>
+                  <input type="text" name="resolved_note" placeholder="Rejection reason…" class="form-control" style="width:180px;padding:6px 10px;font-size:0.85rem">
+                </div>
+                <button class="btn btn-sm btn-danger"><i data-lucide="x"></i> Reject</button>
+              </form>
+            </div>
+          <% } else { %>
+            <div style="border-top:1px solid var(--outline-variant);padding-top:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+              <span class="badge badge-<%= statusClass %>" style="font-size:0.78rem">
+                <i data-lucide="<%= crib.status === 'accepted' ? 'check-circle-2' : 'x-circle' %>" style="width:13px;height:13px"></i>
+                <%= crib.status === 'accepted' ? 'Accepted' : 'Rejected' %>
+              </span>
+              <% if (crib.resolved_marks != null) { %>
+                <span style="font-size:0.88rem"><strong>Final Marks:</strong> <%= crib.resolved_marks %> / <%= maxMarks || '—' %></span>
+              <% } %>
+              <% if (crib.resolved_note) { %>
+                <span style="color:var(--on-surface-variant);font-size:0.85rem">— <%= crib.resolved_note %></span>
+              <% } else { %>
+                <span style="color:var(--muted);font-size:0.85rem">No resolution note</span>
+              <% } %>
+            </div>
+          <% } %>
+
+        </div>
+      </div>
+    <% }) %>
+
+  <% } else { %>
+    <div class="empty-state card">
+      <i data-lucide="check-circle-2"></i>
+      <h3>No Cribs Found</h3>
+      <p>There are no regrade requests for <strong><%= examName %></strong> yet.</p>
+    </div>
+  <% } %>
+
+<% } else { %>
+  <div class="empty-state card">
+    <i data-lucide="message-square-warning"></i>
+    <h3>Select an Exam</h3>
+    <p>Choose a course and exam above to view student regrade requests.</p>
+  </div>
+<% } %>
+
+<script>
+  const allExams = <%- JSON.stringify(allExams) %>;
+  const selExam = '<%= selectedExamId || "" %>';
+  document.getElementById('cribCourseSel').addEventListener('change', function () {
+    const sel = document.getElementById('cribExamSel');
+    sel.innerHTML = '<option value="">Select exam…</option>';
+    (allExams[this.value] || []).forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = e.name;
+      if (String(e.id) === selExam) opt.selected = true;
+      sel.appendChild(opt);
+    });
+  });
+  if (selExam) {
+    const cs = document.getElementById('cribCourseSel');
+    for (const [cid, exams] of Object.entries(allExams)) {
+      if (exams.find(e => String(e.id) === selExam)) {
+        cs.value = cid;
+        cs.dispatchEvent(new Event('change'));
+        break;
+      }
+    }
+  }
+</script>

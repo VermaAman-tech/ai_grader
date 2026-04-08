@@ -130,10 +130,17 @@ class OCRService {
   _buildPatterns(questionNo) {
     const normalized = questionNo.trim().toLowerCase().replace(/\s+/g, '');
     const token = normalized.startsWith('q') ? normalized.slice(1) : normalized;
+    const esc = this._escapeRegex(token);
     return [
-      new RegExp(`\\b${this._escapeRegex(normalized)}\\b`, 'i'),
-      new RegExp(`\\bq\\s*${this._escapeRegex(token)}\\b`, 'i'),
-      new RegExp(`\\bquestion\\s*${this._escapeRegex(token)}\\b`, 'i'),
+      new RegExp(`\\b${this._escapeRegex(normalized)}[\\s.):]*`, 'i'),
+      new RegExp(`\\bq\\.?\\s*${esc}\\b`, 'i'),
+      new RegExp(`\\bque\\.?\\s*${esc}\\b`, 'i'),
+      new RegExp(`\\bquestion\\s*#?\\s*${esc}\\b`, 'i'),
+      new RegExp(`\\bans\\.?\\s*${esc}\\b`, 'i'),
+      new RegExp(`\\banswer\\s*#?\\s*${esc}\\b`, 'i'),
+      new RegExp(`\\(\\s*${esc}\\s*\\)`, 'i'),
+      new RegExp(`^\\s*${esc}\\s*[.):]`, 'im'),
+      new RegExp(`\\b${esc}\\s*\\)`, 'i'),
     ];
   }
 

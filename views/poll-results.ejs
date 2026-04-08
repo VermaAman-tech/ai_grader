@@ -1,0 +1,64 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="bar-chart-3"></i> Poll Results</h1>
+    <p class="page-sub"><%= course.code %> — <%= poll.question %></p>
+  </div>
+  <a href="/live-polls?course_id=<%= course.id %>" class="btn btn-outline btn-sm"><i data-lucide="arrow-left"></i> Back</a>
+</div>
+
+<div class="stats-grid" style="margin-bottom:1.5rem">
+  <div class="stat-card">
+    <div class="stat-label">Room Code</div>
+    <div class="stat-value" style="font-family:monospace;color:var(--accent)"><%= poll.room_code %></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Total Responses</div>
+    <div class="stat-value"><%= totalResponses %></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Status</div>
+    <div class="stat-value"><span class="badge badge-<%= poll.is_active ? 'success' : 'outline' %>"><%= poll.is_active ? 'LIVE' : 'Closed' %></span></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Type</div>
+    <div class="stat-value"><%= poll.poll_type %></div>
+  </div>
+</div>
+
+<div class="card" style="padding:1.5rem">
+  <h3 style="margin-bottom:1.5rem">Response Distribution</h3>
+  <% if (options.length > 0) { %>
+    <% options.forEach((opt, i) => { %>
+      <div style="margin-bottom:1rem">
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.25rem">
+          <strong><%= opt %></strong>
+          <span><%= responseCounts[opt] || 0 %> (<%= totalResponses > 0 ? ((responseCounts[opt] || 0) / totalResponses * 100).toFixed(0) : 0 %>%)</span>
+        </div>
+        <div style="width:100%;height:28px;background:var(--bg-secondary);border-radius:6px;overflow:hidden">
+          <div style="width:<%= totalResponses > 0 ? ((responseCounts[opt] || 0) / totalResponses * 100) : 0 %>%;height:100%;background:var(--accent);border-radius:6px;transition:width 0.5s"></div>
+        </div>
+      </div>
+    <% }) %>
+  <% } else { %>
+    <% Object.entries(responseCounts).forEach(([key, count]) => { %>
+      <div style="margin-bottom:0.75rem;display:flex;justify-content:space-between">
+        <span><%= key %></span>
+        <strong><%= count %></strong>
+      </div>
+    <% }) %>
+  <% } %>
+</div>
+
+<% if (poll.is_active) { %>
+<script>
+  setInterval(async () => {
+    try {
+      const res = await fetch('/live-polls/api/results/<%= poll.id %>');
+      if (res.ok) {
+        const data = await res.json();
+        document.querySelector('.stat-value:nth-of-type(1)').textContent = data.total;
+      }
+    } catch {}
+  }, 3000);
+</script>
+<% } %>

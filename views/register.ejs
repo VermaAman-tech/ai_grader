@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,28 +10,82 @@
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="auth-body">
-  <div class="auth-container">
-    <div class="auth-card auth-card-wide">
+  <div class="auth-container" style="max-width: 520px;">
+    <div class="auth-card" style="padding: 36px 32px;">
       <div class="auth-brand">
-        <i data-lucide="brain-circuit"></i>
+        <%- include('partials/logo', { logoSize: 44, logoId: 'auth' }) %>
         <h1>Intelligrade</h1>
       </div>
       <h2>Create your account</h2>
-      <p class="auth-subtitle">Use your college email to get started</p>
+      <p class="auth-subtitle">10 free evaluations. No card required.</p>
 
       <% if (typeof error !== 'undefined' && error && error.length) { %>
-        <% error.forEach(function(msg) { %><div class="alert alert-error"><%= msg %></div><% }); %>
+        <% error.forEach(function(msg) { %>
+          <div class="alert alert-error" style="margin: 0 0 12px; font-size: 0.85rem;"><i data-lucide="alert-circle"></i> <%= msg %></div>
+        <% }); %>
       <% } %>
 
       <form method="POST" action="/register" class="auth-form" id="registerForm">
+
+        <div class="form-group">
+          <label>I am registering as</label>
+          <div class="reg-role-grid">
+            <label class="reg-role">
+              <input type="radio" name="role" value="individual" checked>
+              <div class="reg-role-body">
+                <i data-lucide="user"></i>
+                <div>
+                  <strong>Individual</strong>
+                  <small>Teacher or professor</small>
+                </div>
+              </div>
+            </label>
+            <label class="reg-role">
+              <input type="radio" name="role" value="professor">
+              <div class="reg-role-body">
+                <i data-lucide="graduation-cap"></i>
+                <div>
+                  <strong>College Faculty</strong>
+                  <small>Join your college</small>
+                </div>
+              </div>
+            </label>
+            <label class="reg-role">
+              <input type="radio" name="role" value="teacher">
+              <div class="reg-role-body">
+                <i data-lucide="school"></i>
+                <div>
+                  <strong>School Teacher</strong>
+                  <small>Join your school</small>
+                </div>
+              </div>
+            </label>
+            <label class="reg-role">
+              <input type="radio" name="role" value="admin">
+              <div class="reg-role-body">
+                <i data-lucide="building-2"></i>
+                <div>
+                  <strong>Admin</strong>
+                  <small>Register institution</small>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Full Name</label>
+          <div class="input-icon"><i data-lucide="user"></i><input type="text" name="full_name" required placeholder="Dr. Jane Smith"></div>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
-            <label>Full Name</label>
-            <div class="input-icon"><i data-lucide="user"></i><input type="text" name="full_name" required placeholder="Dr. Jane Smith"></div>
+            <label>Email</label>
+            <div class="input-icon"><i data-lucide="mail"></i><input type="email" name="email" required placeholder="you@example.com"></div>
           </div>
           <div class="form-group">
-            <label>College Email</label>
-            <div class="input-icon"><i data-lucide="mail"></i><input type="email" name="email" required placeholder="jane@university.edu"></div>
+            <label>Phone <span class="text-muted">(optional)</span></label>
+            <div class="input-icon"><i data-lucide="phone"></i><input type="tel" name="phone" placeholder="+91 98765 43210"></div>
           </div>
         </div>
 
@@ -41,55 +95,57 @@
             <div class="input-icon"><i data-lucide="lock"></i><input type="password" name="password" required minlength="6" placeholder="Min 6 characters"></div>
           </div>
           <div class="form-group">
-            <label>Confirm Password</label>
-            <div class="input-icon"><i data-lucide="lock"></i><input type="password" name="confirm_password" required placeholder="Confirm password"></div>
+            <label>Confirm</label>
+            <div class="input-icon"><i data-lucide="lock"></i><input type="password" name="confirm_password" required placeholder="Re-enter password"></div>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>I am registering as</label>
-          <div class="radio-group">
-            <label class="radio-card">
-              <input type="radio" name="role" value="admin" checked>
-              <div class="radio-card-body">
-                <i data-lucide="building-2"></i>
-                <strong>College Admin</strong>
-                <small>Register my institution</small>
-              </div>
+        <div class="form-group" id="adminTypeGroup" style="display:none;">
+          <label>Institution Type</label>
+          <div class="form-row" style="gap:8px;">
+            <label class="reg-inst-opt">
+              <input type="radio" name="admin_type" value="college" checked>
+              <span>College / University</span>
             </label>
-            <label class="radio-card">
-              <input type="radio" name="role" value="professor">
-              <div class="radio-card-body">
-                <i data-lucide="graduation-cap"></i>
-                <strong>Professor</strong>
-                <small>Join your college (must be registered)</small>
-              </div>
+            <label class="reg-inst-opt">
+              <input type="radio" name="admin_type" value="school">
+              <span>School (K-12)</span>
             </label>
           </div>
         </div>
 
-        <div class="form-group" id="collegeNameGroup">
-          <label>College / Institution Name</label>
-          <div class="input-icon"><i data-lucide="building-2"></i><input type="text" name="college_name" placeholder="University of Technology"></div>
+        <div class="form-group" id="institutionNameGroup" style="display:none;">
+          <label>Institution Name</label>
+          <div class="input-icon"><i data-lucide="building-2"></i><input type="text" name="institution_name" placeholder="University of Technology"></div>
         </div>
 
         <div class="form-group">
-          <label>Department (optional)</label>
+          <label>Department <span class="text-muted">(optional)</span></label>
           <div class="input-icon"><i data-lucide="briefcase"></i><input type="text" name="department" placeholder="Computer Science"></div>
         </div>
 
-        <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+        <button type="submit" class="btn btn-primary btn-block" style="margin-top: 6px; padding: 12px; font-size: 0.95rem;">Create Account &amp; Verify Email</button>
       </form>
       <p class="auth-footer-text">Already registered? <a href="/login">Sign in</a></p>
     </div>
   </div>
   <script>
     lucide.createIcons();
-    document.querySelectorAll('input[name="role"]').forEach(r => {
-      r.addEventListener('change', () => {
-        document.getElementById('collegeNameGroup').style.display = r.value === 'admin' && r.checked ? 'block' : (document.querySelector('input[name="role"]:checked').value === 'admin' ? 'block' : 'none');
-      });
-    });
+    const t = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', t);
+
+    const roleInputs = document.querySelectorAll('input[name="role"]');
+    const adminGroup = document.getElementById('adminTypeGroup');
+    const instGroup = document.getElementById('institutionNameGroup');
+
+    function updateForm() {
+      const role = document.querySelector('input[name="role"]:checked').value;
+      const showAdmin = role === 'admin';
+      adminGroup.style.display = showAdmin ? 'block' : 'none';
+      instGroup.style.display = showAdmin ? 'block' : 'none';
+    }
+    roleInputs.forEach(r => r.addEventListener('change', updateForm));
+    updateForm();
   </script>
 </body>
 </html>

@@ -16,11 +16,17 @@
       <option value="">-- Select Exam --</option>
     </select>
   </form>
-  <% if (selectedExamId && submissions.some(s => s.status === 'pending' || s.status === 'error')) { %>
-    <form method="POST" action="/grading/grade-all/<%= selectedExamId %>" style="display:inline">
-      <button class="btn btn-primary btn-sm" onclick="return confirm('Grade all pending submissions? This may take several minutes.')"><i data-lucide="zap"></i> Grade All Pending</button>
-    </form>
-  <% } %>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <% if (selectedExamId && submissions.some(s => s.status === 'pending' || s.status === 'error')) { %>
+      <form method="POST" action="/grading/grade-all/<%= selectedExamId %>" style="display:inline">
+        <button class="btn btn-primary btn-sm" onclick="return confirm('Grade all pending submissions? This may take several minutes.')"><i data-lucide="zap"></i> Grade All Pending</button>
+      </form>
+    <% } %>
+    <% if (selectedExamId && submissions.some(s => s.status === 'done')) { %>
+      <a href="/grading/boundaries/<%= selectedExamId %>" class="btn btn-outline btn-sm"><i data-lucide="sliders"></i> Grade Boundaries</a>
+      <a href="/grading/email/<%= selectedExamId %>" class="btn btn-outline btn-sm"><i data-lucide="mail"></i> Email Results</a>
+    <% } %>
+  </div>
 </div>
 
 <% if (!selectedExamId) { %>

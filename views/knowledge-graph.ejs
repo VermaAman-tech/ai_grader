@@ -1,0 +1,186 @@
+<div class="page-header">
+  <h1><i data-lucide="network"></i> Knowledge Graph</h1>
+  <% if (data) { %>
+    <button class="btn btn-outline btn-sm" onclick="window.print()"><i data-lucide="download"></i> Download PDF</button>
+  <% } %>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/knowledge-graph" class="inline-form">
+    <label>Course:</label>
+    <select name="course_id" onchange="this.form.submit()">
+      <option value="">-- Select Course --</option>
+      <% courses.forEach(function(c) { %>
+        <option value="<%= c.id %>" <%= selectedCourseId === c.id ? 'selected' : '' %>><%= c.code %> - <%= c.name %></option>
+      <% }); %>
+    </select>
+  </form>
+</div>
+
+<% if (!data) { %>
+  <div class="empty-state"><i data-lucide="network"></i><h3>Select a course</h3><p>Choose a course with graded exams to see concept mastery across all exams.</p></div>
+<% } else if (data.concepts.length === 0) { %>
+  <div class="empty-state"><i data-lucide="network"></i><h3>No concepts detected</h3><p>Add rubric questions to your exams first. Concepts are auto-extracted from question text.</p></div>
+<% } else { %>
+
+<!-- KPIs -->
+<div class="kpi-grid kpi-grid-4">
+  <div class="kpi-card">
+    <div class="kpi-icon <%= data.overallMastery >= 60 ? 'green' : data.overallMastery >= 40 ? 'amber' : 'red' %>">
+      <i data-lucide="gauge"></i>
+    </div>
+    <div class="kpi-data">
+      <div class="kpi-value"><%= data.overallMastery %>%</div>
+      <div class="kpi-label">Overall Mastery</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon green"><i data-lucide="check-circle"></i></div>
+    <div class="kpi-data">
+      <div class="kpi-value"><%= data.strongConcepts.length %></div>
+      <div class="kpi-label">Strong Concepts (&ge;75%)</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon red"><i data-lucide="alert-triangle"></i></div>
+    <div class="kpi-data">
+      <div class="kpi-value"><%= data.weakConcepts.length %></div>
+      <div class="kpi-label">Weak Concepts (&lt;50%)</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon blue"><i data-lucide="layers"></i></div>
+    <div class="kpi-data">
+      <div class="kpi-value"><%= data.concepts.length %></div>
+      <div class="kpi-label">Total Concepts</div>
+    </div>
+  </div>
+</div>
+
+<!-- Concept Mastery Chart -->
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header"><i data-lucide="bar-chart-3"></i> Concept Mastery</div>
+    <div class="card-body">
+      <div class="distribution-chart">
+        <% data.concepts.sort((a, b) => b.mastery - a.mastery).forEach(function(c) { %>
+          <div class="dist-bar-group">
+            <div class="dist-label" title="<%= c.category %>"><%= c.name %></div>
+            <div class="dist-bar-bg">
+              <div class="dist-bar-fill" style="width: <%= c.mastery %>%; background: <%= c.mastery >= 75 ? '#1a7d3f' : c.mastery >= 50 ? '#b08600' : '#ba1a1a' %>">
+                <%= c.mastery %>%
+              </div>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Weak Concepts Alert -->
+  <div class="card">
+    <div class="card-header" style="color: var(--error);"><i data-lucide="alert-triangle"></i> Areas Needing Attention</div>
+    <div class="card-body">
+      <% if (data.weakConcepts.length === 0) { %>
+        <p class="text-muted" style="padding: 16px;">All concepts are above 50% mastery. Great work!</p>
+      <% } else { %>
+        <% data.weakConcepts.sort((a, b) => a.mastery - b.mastery).forEach(function(c) { %>
+          <div class="list-item" style="padding: 10px 0; border-bottom: 1px solid var(--outline-variant);">
+            <div>
+              <strong><%= c.name %></strong>
+              <span class="badge" style="background: var(--error); color: white; margin-left: 8px;"><%= c.mastery %>%</span>
+              <div style="font-size: 0.82rem; color: var(--on-surface-variant); margin-top: 2px;">
+                Category: <%= c.category %> &middot; Tested in <%= c.questionCount %> question<%= c.questionCount !== 1 ? 's' : '' %>
+              </div>
+            </div>
+          </div>
+        <% }); %>
+        <div style="margin-top: 12px; padding: 12px; background: rgba(186,26,26,0.06); border-radius: var(--radius-lg); font-size: 0.84rem;">
+          <strong>Recommendation:</strong> Consider revisiting these topics in upcoming lectures, assigning additional practice problems, or scheduling review sessions focused on these weak areas.
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<!-- Exam × Concept Heatmap -->
+<% if (data.exams.length > 1) { %>
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="grid-3x3"></i> Concept Performance Across Exams</div>
+  <div class="card-body" style="overflow-x: auto;">
+    <table class="table table-compact">
+      <thead>
+        <tr>
+          <th>Concept</th>
+          <th>Category</th>
+          <% data.exams.forEach(function(exam) { %>
+            <th style="text-align:center;"><%= exam.name %></th>
+          <% }); %>
+          <th style="text-align:center;">Overall</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% data.concepts.forEach(function(c) { %>
+          <tr>
+            <td><strong><%= c.name %></strong></td>
+            <td><span class="badge"><%= c.category %></span></td>
+            <% c.examScores.forEach(function(es) { %>
+              <td style="text-align:center;">
+                <% if (es.pct !== null) { %>
+                  <span class="heatmap-cell <%= es.pct >= 75 ? 'heat-high' : es.pct >= 50 ? 'heat-mid' : 'heat-low' %>"><%= es.pct %>%</span>
+                <% } else { %>
+                  <span class="heatmap-cell heat-none">—</span>
+                <% } %>
+              </td>
+            <% }); %>
+            <td style="text-align:center;">
+              <span class="heatmap-cell <%= c.mastery >= 75 ? 'heat-high' : c.mastery >= 50 ? 'heat-mid' : 'heat-low' %>"><%= c.mastery %>%</span>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<!-- Student Concept Performance -->
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="users"></i> Student Concept Performance</div>
+  <div class="card-body" style="overflow-x: auto;">
+    <table class="table table-compact">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Roll</th>
+          <% data.concepts.slice(0, 10).forEach(function(c) { %>
+            <th style="text-align:center; font-size: 0.75rem;" title="<%= c.category %>"><%= c.name %></th>
+          <% }); %>
+        </tr>
+      </thead>
+      <tbody>
+        <% data.students.forEach(function(s) { %>
+          <tr>
+            <td><strong><%= s.name %></strong></td>
+            <td><%= s.roll %></td>
+            <% data.concepts.slice(0, 10).forEach(function(c) { %>
+              <td style="text-align:center;">
+                <% const pct = s.conceptScores[c.id]; %>
+                <% if (pct !== null && pct !== undefined) { %>
+                  <span class="heatmap-cell <%= pct >= 75 ? 'heat-high' : pct >= 50 ? 'heat-mid' : 'heat-low' %>"><%= pct %>%</span>
+                <% } else { %>
+                  <span class="heatmap-cell heat-none">—</span>
+                <% } %>
+              </td>
+            <% }); %>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    <% if (data.concepts.length > 10) { %>
+      <p class="text-muted" style="margin-top: 8px; font-size: 0.82rem;">Showing top 10 concepts. Full data available in PDF download.</p>
+    <% } %>
+  </div>
+</div>
+
+<% } %>

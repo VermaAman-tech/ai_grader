@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discussions - <%= course.code %> - Intelligrade</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="auth-body" style="background:var(--surface-container-lowest,#fafafa)">
+  <div style="max-width:800px;margin:0 auto;padding:1.5rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+      <div>
+        <h2 style="margin:0"><i data-lucide="messages-square" style="width:24px;height:24px;display:inline-block;vertical-align:middle"></i> <%= course.code %> Discussions</h2>
+        <p style="margin:0.25rem 0 0;opacity:0.7;font-size:0.85rem"><%= course.name %></p>
+      </div>
+      <a href="/student/course/<%= course.id %>" class="btn btn-outline btn-sm">Back to Course</a>
+    </div>
+
+    <% if (threads.length === 0) { %>
+      <div class="empty-state"><i data-lucide="messages-square"></i><p>No discussions yet.</p></div>
+    <% } else { %>
+      <div style="display:grid;gap:0.75rem">
+        <% threads.forEach(t => { %>
+          <a href="/student/discussion-thread/<%= t.id %>" class="card" style="text-decoration:none;color:inherit;display:block">
+            <div class="card-body" style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <% if (t.is_pinned) { %><span class="badge badge-outline" style="font-size:0.65rem;margin-right:4px">Pinned</span><% } %>
+                <strong><%= t.title %></strong>
+                <div style="font-size:0.75rem;opacity:0.6">
+                  by <%= t.User ? t.User.full_name : 'Anonymous' %> &middot;
+                  <%= t.DiscussionPosts ? t.DiscussionPosts.length : 0 %> replies &middot;
+                  <%= t.view_count %> views
+                </div>
+              </div>
+              <% if (t.is_resolved) { %>
+                <span class="badge" style="background:var(--success,#10b981);color:#fff;font-size:0.65rem">Resolved</span>
+              <% } %>
+            </div>
+          </a>
+        <% }); %>
+      </div>
+    <% } %>
+  </div>
+  <script>lucide.createIcons();</script>
+</body>
+</html>

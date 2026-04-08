@@ -1,0 +1,74 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="bar-chart-3"></i> TA Performance Dashboard</h1>
+    <p class="page-sub">Metrics across all your courses</p>
+  </div>
+  <a href="/ta" class="btn btn-outline btn-sm"><i data-lucide="arrow-left"></i> Back to TA Management</a>
+</div>
+
+<% if (tas.length > 0) { %>
+  <div class="stats-grid" style="margin-bottom:1.5rem">
+    <div class="stat-card">
+      <div class="stat-label">Total TAs</div>
+      <div class="stat-value"><%= tas.length %></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Graded</div>
+      <div class="stat-value"><%= tas.reduce((s, t) => s + t.submissions_graded, 0) %></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Override Rate</div>
+      <div class="stat-value"><%= tas.length ? (tas.reduce((s, t) => s + t.override_rate, 0) / tas.length * 100).toFixed(1) : 0 %>%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Avg Consistency</div>
+      <div class="stat-value"><%= tas.length ? (tas.reduce((s, t) => s + t.consistency_score, 0) / tas.length * 100).toFixed(0) : 0 %>%</div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>TA</th>
+          <th>Course</th>
+          <th>Role</th>
+          <th>Graded</th>
+          <th>Avg Time</th>
+          <th>Override Rate</th>
+          <th>Consistency</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% tas.forEach(ta => { %>
+          <tr>
+            <td><strong><%= ta.User?.full_name || ta.email %></strong></td>
+            <td><%= ta.Course?.code %> — <%= ta.Course?.name %></td>
+            <td><span class="badge <%= ta.role === 'head_ta' ? 'badge-pro' : 'badge-info' %>"><%= ta.role === 'head_ta' ? 'Head TA' : 'TA' %></span></td>
+            <td><%= ta.submissions_graded %></td>
+            <td><%= ta.avg_grading_time > 0 ? ta.avg_grading_time.toFixed(1) + 'min' : '—' %></td>
+            <td>
+              <span class="<%= ta.override_rate > 0.3 ? 'text-danger' : ta.override_rate > 0.15 ? 'text-warning' : 'text-success' %>">
+                <%= (ta.override_rate * 100).toFixed(1) %>%
+              </span>
+            </td>
+            <td>
+              <div class="progress-bar-mini">
+                <div style="width:<%= (ta.consistency_score * 100) %>%;background:var(--success)"></div>
+              </div>
+              <small><%= (ta.consistency_score * 100).toFixed(0) %>%</small>
+            </td>
+            <td><span class="badge badge-<%= ta.status === 'active' ? 'success' : 'warning' %>"><%= ta.status %></span></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } else { %>
+  <div class="empty-state card">
+    <i data-lucide="bar-chart-3" style="width:48px;height:48px;opacity:0.4"></i>
+    <h3>No TA Data</h3>
+    <p>Invite TAs to your courses to see performance metrics here.</p>
+  </div>
+<% } %>

@@ -1,51 +1,100 @@
-const GRADING_SYSTEM_PROMPT = `You are a strict, fair, and thorough university exam grader. You receive:
-- A question with its rubric (question text, max marks, key points with marks)
-- A student's answer text (OCR-extracted from their handwritten/typed submission)
+const GRADING_SYSTEM_PROMPT = `You are an expert university exam grader with deep experience in grading handwritten, typed, and multimodal student answers. You are strict, fair, thorough, and methodical.
 
-Your job is to grade the answer precisely against the rubric. You MUST:
+## YOUR INPUTS
+1. A QUESTION with its rubric: question number, text, max marks, key points (each with allocated marks), and grading notes
+2. A STUDENT'S ANSWER: OCR-extracted text from their handwritten or typed submission PDF. The text may be messy, out of order, or contain OCR artifacts.
 
-1. SCORE: Award marks strictly based on whether key points are addressed. Partial credit is allowed when a point is partially covered.
-2. FEEDBACK: Write a detailed, constructive summary explaining exactly why each mark was awarded or deducted. Be specific -- cite what the student wrote or failed to write.
-3. MATCHED POINTS: List rubric key points the student successfully addressed.
-4. MISSING POINTS: List rubric key points the student missed or answered incorrectly.
-5. CONFIDENCE: Rate 0.0-1.0 how confident you are in this grade (lower if OCR text is unclear).
+## CRITICAL: ANSWER EXTRACTION STRATEGY
+Before grading, you must FIRST identify and isolate the student's answer for THIS specific question from the provided text. The student's answer sheet may contain answers to multiple questions mixed together. Follow this process:
 
-Grading principles:
-- Be strict but fair. Do not give benefit of the doubt for vague answers.
-- If the answer text is empty or unreadable, score 0 and note OCR issues.
-- Accept equivalent terminology and correct reasoning even if wording differs from the rubric.
-- Penalize factually incorrect statements.
-- Partial marks for partially correct points.
+Step 1 — LOCATE THE ANSWER: Search the text for markers like "Q1", "Question 1", "Ans 1", "(1)", "1.", "1)", or any variation that corresponds to the question number. Also look for content that semantically matches the question topic.
+Step 2 — DETERMINE BOUNDARIES: The answer for this question ends where the next question begins (look for "Q2", "2.", etc.) or at a clear topic change.
+Step 3 — HANDLE CONTINUATION: Students often write answers across multiple pages. If you see "[Page X]" markers, stitch the answer together logically.
+Step 4 — EXTRACT RELEVANT CONTENT: Ignore content that clearly belongs to other questions. Only grade what pertains to THIS question.
 
-Return ONLY valid JSON in this exact schema:
+## GRADING METHODOLOGY
+For each rubric key point, systematically check:
+1. Did the student address this point? (Look for equivalent terminology, not just exact wording)
+2. How completely did they cover it? (Full marks, partial marks, or zero)
+3. Is their statement factually correct?
+4. Did they provide sufficient depth/explanation?
+
+Award marks as follows:
+- Full marks for the key point: Concept fully and correctly addressed
+- Partial marks (50-80%): Concept partially addressed or with minor errors
+- Minimal marks (10-40%): Vague mention without proper explanation
+- Zero: Not addressed or factually incorrect
+
+## MULTIMODAL ANSWER TYPES
+Students may answer with drawings, diagrams, circuits, equations, graphs, tables, or chemical structures. The OCR text will describe these as best it can. Grade them as follows:
+
+**DIAGRAMS / FLOWCHARTS**: Look for described elements — boxes, arrows, labels, connections. Check if all required components are present and correctly connected. Common OCR patterns: arrows shown as "->", "-->", boxes described by their labels.
+
+**CIRCUIT DIAGRAMS**: Check for components mentioned (R1, C1, L1, transistor, op-amp, etc.), connections (series/parallel), ground symbols, voltage/current labels, feedback loops. Award marks per component/connection present.
+
+**MATHEMATICAL EQUATIONS / DERIVATIONS**: Look for mathematical symbols, step-by-step working, intermediate results, and final answer. Check each derivation step for correctness. Common OCR: "=" sign, fractions shown as "a/b", exponents as "x^2", integrals as ∫ or "integral".
+
+**GRAPHS / PLOTS**: Look for axis labels (x-axis, y-axis), scale markings, plotted points or curve descriptions, title, legend. Check shape of described curve against expected shape.
+
+**TABLES**: Look for structured data with rows/columns. Verify header labels, data values, and computed results.
+
+**CHEMICAL STRUCTURES / REACTIONS**: Look for element symbols, bonds, reaction arrows, products/reactants, balancing coefficients.
+
+If the OCR text says something like "[DIAGRAM]", "[FIGURE]", "[DRAWING]", or "[TABLE]" — look at surrounding text for descriptions of what was drawn. If nothing is available, note this in feedback and reduce confidence.
+
+## OUTPUT FORMAT
+Return ONLY valid JSON (no markdown, no explanation outside JSON):
 {
-  "score": <number>,
-  "feedback": "<detailed constructive feedback>",
-  "matched_points": ["<point1>", "<point2>"],
-  "missing_points": ["<point1>", "<point2>"],
-  "confidence": <0.0-1.0>
-}`;
+  "score": <number between 0 and max_marks>,
+  "feedback": "<detailed constructive feedback explaining WHY each mark was awarded or deducted — reference specific parts of the student's answer>",
+  "matched_points": ["<key point 1 that student addressed>", "<key point 2>"],
+  "missing_points": ["<key point student missed>", "<key point with errors>"],
+  "confidence": <0.0 to 1.0 — lower if OCR quality is poor or answer location is uncertain>
+}
+
+## GRADING PRINCIPLES
+- Be strict but fair. Do not assume the student meant something they did not write.
+- Accept equivalent terminology and correct reasoning even if different from rubric wording.
+- Penalize factually incorrect statements — wrong information is worse than missing information.
+- If answer text is empty, unreadable, or clearly not for this question: score 0, confidence 0.1.
+- Partial credit is always possible. Never round to nearest integer — use decimals.
+- If the student answered correctly using a different valid method than the rubric expects, award full marks.`;
 
 function buildGradingPrompt({ questionNo, questionText, maxMarks, keyPoints, gradingNotes, studentAnswer }) {
-  const bullets = (keyPoints || []).map(p => `- ${p.point} (${p.marks} marks)`).join('\n') || '- No explicit key points provided';
-  const notes = (gradingNotes || '').trim() || 'No extra notes';
+  const bullets = (keyPoints || []).map((p, i) =>
+    `  ${i + 1}. ${p.point} — [${p.marks} mark${p.marks !== 1 ? 's' : ''}]`
+  ).join('\n') || '  (No explicit key points — use your judgment based on question)';
+  const notes = (gradingNotes || '').trim();
+  const totalKeyMarks = (keyPoints || []).reduce((s, p) => s + (parseFloat(p.marks) || 0), 0);
 
-  return `Question: ${questionNo}
-Question text:
+  return `═══════════════════════════════════════
+QUESTION ${questionNo} — Grade this answer
+═══════════════════════════════════════
+
+QUESTION TEXT:
 ${questionText}
 
-Maximum marks: ${maxMarks}
+MAXIMUM MARKS: ${maxMarks}
+${totalKeyMarks !== maxMarks ? `(Key points sum to ${totalKeyMarks} marks)` : ''}
 
-Key points:
+RUBRIC KEY POINTS (grade against each one):
 ${bullets}
+${notes ? `\nSPECIAL GRADING INSTRUCTIONS:\n${notes}` : ''}
 
-Grading notes:
-${notes}
+═══════════════════════════════════════
+STUDENT'S ANSWER (OCR-extracted from PDF):
+═══════════════════════════════════════
 
-Student answer:
 ${studentAnswer}
 
-Return JSON exactly in the schema specified in the system prompt.`;
+═══════════════════════════════════════
+INSTRUCTIONS: 
+1. First, locate and extract ONLY the answer for Question ${questionNo} from the text above
+2. Grade each key point individually
+3. Sum up the marks
+4. Write detailed feedback
+5. Return JSON as specified in the system prompt
+═══════════════════════════════════════`;
 }
 
 class LLMService {
@@ -78,7 +127,7 @@ class LLMService {
       const raw = await this._callChat([
         { role: 'system', content: GRADING_SYSTEM_PROMPT },
         { role: 'user', content: prompt },
-      ], 0, 1500);
+      ], 0, 2000);
 
       const parsed = this._parseJson(raw);
       if (!parsed) {

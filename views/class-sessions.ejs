@@ -1,0 +1,144 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="calendar-clock"></i> Class Sessions</h1>
+    <p class="page-sub">Structured teaching journal — track concepts, polls, and notes per session</p>
+  </div>
+</div>
+
+<div class="filter-bar card">
+  <form method="GET" action="/class-sessions" class="filter-row">
+    <div class="filter-group">
+      <label>Course</label>
+      <select name="course_id" class="form-control" onchange="this.form.submit()">
+        <option value="">Select course…</option>
+        <% courses.forEach(c => { %>
+          <option value="<%= c.id %>" <%= selectedCourseId == c.id ? 'selected' : '' %>><%= c.code %> — <%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+  </form>
+</div>
+
+<% if (selectedCourseId) { %>
+  <% if ((typeof zoomUrl !== 'undefined' && zoomUrl) || (typeof teamsUrl !== 'undefined' && teamsUrl)) { %>
+    <div class="card" style="padding:1rem;margin-bottom:1rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+      <% if (zoomUrl) { %>
+        <a href="<%= zoomUrl %>" target="_blank" class="btn btn-sm" style="background:#2d8cff;color:#fff;display:flex;align-items:center;gap:0.4rem">
+          <i data-lucide="video" style="width:16px;height:16px"></i> Join Zoom Meeting
+        </a>
+      <% } %>
+      <% if (teamsUrl) { %>
+        <a href="<%= teamsUrl %>" target="_blank" class="btn btn-sm" style="background:#6264a7;color:#fff;display:flex;align-items:center;gap:0.4rem">
+          <i data-lucide="monitor" style="width:16px;height:16px"></i> Join Teams Meeting
+        </a>
+      <% } %>
+      <span style="font-size:0.8rem;opacity:0.7">Video meeting links configured via <a href="/integrations?course_id=<%= selectedCourseId %>">Integrations Hub</a></span>
+    </div>
+  <% } %>
+
+  <div class="card" style="padding:1.25rem;margin-bottom:1.5rem">
+    <h3 style="margin-bottom:1rem"><i data-lucide="plus-circle"></i> New Session</h3>
+    <form method="POST" action="/class-sessions/create">
+      <input type="hidden" name="course_id" value="<%= selectedCourseId %>">
+      <div class="form-row" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+        <div class="form-group" style="flex:1">
+          <label>Date</label>
+          <input type="date" name="session_date" class="form-control" value="<%= new Date().toISOString().split('T')[0] %>" required>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Title</label>
+          <input type="text" name="title" class="form-control" placeholder="e.g., Lecture 12 — Dynamic Programming">
+        </div>
+      </div>
+      <div class="form-row" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+        <div class="form-group" style="flex:1">
+          <label>Start Time</label>
+          <input type="time" name="start_time" class="form-control">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>End Time</label>
+          <input type="time" name="end_time" class="form-control">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Concepts Planned (comma-separated)</label>
+        <input type="text" name="concepts_planned" class="form-control" placeholder="e.g., Memoization, Tabulation, Knapsack Problem">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="plus"></i> Create Session</button>
+    </form>
+  </div>
+
+  <% if (sessions.length > 0) { %>
+    <% sessions.forEach(s => { %>
+      <div class="card" style="padding:1rem;margin-bottom:0.75rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
+          <div>
+            <strong><%= s.title || 'Untitled Session' %></strong>
+            <div style="margin-top:0.25rem">
+              <span class="badge badge-<%= s.status === 'completed' ? 'success' : s.status === 'in_progress' ? 'warning' : 'outline' %>"><%= s.status %></span>
+              <small style="margin-left:0.5rem"><%= new Date(s.session_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) %></small>
+              <% if (s.start_time) { %><small> &middot; <%= s.start_time %></small><% } %>
+              <% if (s.end_time) { %><small> — <%= s.end_time %></small><% } %>
+            </div>
+          </div>
+          <div style="display:flex;gap:0.5rem">
+            <% if (s.status === 'planned') { %>
+              <form method="POST" action="/class-sessions/start/<%= s.id %>">
+                <button class="btn btn-sm btn-success"><i data-lucide="play" style="width:14px;height:14px"></i> Start</button>
+              </form>
+            <% } else if (s.status === 'in_progress') { %>
+              <form method="POST" action="/class-sessions/end/<%= s.id %>">
+                <button class="btn btn-sm btn-danger"><i data-lucide="square" style="width:14px;height:14px"></i> End</button>
+              </form>
+            <% } %>
+          </div>
+        </div>
+
+        <% try { const cp = JSON.parse(s.concepts_planned || '[]'); if (cp.length) { %>
+          <div style="margin-top:0.5rem">
+            <small>Planned:</small>
+            <% cp.forEach(c => { %><span class="badge badge-outline" style="margin:1px"><%= c %></span><% }) %>
+          </div>
+        <% } } catch {} %>
+
+        <% try { const cc = JSON.parse(s.concepts_covered || '[]'); if (cc.length) { %>
+          <div style="margin-top:0.25rem">
+            <small>Covered:</small>
+            <% cc.forEach(c => { %><span class="badge badge-success" style="margin:1px"><%= c %></span><% }) %>
+          </div>
+        <% } } catch {} %>
+
+        <% if (s.professor_notes) { %>
+          <div style="margin-top:0.5rem;padding:0.5rem;background:var(--bg-secondary);border-radius:6px">
+            <small><strong>Notes:</strong> <%= s.professor_notes %></small>
+          </div>
+        <% } %>
+
+        <% if (s.status !== 'planned') { %>
+          <details style="margin-top:0.5rem">
+            <summary style="cursor:pointer"><small>Update session details</small></summary>
+            <form method="POST" action="/class-sessions/update/<%= s.id %>" style="margin-top:0.5rem">
+              <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <input type="text" name="concepts_covered" placeholder="Concepts covered (comma-separated)" class="form-control form-control-sm" style="flex:1">
+                <input type="text" name="professor_notes" placeholder="Session notes…" class="form-control form-control-sm" style="flex:1">
+                <button class="btn btn-sm btn-primary">Save</button>
+              </div>
+            </form>
+          </details>
+        <% } %>
+      </div>
+    <% }) %>
+  <% } else { %>
+    <div class="empty-state card">
+      <i data-lucide="calendar-clock" style="width:48px;height:48px;opacity:0.4"></i>
+      <h3>No Sessions</h3>
+      <p>Create your first class session above.</p>
+    </div>
+  <% } %>
+<% } else { %>
+  <div class="empty-state card">
+    <i data-lucide="calendar-clock" style="width:48px;height:48px;opacity:0.4"></i>
+    <h3>Select a Course</h3>
+    <p>Choose a course to manage class sessions.</p>
+  </div>
+<% } %>

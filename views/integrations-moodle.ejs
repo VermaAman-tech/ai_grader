@@ -1,0 +1,42 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="link-2"></i> Moodle LTI Integration</h1>
+    <p class="page-desc">Sync rosters, push grades, and import assignments from Moodle</p>
+  </div>
+</div>
+
+<div class="card" style="max-width:700px">
+  <div class="card-body">
+    <h3><i data-lucide="settings"></i> Connection Settings</h3>
+    <div style="background:var(--surface-container-low);border-radius:8px;padding:1rem;margin:1rem 0">
+      <p style="margin:0;font-size:0.9rem"><i data-lucide="info" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> LTI 1.3 integration requires your Moodle administrator to configure Intelligrade as an external tool.</p>
+      <div style="margin-top:0.75rem;display:grid;gap:0.5rem">
+        <div><strong>Tool URL:</strong> <code>https://intelligrade.space/integrations/moodle/lti</code></div>
+        <div><strong>Login URL:</strong> <code>https://intelligrade.space/integrations/moodle/login</code></div>
+        <div><strong>Public Key URL:</strong> <code>https://intelligrade.space/.well-known/jwks.json</code></div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.5rem"><i data-lucide="refresh-cw"></i> Sync Roster</h3>
+    <form method="POST" action="/integrations/moodle/sync" style="display:flex;gap:0.5rem;align-items:end">
+      <div style="flex:1">
+        <label style="font-size:0.8rem">Course</label>
+        <select name="course_id" class="form-control" style="padding:0.4rem;border-radius:6px;width:100%;border:1px solid var(--outline-variant)">
+          <% courses.forEach(c => { %><option value="<%= c.id %>"><%= c.code %> — <%= c.name %></option><% }); %>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Sync Roster</button>
+    </form>
+
+    <h3 style="margin-top:1.5rem"><i data-lucide="upload"></i> Push Grades to Moodle</h3>
+    <form method="POST" action="/integrations/moodle/push-grades" style="display:flex;gap:0.5rem;align-items:end">
+      <div style="flex:1">
+        <label style="font-size:0.8rem">Exam</label>
+        <select name="exam_id" class="form-control" style="padding:0.4rem;border-radius:6px;width:100%;border:1px solid var(--outline-variant)">
+          <option value="">Select exam...</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-outline btn-sm">Push Grades</button>
+    </form>
+  </div>
+</div>

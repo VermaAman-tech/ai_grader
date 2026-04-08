@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { ensureAuth, ensureSubscription, asyncHandler, assertExamOwner } = require('../middleware/auth');
 const { requireString, requireInt, requireFloat, optionalString } = require('../middleware/validate');
-const { Course, Exam, Rubric } = require('../models');
+const { Course, Exam, Rubric, IntegrationConfig } = require('../models');
 
 router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courses = await Course.findAll({ where: { user_id: req.session.userId }, order: [['name', 'ASC']] });
@@ -24,8 +24,14 @@ router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =>
       });
   }
 
+  let overleafUrl = null;
+  if (examInfo) {
+    const olCfg = await IntegrationConfig.findOne({ where: { provider: 'overleaf', course_id: examInfo.courseId, user_id: req.session.userId, is_active: true } });
+    if (olCfg) { try { overleafUrl = JSON.parse(olCfg.config).overleaf_project_url; } catch {} }
+  }
+
   res.locals.examId = examId;
-  res.render('rubric', { courses, allExams, rubrics, examInfo, selectedExamId: examId });
+  res.render('rubric', { courses, allExams, rubrics, examInfo, selectedExamId: examId, overleafUrl });
 }));
 
 router.post('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {

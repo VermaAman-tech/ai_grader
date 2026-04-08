@@ -1,0 +1,143 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="file-stack"></i> Course Documents</h1>
+    <p class="page-sub">Upload slides, notes, past papers — feeds AI context for smarter grading</p>
+  </div>
+</div>
+
+<div class="filter-bar card">
+  <form method="GET" action="/course-documents" class="filter-row">
+    <div class="filter-group">
+      <label>Course</label>
+      <select name="course_id" class="form-control" onchange="this.form.submit()">
+        <option value="">Select course…</option>
+        <% courses.forEach(c => { %>
+          <option value="<%= c.id %>" <%= selectedCourseId == c.id ? 'selected' : '' %>><%= c.code %> — <%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+  </form>
+</div>
+
+<% if (selectedCourseId) { %>
+  <div class="card" style="padding:1.25rem;margin-bottom:1.5rem">
+    <h3 style="margin-bottom:1rem"><i data-lucide="upload-cloud"></i> Upload Document</h3>
+    <form method="POST" action="/course-documents/upload" enctype="multipart/form-data">
+      <input type="hidden" name="course_id" value="<%= selectedCourseId %>">
+      <div class="form-row" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+        <div class="form-group" style="flex:2">
+          <label>Title</label>
+          <input type="text" name="title" class="form-control" placeholder="Document title">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Type</label>
+          <select name="doc_type" class="form-control">
+            <option value="slides">Lecture Slides</option>
+            <option value="notes">Notes</option>
+            <option value="past_paper">Past Paper</option>
+            <option value="model_answer">Model Answer</option>
+            <option value="syllabus">Syllabus</option>
+            <option value="assignment">Assignment</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>File (PDF, PPTX, DOCX, TXT)</label>
+        <input type="file" name="document" class="form-control" accept=".pdf,.pptx,.docx,.txt,.doc,.ppt" required>
+      </div>
+      <div class="form-group">
+        <label>Concept Tags (comma-separated)</label>
+        <input type="text" name="concept_tags" class="form-control" placeholder="e.g., Binary Trees, Sorting, Dynamic Programming">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="upload"></i> Upload & Index</button>
+    </form>
+  </div>
+
+  <% if (typeof notionUrl !== 'undefined' && notionUrl) { %>
+    <div class="card" style="padding:1rem;margin-bottom:1.5rem;border-left:3px solid #000">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem">
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <i data-lucide="file-text" style="width:18px;height:18px"></i>
+          <strong>Notion Course Wiki</strong>
+        </div>
+        <a href="<%= notionUrl %>" target="_blank" class="btn btn-outline btn-sm" style="font-size:0.75rem">
+          <i data-lucide="external-link" style="width:12px;height:12px"></i> Open in Notion
+        </a>
+      </div>
+      <iframe src="<%= notionUrl.replace('notion.so', 'notion.site') %>"
+              style="width:100%;height:350px;border:1px solid var(--outline-variant);border-radius:8px" loading="lazy" allowfullscreen></iframe>
+    </div>
+  <% } %>
+
+  <% if (typeof driveUrl !== 'undefined' && driveUrl) { %>
+    <div class="card" style="padding:1rem;margin-bottom:1.5rem;border-left:3px solid #4285f4">
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem">
+        <i data-lucide="hard-drive" style="width:18px;height:18px;color:#4285f4"></i>
+        <strong>Google Drive Folder</strong>
+        <a href="<%= driveUrl %>" target="_blank" class="btn btn-outline btn-sm" style="font-size:0.75rem;margin-left:auto">
+          <i data-lucide="external-link" style="width:12px;height:12px"></i> Open in Drive
+        </a>
+      </div>
+      <iframe src="<%= driveUrl.replace('/view', '/embeddedfolderview').includes('embeddedfolderview') ? driveUrl : driveUrl %>"
+              style="width:100%;height:250px;border:1px solid var(--outline-variant);border-radius:8px" loading="lazy"></iframe>
+    </div>
+  <% } %>
+
+  <% if (documents.length > 0) { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>File</th>
+            <th>Indexed</th>
+            <th>Tags</th>
+            <th>Uploaded</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% documents.forEach(doc => { %>
+            <tr>
+              <td><strong><%= doc.title %></strong></td>
+              <td><span class="badge badge-info"><%= doc.doc_type %></span></td>
+              <td><small><%= doc.file_name || '—' %></small></td>
+              <td>
+                <% if (doc.extracted_text && doc.extracted_text.length > 0) { %>
+                  <span class="badge badge-success"><%= (doc.extracted_text.length / 1000).toFixed(1) %>K chars</span>
+                <% } else { %>
+                  <span class="badge badge-warning">No text</span>
+                <% } %>
+              </td>
+              <td>
+                <% try { const tags = JSON.parse(doc.concept_tags || '[]'); tags.forEach(t => { %>
+                  <span class="badge badge-outline" style="margin:1px"><%= t %></span>
+                <% }); } catch {} %>
+              </td>
+              <td><small><%= new Date(doc.createdAt).toLocaleDateString() %></small></td>
+              <td>
+                <form method="POST" action="/course-documents/delete/<%= doc.id %>">
+                  <button class="btn btn-sm btn-danger" onclick="return confirm('Delete this document?')"><i data-lucide="trash-2" style="width:14px;height:14px"></i></button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } else { %>
+    <div class="empty-state card">
+      <i data-lucide="file-stack" style="width:48px;height:48px;opacity:0.4"></i>
+      <h3>No Documents</h3>
+      <p>Upload your first document to start building the course knowledge base.</p>
+    </div>
+  <% } %>
+<% } else { %>
+  <div class="empty-state card">
+    <i data-lucide="file-stack" style="width:48px;height:48px;opacity:0.4"></i>
+    <h3>Select a Course</h3>
+    <p>Choose a course to manage its document library.</p>
+  </div>
+<% } %>

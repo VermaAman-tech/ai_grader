@@ -1,0 +1,64 @@
+<div class="page-header">
+  <h1><i data-lucide="mail"></i> Email Results to Students</h1>
+  <p class="text-muted"><%= course.code %> — <%= exam.name %></p>
+</div>
+
+<% if (!emailConfigured) { %>
+<div class="alert alert-error"><i data-lucide="alert-triangle"></i><span>Email is not configured. Add SMTP_HOST, SMTP_USER, SMTP_PASS to your .env file to enable sending.</span></div>
+<% } %>
+
+<form method="POST" action="/grading/email/<%= exam.id %>/send" id="emailForm">
+  <div class="card">
+    <div class="card-header">
+      <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
+        <span><i data-lucide="users"></i> <%= students.length %> Graded Students</span>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-sm btn-outline" onclick="toggleAll(true)">Select All</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="toggleAll(false)">Deselect All</button>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <table class="table">
+        <thead><tr><th style="width:40px"><input type="checkbox" id="selectAllCb" checked onchange="toggleAll(this.checked)"></th><th>Student</th><th>Roll</th><th>Email</th><th>Score</th><th>Last Sent</th></tr></thead>
+        <tbody>
+          <% students.forEach(function(s) { %>
+          <tr>
+            <td><input type="checkbox" name="student_ids" value="<%= s.id %>" class="student-cb" <%= s.hasEmail ? 'checked' : 'disabled' %>></td>
+            <td><%= s.name %></td>
+            <td><%= s.roll %></td>
+            <td><%= s.email || '<span class="text-muted">No email</span>' %></td>
+            <td><strong><%= s.total %></strong> / <%= maxPossible %> (<%= s.pct %>%)</td>
+            <td><%= sentMap[s.id] ? new Date(sentMap[s.id]).toLocaleString() : '-' %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-header"><i data-lucide="settings"></i> Email Options</div>
+    <div class="card-body">
+      <label class="checkbox-label">
+        <input type="checkbox" name="include_feedback" checked>
+        Include AI-generated personalized study recommendations
+      </label>
+      <p class="form-hint">When enabled, each student receives personalized feedback on their weak areas with actionable study suggestions.</p>
+    </div>
+  </div>
+
+  <div class="action-bar mt-4">
+    <a href="/grading/boundaries/<%= exam.id %>" class="btn btn-outline"><i data-lucide="arrow-left"></i> Grade Boundaries</a>
+    <button type="submit" class="btn btn-primary" <%= !emailConfigured ? 'disabled' : '' %> onclick="return confirm('Send emails to all selected students?')">
+      <i data-lucide="send"></i> Send Emails
+    </button>
+  </div>
+</form>
+
+<script>
+function toggleAll(checked) {
+  document.querySelectorAll('.student-cb:not(:disabled)').forEach(cb => cb.checked = checked);
+  document.getElementById('selectAllCb').checked = checked;
+}
+</script>

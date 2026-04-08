@@ -1,0 +1,74 @@
+<div class="page-header">
+  <h1><i data-lucide="user"></i> Learning Report: <%= student.name %></h1>
+  <p class="text-muted"><%= course.code %> — <%= exam.name %></p>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header"><i data-lucide="award"></i> Performance Summary</div>
+    <div class="card-body" style="text-align:center;">
+      <div style="font-size:2.5rem;font-weight:800;color:var(--primary);"><%= total %> / <%= maxPossible %></div>
+      <div style="font-size:1.2rem;color:var(--on-surface-variant)"><%= pct %>%</div>
+      <div style="margin-top:12px">
+        <span class="grade-chip" style="background: <%= pct >= 80 ? '#1a7d3f' : pct >= 60 ? '#5b8fd9' : pct >= 40 ? '#d4760a' : '#ba1a1a' %>">
+          <%= pct >= 90 ? 'A+' : pct >= 80 ? 'A' : pct >= 70 ? 'B+' : pct >= 60 ? 'B' : pct >= 50 ? 'C' : pct >= 40 ? 'D' : 'F' %>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><i data-lucide="trending-up"></i> Performance Over Time</div>
+    <div class="card-body">
+      <% if (longitudinal.length > 1) { %>
+        <div class="longitudinal-chart">
+          <% longitudinal.forEach(function(l) { %>
+          <div class="longitudinal-item">
+            <div class="longitudinal-bar" style="height: <%= l.pct %>%"></div>
+            <div class="longitudinal-label"><%= l.examName.slice(0, 12) %></div>
+            <div class="longitudinal-val"><%= l.pct %>%</div>
+          </div>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <p class="text-muted">Only one exam graded. Longitudinal tracking will show trends after multiple exams.</p>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="list-checks"></i> Question-wise Breakdown</div>
+  <div class="card-body">
+    <table class="table">
+      <thead><tr><th>Q</th><th>Topic</th><th>Marks</th><th>%</th><th>Status</th><th>Feedback</th></tr></thead>
+      <tbody>
+        <% questionResults.forEach(function(q) { %>
+        <tr class="<%= q.weak ? 'row-weak' : '' %>">
+          <td><strong>Q<%= q.questionNo %></strong></td>
+          <td><%= q.questionText.slice(0, 60) %><%= q.questionText.length > 60 ? '...' : '' %></td>
+          <td><%= q.awarded %> / <%= q.max %></td>
+          <td><%= q.pct %>%</td>
+          <td>
+            <% if (q.pct >= 80) { %><span class="status-badge status-done">Strong</span>
+            <% } else if (q.pct >= 50) { %><span class="status-badge status-grading">Moderate</span>
+            <% } else { %><span class="status-badge status-error">Weak</span><% } %>
+          </td>
+          <td class="text-sm"><%= q.feedback.slice(0, 120) %><%= q.feedback.length > 120 ? '...' : '' %></td>
+        </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<% if (aiReport) { %>
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="sparkles"></i> AI Learning Gap Analysis</div>
+  <div class="card-body ai-report"><%- aiReport.replace(/\n/g, '<br>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/^### (.+)$/gm, '<h4>$1</h4>').replace(/^## (.+)$/gm, '<h3>$1</h3>').replace(/^- (.+)$/gm, '<li>$1</li>') %></div>
+</div>
+<% } %>
+
+<div class="action-bar mt-4">
+  <a href="/student-reports/generate?exam_id=<%= exam.id %>" class="btn btn-outline"><i data-lucide="arrow-left"></i> All Reports</a>
+</div>

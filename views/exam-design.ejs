@@ -1,0 +1,102 @@
+<div class="page-header">
+  <h1><i data-lucide="wand-2"></i> AI Exam Designer</h1>
+  <p class="text-muted">Generate exam questions and rubrics from your syllabus, past papers, and course material</p>
+</div>
+
+<div class="card" style="max-width:720px">
+  <div class="card-header"><i data-lucide="sparkles"></i> Design a New Exam</div>
+  <div class="card-body">
+    <form method="POST" action="/exam-design/generate" enctype="multipart/form-data" id="examDesignForm">
+      <div class="form-group">
+        <label>Course</label>
+        <select name="course_id" id="edCourse" required onchange="updateEdExams()">
+          <option value="">-- Select Course --</option>
+          <% courses.forEach(function(c) { %>
+            <option value="<%= c.id %>"><%= c.code %> - <%= c.name %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Exam Name</label>
+        <input type="text" name="exam_name" required placeholder="Midterm Exam 2025">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Exam Type</label>
+          <select name="exam_type">
+            <option value="midterm">Midterm</option>
+            <option value="final">Final</option>
+            <option value="quiz">Quiz</option>
+            <option value="assignment">Assignment</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Difficulty</label>
+          <select name="difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Total Marks</label>
+          <input type="number" name="total_marks" value="100" min="10" max="500">
+        </div>
+        <div class="form-group">
+          <label>Number of Questions</label>
+          <input type="number" name="num_questions" value="5" min="1" max="50">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Reference Past Exam (optional)</label>
+        <select name="reference_exam_id" id="edRefExam">
+          <option value="">-- None (generate fresh) --</option>
+        </select>
+        <small class="form-hint">AI will analyze past performance to avoid re-testing well-understood topics.</small>
+      </div>
+      <div class="form-group">
+        <label>Syllabus / Topic List</label>
+        <textarea name="syllabus_text" rows="5" placeholder="Paste your course syllabus, topic list, or learning objectives here..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Upload Reference Materials (up to 10 files)</label>
+        <div class="dropzone" id="examDropzone">
+          <input type="file" name="reference_files" accept=".pdf,.png,.jpg,.jpeg,.zip" multiple id="examFileInput" style="display:none">
+          <div class="dropzone-content">
+            <i data-lucide="upload-cloud" style="width:40px;height:40px;color:var(--primary);"></i>
+            <p><strong>Drop files here</strong> or <a href="#" onclick="event.preventDefault();document.getElementById('examFileInput').click()">browse</a></p>
+            <small>Past papers, syllabi, slides, handwritten notes, model answers, ZIP archives — anything relevant (max 10 files)</small>
+          </div>
+          <div class="dropzone-files" id="examFileList"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Additional Instructions (optional)</label>
+        <textarea name="instructions" rows="2" placeholder="Include at least 2 diagram questions, focus on chapters 5-8, make Q1 a compulsory 20-mark question..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary"><i data-lucide="sparkles"></i> Generate Exam & Rubric</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const edExams = {};
+<% courses.forEach(function(c) { %>
+  edExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+<% }); %>
+function updateEdExams() {
+  const cid = document.getElementById('edCourse').value;
+  const sel = document.getElementById('edRefExam');
+  sel.innerHTML = '<option value="">-- None (generate fresh) --</option>';
+  (edExams[cid] || []).forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id; opt.textContent = e.name;
+    sel.appendChild(opt);
+  });
+}
+</script>

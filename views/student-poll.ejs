@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Poll - Intelligrade</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:1rem; }
+    .poll-container { max-width:500px; width:100%; }
+    .poll-card { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:2rem; text-align:center; }
+    .poll-code { font-size:2rem; font-weight:700; font-family:monospace; color:var(--accent); letter-spacing:4px; margin:1rem 0; }
+    .poll-q { font-size:1.1rem; margin:1rem 0; }
+    .poll-options { display:flex; flex-direction:column; gap:0.5rem; margin:1.5rem 0; }
+    .poll-opt { padding:1rem; border:2px solid var(--border); border-radius:10px; cursor:pointer; font-size:1rem; font-weight:500; background:var(--bg-card); transition:all 0.2s; }
+    .poll-opt:hover { border-color:var(--accent); background:var(--bg-secondary); }
+    .poll-opt.selected { border-color:var(--accent); background:rgba(108,92,231,0.1); }
+    .poll-success { color:var(--success); font-size:1.25rem; font-weight:600; }
+    .poll-name-input { margin-bottom:1rem; }
+  </style>
+</head>
+<body>
+  <div class="poll-container">
+    <div class="poll-card" id="pollCard">
+      <div class="poll-code"><%= roomCode %></div>
+      <div id="pollLoading">Loading poll…</div>
+      <div id="pollContent" style="display:none">
+        <div class="poll-q" id="pollQuestion"></div>
+        <div class="poll-name-input">
+          <input type="text" id="responderName" class="form-control" placeholder="Your name (optional)">
+        </div>
+        <div class="poll-options" id="pollOptions"></div>
+        <div id="freeText" style="display:none">
+          <input type="text" id="freeInput" class="form-control" placeholder="Type your response…">
+          <button class="btn btn-primary btn-block" style="margin-top:0.5rem" onclick="submitResponse(document.getElementById('freeInput').value)">Submit</button>
+        </div>
+      </div>
+      <div id="pollDone" style="display:none" class="poll-success">
+        <p>Response submitted!</p>
+        <p style="font-size:0.875rem;opacity:0.7">Thank you for participating.</p>
+      </div>
+      <div id="pollError" style="display:none;color:var(--danger)">Poll not found or has been closed.</div>
+    </div>
+  </div>
+  <script>
+    const code = '<%= roomCode %>';
+    async function loadPoll() {
+      try {
+        const res = await fetch(`/live-polls/api/results/0`);
+        document.getElementById('pollLoading').style.display = 'none';
+        document.getElementById('pollContent').style.display = 'block';
+        document.getElementById('pollQuestion').textContent = 'Poll: ' + code;
+        document.getElementById('freeText').style.display = 'block';
+      } catch {
+        document.getElementById('pollLoading').style.display = 'none';
+        document.getElementById('pollContent').style.display = 'block';
+        document.getElementById('pollQuestion').textContent = 'Enter your response for poll ' + code;
+        document.getElementById('freeText').style.display = 'block';
+      }
+    }
+    async function submitResponse(val) {
+      if (!val) return;
+      try {
+        await fetch(`/student/poll/${code}/respond`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ response: val, name: document.getElementById('responderName').value }),
+        });
+        document.getElementById('pollContent').style.display = 'none';
+        document.getElementById('pollDone').style.display = 'block';
+      } catch {
+        alert('Failed to submit. Try again.');
+      }
+    }
+    loadPoll();
+    const t = localStorage.getItem('theme');
+    if (t) document.documentElement.setAttribute('data-theme', t);
+  </script>
+</body>
+</html>

@@ -1,0 +1,470 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="users-2"></i> TA Management</h1>
+    <p class="page-sub">Invite TAs, assign grading work, manage permissions, and track performance</p>
+  </div>
+  <a href="/ta/performance" class="btn btn-outline btn-sm"><i data-lucide="bar-chart-3"></i> TA Performance</a>
+</div>
+
+<div class="filter-bar card">
+  <form method="GET" action="/ta" class="filter-row">
+    <div class="filter-group">
+      <label>Course</label>
+      <select name="course_id" class="form-control" onchange="this.form.submit()">
+        <option value="">Select course…</option>
+        <% courses.forEach(c => { %>
+          <option value="<%= c.id %>" <%= selectedCourseId == c.id ? 'selected' : '' %>><%= c.code %> — <%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+  </form>
+</div>
+
+<% if (selectedCourseId) { %>
+
+  <!-- ─── Invite TA Card ─── -->
+  <div class="card ta-invite-card">
+    <h3 class="ta-section-title"><i data-lucide="user-plus"></i> Invite TA to <%= courseName %></h3>
+    <form method="POST" action="/ta/invite">
+      <input type="hidden" name="course_id" value="<%= selectedCourseId %>">
+      <div class="ta-invite-row">
+        <div class="form-group ta-invite-field">
+          <label>Email Address</label>
+          <input type="email" name="email" class="form-control" placeholder="ta@university.edu" required>
+        </div>
+        <div class="form-group ta-invite-role">
+          <label>Role</label>
+          <select name="ta_role" class="form-control">
+            <option value="ta">TA</option>
+            <option value="head_ta">Head TA</option>
+          </select>
+        </div>
+        <div class="ta-invite-action">
+          <button type="submit" class="btn btn-primary"><i data-lucide="send"></i> Send Invite</button>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <% if (tas.length > 0) { %>
+
+    <!-- ─── TA Cards Grid ─── -->
+    <div class="ta-grid">
+      <% tas.forEach(ta => { %>
+        <div class="card ta-card">
+
+          <!-- Profile Section -->
+          <div class="ta-card-header">
+            <div class="ta-avatar">
+              <i data-lucide="user-circle"></i>
+            </div>
+            <div class="ta-profile-info">
+              <div class="ta-name"><%= ta.User ? ta.User.full_name : '(Pending)' %></div>
+              <div class="ta-email"><%= ta.email %></div>
+            </div>
+            <div class="ta-badges">
+              <span class="badge <%= ta.role === 'head_ta' ? 'badge-pro' : 'badge-info' %>"><%= ta.role === 'head_ta' ? 'Head TA' : 'TA' %></span>
+              <span class="badge <%= ta.status === 'active' ? 'badge-success' : 'badge-warning' %>"><%= ta.status %></span>
+            </div>
+          </div>
+
+          <div class="ta-card-divider"></div>
+
+          <!-- Permissions Section -->
+          <div class="ta-card-section">
+            <div class="ta-section-label"><i data-lucide="shield-check"></i> Permissions</div>
+            <form method="POST" action="/ta/permissions/<%= ta.id %>" class="ta-perms-form">
+              <div class="ta-perms-grid">
+                <label class="ta-perm-item">
+                  <input type="checkbox" name="can_grade" <%= ta._permissions.can_grade ? 'checked' : '' %> <%= ta.role === 'head_ta' ? 'checked disabled' : '' %>>
+                  <span>Grade</span>
+                </label>
+                <label class="ta-perm-item">
+                  <input type="checkbox" name="can_view_analytics" <%= ta._permissions.can_view_analytics ? 'checked' : '' %> <%= ta.role === 'head_ta' ? 'checked disabled' : '' %>>
+                  <span>Analytics</span>
+                </label>
+                <label class="ta-perm-item">
+                  <input type="checkbox" name="can_manage_roster" <%= ta._permissions.can_manage_roster ? 'checked' : '' %> <%= ta.role === 'head_ta' ? 'checked disabled' : '' %>>
+                  <span>Roster</span>
+                </label>
+                <label class="ta-perm-item">
+                  <input type="checkbox" name="can_post_announcements" <%= ta._permissions.can_post_announcements ? 'checked' : '' %> <%= ta.role === 'head_ta' ? 'checked disabled' : '' %>>
+                  <span>Announce</span>
+                </label>
+                <label class="ta-perm-item">
+                  <input type="checkbox" name="can_access_cribs" <%= ta._permissions.can_access_cribs ? 'checked' : '' %> <%= ta.role === 'head_ta' ? 'checked disabled' : '' %>>
+                  <span>Cribs</span>
+                </label>
+                <label class="ta-perm-item">
+                  <input type="checkbox" name="can_manage_docs" <%= ta._permissions.can_manage_docs ? 'checked' : '' %> <%= ta.role === 'head_ta' ? 'checked disabled' : '' %>>
+                  <span>Docs</span>
+                </label>
+              </div>
+              <% if (ta.role !== 'head_ta') { %>
+                <button type="submit" class="btn btn-outline btn-sm ta-perms-save"><i data-lucide="save"></i> Save Permissions</button>
+              <% } else { %>
+                <small class="ta-perms-note">Head TAs have all permissions by default</small>
+              <% } %>
+            </form>
+          </div>
+
+          <div class="ta-card-divider"></div>
+
+          <!-- Grading Stats -->
+          <div class="ta-card-section">
+            <div class="ta-section-label"><i data-lucide="activity"></i> Grading Stats</div>
+            <div class="ta-stats-row">
+              <div class="ta-stat">
+                <div class="ta-stat-value"><%= ta.submissions_graded %></div>
+                <div class="ta-stat-label">Graded</div>
+              </div>
+              <div class="ta-stat">
+                <div class="ta-stat-value"><%= (ta.override_rate * 100).toFixed(1) %>%</div>
+                <div class="ta-stat-label">Override Rate</div>
+                <div class="ta-meter">
+                  <div class="ta-meter-fill <%= ta.override_rate > 0.3 ? 'ta-meter-danger' : ta.override_rate > 0.15 ? 'ta-meter-warning' : 'ta-meter-success' %>" style="width: <%= Math.min(ta.override_rate * 100, 100) %>%"></div>
+                </div>
+              </div>
+              <div class="ta-stat">
+                <div class="ta-stat-value"><%= (ta.consistency_score * 100).toFixed(0) %>%</div>
+                <div class="ta-stat-label">Consistency</div>
+                <div class="ta-meter">
+                  <div class="ta-meter-fill ta-meter-success" style="width: <%= (ta.consistency_score * 100) %>%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ta-card-divider"></div>
+
+          <!-- Assignment Section -->
+          <div class="ta-card-section">
+            <div class="ta-section-label"><i data-lucide="clipboard-list"></i> Current Assignments</div>
+            <% if (ta._assignedQuestions.length > 0) { %>
+              <div class="ta-assigned-tags">
+                <% ta._assignedQuestions.forEach(q => { %>
+                  <span class="badge badge-info"><%= q %></span>
+                <% }) %>
+              </div>
+            <% } else { %>
+              <p class="ta-no-assign">No questions assigned yet</p>
+            <% } %>
+
+            <form method="POST" action="/ta/assign/<%= ta.id %>" class="ta-assign-form">
+              <div class="form-group">
+                <label>Assign Questions</label>
+                <input type="text" name="assigned_questions" class="form-control" placeholder="Q1, Q2, Q3…">
+              </div>
+              <button type="submit" class="btn btn-outline btn-sm"><i data-lucide="plus-circle"></i> Update Assignment</button>
+            </form>
+          </div>
+
+          <div class="ta-card-divider"></div>
+
+          <!-- Allot Grading Form -->
+          <div class="ta-card-section">
+            <div class="ta-section-label"><i data-lucide="layers"></i> Allot Grading</div>
+            <form method="POST" action="/ta/allot-grading/<%= ta.id %>" class="ta-allot-form">
+              <div class="ta-allot-row">
+                <div class="form-group">
+                  <label>Exam</label>
+                  <select name="exam_id" class="form-control" required>
+                    <option value="">Select exam…</option>
+                    <% exams.forEach(e => { %>
+                      <option value="<%= e.id %>"><%= e.name %></option>
+                    <% }) %>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Question Range</label>
+                  <input type="text" name="question_range" class="form-control" placeholder="Q1-Q3 or Q1,Q2" required>
+                </div>
+                <div class="form-group">
+                  <label># Students</label>
+                  <input type="number" name="student_count" class="form-control" placeholder="0" min="0">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="check-circle"></i> Allot</button>
+            </form>
+          </div>
+
+          <div class="ta-card-divider"></div>
+
+          <!-- Remove -->
+          <div class="ta-card-footer">
+            <form method="POST" action="/ta/remove/<%= ta.id %>">
+              <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to remove this TA from the course? This action cannot be undone.')">
+                <i data-lucide="user-x"></i> Remove TA
+              </button>
+            </form>
+          </div>
+
+        </div>
+      <% }) %>
+    </div>
+
+  <% } else { %>
+    <div class="empty-state card">
+      <i data-lucide="users-2"></i>
+      <h3>No TAs Yet</h3>
+      <p>Invite TAs using the form above to start collaborative grading.</p>
+    </div>
+  <% } %>
+
+<% } else { %>
+  <div class="empty-state card">
+    <i data-lucide="users-2"></i>
+    <h3>Select a Course</h3>
+    <p>Choose a course from the dropdown above to manage TAs and grading assignments.</p>
+  </div>
+<% } %>
+
+<style>
+  /* ─── Invite Card ─── */
+  .ta-invite-card {
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .ta-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-display);
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 1.25rem;
+  }
+  .ta-section-title i {
+    width: 20px;
+    height: 20px;
+    color: var(--primary);
+  }
+  .ta-invite-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+  .ta-invite-field {
+    flex: 2;
+    min-width: 200px;
+    margin-bottom: 0;
+  }
+  .ta-invite-role {
+    flex: 1;
+    min-width: 120px;
+    margin-bottom: 0;
+  }
+  .ta-invite-action {
+    padding-bottom: 2px;
+  }
+
+  /* ─── TA Grid ─── */
+  .ta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    margin-top: 0.5rem;
+  }
+  @media (max-width: 1100px) {
+    .ta-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ─── TA Card ─── */
+  .ta-card {
+    padding: 0;
+    overflow: hidden;
+  }
+  .ta-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 1.25rem 1.25rem 1rem;
+  }
+  .ta-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--surface-container);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .ta-avatar i {
+    width: 26px;
+    height: 26px;
+    color: var(--muted);
+  }
+  .ta-profile-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .ta-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ta-email {
+    font-size: 0.8rem;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .ta-badges {
+    display: flex;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+
+  .ta-card-divider {
+    height: 1px;
+    background: var(--ghost-border);
+    margin: 0 1.25rem;
+  }
+
+  /* ─── Card Sections ─── */
+  .ta-card-section {
+    padding: 1rem 1.25rem;
+  }
+  .ta-section-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+  .ta-section-label i {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* ─── Permissions ─── */
+  .ta-perms-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .ta-perm-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--on-surface-variant);
+    cursor: pointer;
+  }
+  .ta-perm-item input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+  .ta-perms-save {
+    margin-top: 0.25rem;
+  }
+  .ta-perms-note {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* ─── Stats ─── */
+  .ta-stats-row {
+    display: flex;
+    gap: 1rem;
+  }
+  .ta-stat {
+    flex: 1;
+    text-align: center;
+    padding: 0.5rem;
+    background: var(--surface-container-low);
+    border-radius: var(--radius);
+  }
+  .ta-stat-value {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--on-surface);
+  }
+  .ta-stat-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.3rem;
+  }
+  .ta-meter {
+    width: 100%;
+    height: 5px;
+    background: var(--surface-container);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 0.35rem;
+  }
+  .ta-meter-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+  .ta-meter-success { background: var(--success); }
+  .ta-meter-warning { background: var(--warning); }
+  .ta-meter-danger { background: var(--error); }
+
+  /* ─── Assignments ─── */
+  .ta-assigned-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.75rem;
+  }
+  .ta-no-assign {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+  }
+  .ta-assign-form .form-group {
+    margin-bottom: 0.6rem;
+  }
+  .ta-assign-form .form-group label {
+    font-size: 0.78rem;
+  }
+
+  /* ─── Allot Grading ─── */
+  .ta-allot-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .ta-allot-row .form-group {
+    margin-bottom: 0;
+  }
+  .ta-allot-row .form-group label {
+    font-size: 0.78rem;
+  }
+  @media (max-width: 600px) {
+    .ta-allot-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ─── Footer / Remove ─── */
+  .ta-card-footer {
+    padding: 0.85rem 1.25rem;
+    background: var(--surface-container-low);
+    display: flex;
+    justify-content: flex-end;
+  }
+</style>

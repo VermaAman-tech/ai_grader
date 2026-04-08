@@ -17,9 +17,23 @@
     </select>
   </form>
   <% if (selectedExamId) { %>
-    <button class="btn btn-primary btn-sm" onclick="document.getElementById('addRubricModal').showModal()"><i data-lucide="plus"></i> Add Question</button>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('addRubricModal').showModal()"><i data-lucide="plus"></i> Add Question</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('aiRubricModal').showModal()"><i data-lucide="sparkles"></i> AI Auto-Generate</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('syllabusRubricModal').showModal()"><i data-lucide="book-open"></i> From Syllabus</button>
+    </div>
   <% } %>
 </div>
+
+<% if (typeof overleafUrl !== 'undefined' && overleafUrl && selectedExamId) { %>
+  <div class="card" style="padding:0.6rem 1rem;margin-bottom:0.75rem;display:flex;align-items:center;gap:0.5rem;border-left:3px solid #47a141;font-size:0.85rem">
+    <i data-lucide="pen-tool" style="width:16px;height:16px;color:#47a141"></i>
+    <strong>Overleaf</strong> project linked —
+    <a href="<%= overleafUrl %>" target="_blank" style="display:flex;align-items:center;gap:0.25rem">
+      <i data-lucide="external-link" style="width:12px;height:12px"></i> Edit LaTeX source in Overleaf
+    </a>
+  </div>
+<% } %>
 
 <% if (!selectedExamId) { %>
   <div class="empty-state"><i data-lucide="clipboard-list"></i><h3>Select an exam</h3><p>Choose a course and exam to build or view the rubric.</p></div>
@@ -74,6 +88,84 @@
       </div>
       <div class="form-group"><label>Grading Notes (optional)</label><textarea name="grading_notes" rows="2" placeholder="Accept diagrams as valid examples"></textarea></div>
       <div class="form-actions"><button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="btn btn-primary">Add Question</button></div>
+    </form>
+  </div>
+</dialog>
+<% } %>
+
+<% if (selectedExamId) { %>
+<dialog id="aiRubricModal" class="modal">
+  <div class="modal-content" style="max-width:580px">
+    <div class="modal-header"><h3><i data-lucide="sparkles"></i> AI Rubric Generator</h3><button class="modal-close" onclick="this.closest('dialog').close()">&times;</button></div>
+    <form method="POST" action="/rubric/ai/auto-generate" enctype="multipart/form-data" id="aiRubricForm">
+      <input type="hidden" name="exam_id" value="<%= selectedExamId %>">
+      <div class="form-group">
+        <label>Upload Reference Files (up to 10)</label>
+        <div class="dropzone" id="rubricDropzone">
+          <input type="file" name="rubric_files" accept=".pdf,.png,.jpg,.jpeg,.zip" multiple id="rubricFileInput" style="display:none">
+          <div class="dropzone-content">
+            <i data-lucide="upload-cloud" style="width:36px;height:36px;color:var(--primary);"></i>
+            <p><strong>Drop files here</strong> or <a href="#" onclick="event.preventDefault();document.getElementById('rubricFileInput').click()">browse</a></p>
+            <small>PDF, images, or ZIP — past papers, answer keys, handwritten notes, model answers (max 10 files)</small>
+          </div>
+          <div class="dropzone-files" id="rubricFileList"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Or Paste Question Text</label>
+        <textarea name="question_text" rows="3" placeholder="Q1. Define polymorphism (5 marks)&#10;Q2. Write a program to implement... (10 marks)"></textarea>
+      </div>
+      <div class="form-group">
+        <label>Additional Instructions (optional)</label>
+        <textarea name="instructions" rows="2" placeholder="Focus on Unit 3-5 topics, include one diagram question..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Total Marks</label><input type="number" name="total_marks" placeholder="100"></div>
+        <div class="form-group"><label>Expected Questions</label><input type="number" name="num_questions" placeholder="5"></div>
+      </div>
+      <div class="form-actions"><button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="btn btn-primary"><i data-lucide="sparkles"></i> Generate Rubric</button></div>
+    </form>
+  </div>
+</dialog>
+
+<dialog id="syllabusRubricModal" class="modal">
+  <div class="modal-content" style="max-width:580px">
+    <div class="modal-header"><h3><i data-lucide="book-open"></i> Rubric from Syllabus</h3><button class="modal-close" onclick="this.closest('dialog').close()">&times;</button></div>
+    <form method="POST" action="/rubric/ai/from-syllabus" enctype="multipart/form-data" id="syllabusRubricForm">
+      <input type="hidden" name="exam_id" value="<%= selectedExamId %>">
+      <div class="form-group">
+        <label>Upload Reference Files (up to 10)</label>
+        <div class="dropzone" id="syllabusDropzone">
+          <input type="file" name="syllabus_files" accept=".pdf,.png,.jpg,.jpeg,.zip" multiple id="syllabusFileInput" style="display:none">
+          <div class="dropzone-content">
+            <i data-lucide="upload-cloud" style="width:36px;height:36px;color:var(--primary);"></i>
+            <p><strong>Drop files here</strong> or <a href="#" onclick="event.preventDefault();document.getElementById('syllabusFileInput').click()">browse</a></p>
+            <small>Syllabus, past papers, slides, notes — any reference material (max 10 files)</small>
+          </div>
+          <div class="dropzone-files" id="syllabusFileList"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Or Paste Syllabus Text</label>
+        <textarea name="syllabus_text" rows="3" placeholder="Unit 1: Introduction to OOP&#10;Unit 2: Inheritance and Polymorphism&#10;..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Additional Instructions (optional)</label>
+        <textarea name="instructions" rows="2" placeholder="Include more questions from Unit 4, avoid repeated topics..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Total Marks</label><input type="number" name="total_marks" value="100"></div>
+        <div class="form-group"><label>Questions</label><input type="number" name="num_questions" value="5"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Difficulty</label>
+          <select name="difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select>
+        </div>
+        <div class="form-group"><label>Exam Type</label>
+          <select name="exam_type"><option value="midterm">Midterm</option><option value="final">Final</option><option value="quiz">Quiz</option></select>
+        </div>
+      </div>
+      <div class="form-actions"><button type="button" class="btn btn-outline" onclick="this.closest('dialog').close()">Cancel</button><button type="submit" class="btn btn-primary"><i data-lucide="sparkles"></i> Generate from Syllabus</button></div>
     </form>
   </div>
 </dialog>

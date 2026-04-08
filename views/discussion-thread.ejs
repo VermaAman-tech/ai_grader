@@ -1,0 +1,54 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="message-circle"></i> <%= thread.title %></h1>
+    <p class="page-sub"><%= course.code %> — <%= course.name %></p>
+  </div>
+  <div style="display:flex;gap:0.5rem">
+    <form method="POST" action="/discussions/resolve/<%= thread.id %>">
+      <button class="btn btn-sm <%= thread.is_resolved ? 'btn-outline' : 'btn-success' %>">
+        <i data-lucide="<%= thread.is_resolved ? 'rotate-ccw' : 'check-circle' %>" style="width:14px;height:14px"></i>
+        <%= thread.is_resolved ? 'Reopen' : 'Mark Resolved' %>
+      </button>
+    </form>
+    <a href="/discussions?course_id=<%= course.id %>" class="btn btn-outline btn-sm"><i data-lucide="arrow-left"></i> Back</a>
+  </div>
+</div>
+
+<div class="card" style="padding:1.25rem;margin-bottom:1.5rem">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+    <div>
+      <span class="badge badge-<%= thread.thread_type === 'announcement' ? 'warning' : 'info' %>"><%= thread.thread_type %></span>
+      <% if (thread.is_resolved) { %><span class="badge badge-success">Resolved</span><% } %>
+      <% try { const tags = JSON.parse(thread.concept_tags || '[]'); tags.forEach(t => { %>
+        <span class="badge badge-outline"><%= t %></span>
+      <% }); } catch {} %>
+    </div>
+    <small style="opacity:0.6"><%= thread.view_count %> views</small>
+  </div>
+  <p style="white-space:pre-wrap"><%= thread.content %></p>
+  <small style="opacity:0.6">By <%= thread.User?.full_name || 'Unknown' %> (<%= thread.User?.role || '' %>) &middot; <%= new Date(thread.createdAt).toLocaleString() %></small>
+</div>
+
+<h3 style="margin-bottom:1rem">Replies (<%= posts.length %>)</h3>
+
+<% posts.forEach(p => { %>
+  <div class="card" style="padding:1rem;margin-bottom:0.5rem;<%= p.is_answer ? 'border-left:3px solid var(--success)' : '' %><%= p.is_ai_generated ? 'border-left:3px solid var(--accent)' : '' %>">
+    <% if (p.is_answer) { %><span class="badge badge-success" style="margin-bottom:0.5rem">Accepted Answer</span><% } %>
+    <% if (p.is_ai_generated) { %><span class="badge badge-pro" style="margin-bottom:0.5rem"><i data-lucide="sparkles" style="width:10px;height:10px"></i> AI</span><% } %>
+    <p style="white-space:pre-wrap;margin:0"><%= p.content %></p>
+    <small style="opacity:0.6">By <%= p.is_anonymous ? 'Anonymous' : (p.User?.full_name || 'Unknown') %> (<%= p.User?.role || '' %>) &middot; <%= new Date(p.createdAt).toLocaleString() %></small>
+  </div>
+<% }) %>
+
+<div class="card" style="padding:1.25rem;margin-top:1.5rem">
+  <h3 style="margin-bottom:1rem">Reply</h3>
+  <form method="POST" action="/discussions/reply/<%= thread.id %>">
+    <div class="form-group">
+      <textarea name="content" class="form-control" rows="3" placeholder="Write your reply…" required></textarea>
+    </div>
+    <div style="display:flex;gap:1rem;align-items:center">
+      <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="send"></i> Post Reply</button>
+      <label style="display:flex;align-items:center;gap:0.5rem"><input type="checkbox" name="is_answer"> Mark as answer</label>
+    </div>
+  </form>
+</div>

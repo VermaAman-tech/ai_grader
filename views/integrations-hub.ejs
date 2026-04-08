@@ -1,0 +1,201 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="puzzle"></i> Integrations Hub</h1>
+    <p class="page-desc">Connect your favourite tools — LMS, video, docs, discussion, and dev platforms</p>
+  </div>
+</div>
+
+<div class="filter-bar card">
+  <form method="GET" action="/integrations" class="filter-row">
+    <div class="filter-group">
+      <label>Configure for Course</label>
+      <select name="course_id" class="form-control" onchange="this.form.submit()">
+        <option value="">Global (all courses)</option>
+        <% courses.forEach(c => { %>
+          <option value="<%= c.id %>" <%= selectedCourseId == c.id ? 'selected' : '' %>><%= c.code %> — <%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+  </form>
+</div>
+
+<% const catOrder = ['lms', 'discussion', 'docs', 'grading', 'meetings', 'notifications', 'code']; %>
+<% catOrder.forEach(catKey => { %>
+  <% const cat = CATEGORIES[catKey]; %>
+  <% const providers = Object.entries(PROVIDERS).filter(([k,v]) => v.category === catKey); %>
+  <% if (providers.length) { %>
+    <h2 style="margin:1.5rem 0 0.75rem;display:flex;align-items:center;gap:0.5rem;font-size:1.1rem">
+      <i data-lucide="<%= cat.icon %>" style="width:20px;height:20px"></i> <%= cat.label %>
+    </h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:1rem;margin-bottom:0.5rem">
+      <% providers.forEach(([provKey, prov]) => { %>
+        <% const cfg = configs[provKey]; const parsed = cfg ? cfg.parsedConfig : {}; const active = cfg && cfg.is_active; %>
+        <div class="card" style="padding:0;overflow:hidden;border-left:4px solid <%= prov.color %>">
+          <div style="padding:1rem 1.25rem">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.5rem">
+              <div style="display:flex;align-items:center;gap:0.5rem">
+                <i data-lucide="<%= prov.icon %>" style="width:20px;height:20px;color:<%= prov.color %>"></i>
+                <strong><%= prov.name %></strong>
+              </div>
+              <% if (cfg) { %>
+                <form method="POST" action="/integrations/toggle/<%= provKey %>" style="display:inline">
+                  <input type="hidden" name="course_id" value="<%= selectedCourseId || '' %>">
+                  <button type="submit" class="btn btn-sm <%= active ? 'btn-success' : 'btn-outline' %>" style="font-size:0.7rem;padding:2px 8px">
+                    <%= active ? 'Active' : 'Inactive' %>
+                  </button>
+                </form>
+              <% } else { %>
+                <span class="badge badge-outline" style="font-size:0.7rem">Not configured</span>
+              <% } %>
+            </div>
+            <p style="font-size:0.82rem;opacity:0.8;margin:0 0 0.75rem"><%= prov.desc %></p>
+
+            <details <%= (cfg && !active) ? '' : '' %>>
+              <summary style="cursor:pointer;font-size:0.8rem;color:var(--primary)"><i data-lucide="settings" style="width:12px;height:12px;display:inline-block;vertical-align:middle"></i> Configure</summary>
+              <form method="POST" action="/integrations/save" style="margin-top:0.75rem">
+                <input type="hidden" name="provider" value="<%= provKey %>">
+                <input type="hidden" name="course_id" value="<%= selectedCourseId || '' %>">
+                <% prov.fields.forEach(f => { %>
+                  <div style="margin-bottom:0.5rem">
+                    <label style="font-size:0.75rem;text-transform:capitalize"><%= f.replace(/_/g, ' ') %></label>
+                    <input type="<%= f.includes('password') || f.includes('token') || f.includes('key') || f.includes('secret') ? 'password' : 'text' %>"
+                           name="<%= f %>" class="form-control"
+                           value="<%= parsed[f] || '' %>"
+                           placeholder="<%= f.replace(/_/g, ' ') %>"
+                           style="padding:0.35rem 0.5rem;font-size:0.82rem">
+                  </div>
+                <% }) %>
+                <button type="submit" class="btn btn-primary btn-sm" style="font-size:0.78rem"><i data-lucide="save" style="width:12px;height:12px"></i> Save</button>
+              </form>
+            </details>
+
+            <% if (provKey === 'notion' && parsed.notion_page_url) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem">
+                <p style="font-size:0.78rem;margin-bottom:0.5rem"><strong>Preview:</strong></p>
+                <iframe src="<%= parsed.notion_page_url.replace('notion.so', 'notion.site') %>"
+                        style="width:100%;height:250px;border:1px solid var(--outline-variant);border-radius:6px" allowfullscreen loading="lazy"></iframe>
+              </div>
+            <% } %>
+
+            <% if (provKey === 'overleaf' && parsed.overleaf_project_url) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem">
+                <a href="<%= parsed.overleaf_project_url %>" target="_blank" class="btn btn-outline btn-sm" style="font-size:0.78rem">
+                  <i data-lucide="external-link" style="width:12px;height:12px"></i> Open in Overleaf
+                </a>
+              </div>
+            <% } %>
+
+            <% if (provKey === 'google_drive' && parsed.drive_folder_url) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem">
+                <a href="<%= parsed.drive_folder_url %>" target="_blank" class="btn btn-outline btn-sm" style="font-size:0.78rem">
+                  <i data-lucide="external-link" style="width:12px;height:12px"></i> Open Drive Folder
+                </a>
+              </div>
+            <% } %>
+
+            <% if ((provKey === 'zoom' || provKey === 'teams') && (parsed.zoom_meeting_url || parsed.teams_meeting_url)) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem">
+                <a href="<%= parsed.zoom_meeting_url || parsed.teams_meeting_url %>" target="_blank" class="btn btn-outline btn-sm" style="font-size:0.78rem">
+                  <i data-lucide="video" style="width:12px;height:12px"></i> Join Meeting
+                </a>
+              </div>
+            <% } %>
+
+            <% if (provKey === 'slack' && cfg && active) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem">
+                <form method="POST" action="/integrations/slack/test" style="display:inline">
+                  <input type="hidden" name="course_id" value="<%= selectedCourseId || '' %>">
+                  <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.78rem">
+                    <i data-lucide="send" style="width:12px;height:12px"></i> Send Test Message
+                  </button>
+                </form>
+              </div>
+            <% } %>
+
+            <% if (provKey === 'discord' && cfg && active) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem">
+                <form method="POST" action="/integrations/discord/test" style="display:inline">
+                  <input type="hidden" name="course_id" value="<%= selectedCourseId || '' %>">
+                  <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.78rem">
+                    <i data-lucide="send" style="width:12px;height:12px"></i> Send Test Message
+                  </button>
+                </form>
+              </div>
+            <% } %>
+
+            <% if (provKey === 'moodle' && cfg && active) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+                <form method="POST" action="/integrations/moodle/sync">
+                  <input type="hidden" name="course_id" value="<%= selectedCourseId || '' %>">
+                  <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.78rem"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Sync Roster</button>
+                </form>
+                <form method="POST" action="/integrations/moodle/push-grades">
+                  <input type="hidden" name="course_id" value="<%= selectedCourseId || '' %>">
+                  <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.78rem"><i data-lucide="upload" style="width:12px;height:12px"></i> Push Grades</button>
+                </form>
+              </div>
+            <% } %>
+
+            <% if (provKey === 'canvas' && cfg && active) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem">
+                <form method="POST" action="/integrations/canvas/sync">
+                  <input type="hidden" name="course_id" value="<%= selectedCourseId || '' %>">
+                  <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.78rem"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Sync with Canvas</button>
+                </form>
+              </div>
+            <% } %>
+
+            <% if (provKey === 'piazza' && cfg && active) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem">
+                <form method="POST" action="/integrations/piazza/sync">
+                  <input type="hidden" name="course_id" value="<%= selectedCourseId || '' %>">
+                  <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.78rem"><i data-lucide="download" style="width:12px;height:12px"></i> Import Threads</button>
+                </form>
+              </div>
+            <% } %>
+
+            <% if (provKey === 'google_classroom' && cfg && active) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem">
+                <form method="POST" action="/integrations/google-classroom/sync">
+                  <input type="hidden" name="course_id" value="<%= selectedCourseId || '' %>">
+                  <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.78rem"><i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Import Roster</button>
+                </form>
+              </div>
+            <% } %>
+
+            <% if (provKey === 'github_classroom' && cfg && active) { %>
+              <div style="margin-top:0.75rem;border-top:1px solid var(--outline-variant);padding-top:0.75rem">
+                <form method="POST" action="/integrations/github-classroom/import">
+                  <input type="hidden" name="course_id" value="<%= selectedCourseId || '' %>">
+                  <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.78rem"><i data-lucide="download" style="width:12px;height:12px"></i> Import Assignments</button>
+                </form>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+<% }) %>
+
+<div class="card" style="padding:1.25rem;margin-top:2rem;background:var(--surface-container-low)">
+  <h3 style="margin-bottom:0.5rem"><i data-lucide="info"></i> How Integrations Work</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;font-size:0.85rem">
+    <div>
+      <strong>Per-Course vs Global</strong>
+      <p style="opacity:0.8;margin-top:0.25rem">Select a course above to configure integrations per-course, or leave as "Global" for settings that apply everywhere (e.g., Slack webhooks).</p>
+    </div>
+    <div>
+      <strong>Embedded Widgets</strong>
+      <p style="opacity:0.8;margin-top:0.25rem">Once configured, tools appear embedded in relevant pages: Notion in Course Docs, Zoom/Teams links in Class Sessions, Turnitin in Submissions, Overleaf in Rubrics.</p>
+    </div>
+    <div>
+      <strong>Automatic Sync</strong>
+      <p style="opacity:0.8;margin-top:0.25rem">When API credentials are provided, Intelligrade will automatically sync rosters, grades, and discussions at configurable intervals.</p>
+    </div>
+    <div>
+      <strong>Notifications</strong>
+      <p style="opacity:0.8;margin-top:0.25rem">Slack and Discord webhooks receive real-time notifications for grade releases, announcements, crib resolutions, and new discussion posts.</p>
+    </div>
+  </div>
+</div>

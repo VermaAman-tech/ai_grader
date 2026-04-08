@@ -1,0 +1,96 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="messages-square"></i> Discussion Board</h1>
+    <p class="page-sub">Course discussions, Q&A, announcements, and resources</p>
+  </div>
+</div>
+
+<div class="filter-bar card">
+  <form method="GET" action="/discussions" class="filter-row">
+    <div class="filter-group">
+      <label>Course</label>
+      <select name="course_id" class="form-control" onchange="this.form.submit()">
+        <option value="">Select course…</option>
+        <% courses.forEach(c => { %>
+          <option value="<%= c.id %>" <%= selectedCourseId == c.id ? 'selected' : '' %>><%= c.code %> — <%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+  </form>
+</div>
+
+<% if (selectedCourseId) { %>
+  <% if (typeof piazzaActive !== 'undefined' && piazzaActive) { %>
+    <div class="card" style="padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:0.75rem;border-left:3px solid #3d5a80">
+      <i data-lucide="message-circle" style="width:18px;height:18px;color:#3d5a80"></i>
+      <span style="font-size:0.85rem"><strong>Piazza</strong> is connected to this course.</span>
+      <form method="POST" action="/integrations/piazza/sync" style="margin-left:auto">
+        <input type="hidden" name="course_id" value="<%= selectedCourseId %>">
+        <button type="submit" class="btn btn-outline btn-sm" style="font-size:0.75rem"><i data-lucide="download" style="width:12px;height:12px"></i> Import from Piazza</button>
+      </form>
+    </div>
+  <% } %>
+
+  <div class="card" style="padding:1.25rem;margin-bottom:1.5rem">
+    <h3 style="margin-bottom:1rem"><i data-lucide="plus-circle"></i> New Thread</h3>
+    <form method="POST" action="/discussions/create">
+      <input type="hidden" name="course_id" value="<%= selectedCourseId %>">
+      <div class="form-group">
+        <label>Title</label>
+        <input type="text" name="title" class="form-control" placeholder="Thread title" required>
+      </div>
+      <div class="form-row" style="display:flex;gap:1rem;margin-bottom:1rem">
+        <div class="form-group" style="flex:1">
+          <label>Type</label>
+          <select name="thread_type" class="form-control">
+            <option value="question">Question</option>
+            <option value="announcement">Announcement</option>
+            <option value="resource">Resource</option>
+            <option value="poll">Poll</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label>Concept Tags</label>
+          <input type="text" name="concept_tags" class="form-control" placeholder="e.g., Sorting, Trees">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Content</label>
+        <textarea name="content" class="form-control" rows="3" placeholder="Write your post…" required></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="send"></i> Post</button>
+    </form>
+  </div>
+
+  <% if (threads.length > 0) { %>
+    <% threads.forEach(t => { %>
+      <a href="/discussions/thread/<%= t.id %>" class="card" style="display:block;padding:1rem;margin-bottom:0.5rem;text-decoration:none;color:inherit;<%= t.is_pinned ? 'border-left:3px solid var(--accent)' : '' %>">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
+          <div>
+            <% if (t.is_pinned) { %><i data-lucide="pin" style="width:12px;height:12px;color:var(--accent)"></i><% } %>
+            <strong><%= t.title %></strong>
+            <span class="badge badge-<%= t.thread_type === 'announcement' ? 'warning' : t.thread_type === 'resource' ? 'info' : 'outline' %>"><%= t.thread_type %></span>
+            <% if (t.is_resolved) { %><span class="badge badge-success">Resolved</span><% } %>
+          </div>
+          <div style="display:flex;gap:0.75rem;align-items:center">
+            <small><i data-lucide="message-circle" style="width:12px;height:12px"></i> <%= t.DiscussionPosts?.length || 0 %></small>
+            <small><i data-lucide="eye" style="width:12px;height:12px"></i> <%= t.view_count %></small>
+          </div>
+        </div>
+        <small style="opacity:0.6">By <%= t.is_anonymous ? 'Anonymous' : (t.User?.full_name || 'Unknown') %> &middot; <%= new Date(t.createdAt).toLocaleDateString() %></small>
+      </a>
+    <% }) %>
+  <% } else { %>
+    <div class="empty-state card">
+      <i data-lucide="messages-square" style="width:48px;height:48px;opacity:0.4"></i>
+      <h3>No Threads</h3>
+      <p>Start the first discussion thread above.</p>
+    </div>
+  <% } %>
+<% } else { %>
+  <div class="empty-state card">
+    <i data-lucide="messages-square" style="width:48px;height:48px;opacity:0.4"></i>
+    <h3>Select a Course</h3>
+    <p>Choose a course to view and create discussion threads.</p>
+  </div>
+<% } %>

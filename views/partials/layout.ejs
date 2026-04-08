@@ -7,16 +7,19 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-brand">
-        <i data-lucide="brain-circuit"></i>
+        <%- include('logo', { logoSize: 28, logoId: 'sidebar' }) %>
         <span>Intelligrade</span>
       </div>
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav" id="sidebarNav">
         <a href="/dashboard" class="<%= currentPath === '/dashboard' ? 'active' : '' %>"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></a>
         <a href="/courses" class="<%= currentPath.startsWith('/courses') ? 'active' : '' %>"><i data-lucide="book-open"></i><span>Courses</span></a>
         <a href="/exams" class="<%= currentPath.startsWith('/exams') ? 'active' : '' %>"><i data-lucide="file-text"></i><span>Exams</span></a>
@@ -24,15 +27,34 @@
         <a href="/rubric" class="<%= currentPath.startsWith('/rubric') ? 'active' : '' %>"><i data-lucide="clipboard-list"></i><span>Rubric</span></a>
         <a href="/submissions" class="<%= currentPath.startsWith('/submissions') ? 'active' : '' %>"><i data-lucide="upload"></i><span>Submissions</span></a>
         <a href="/grading" class="<%= currentPath.startsWith('/grading') ? 'active' : '' %>"><i data-lucide="check-circle"></i><span>Grading</span></a>
+        <a href="/review-queue" class="<%= currentPath.startsWith('/review-queue') ? 'active' : '' %>"><i data-lucide="shield-alert"></i><span>Review Queue</span></a>
         <a href="/analytics" class="<%= currentPath.startsWith('/analytics') ? 'active' : '' %>"><i data-lucide="bar-chart-3"></i><span>Analytics</span></a>
+        <a href="/exam-design" class="<%= currentPath.startsWith('/exam-design') ? 'active' : '' %>"><i data-lucide="wand-2"></i><span>Exam Designer</span></a>
+        <a href="/student-reports" class="<%= currentPath.startsWith('/student-reports') ? 'active' : '' %>"><i data-lucide="brain"></i><span>Student Reports</span></a>
+        <a href="/knowledge-graph" class="<%= currentPath.startsWith('/knowledge-graph') ? 'active' : '' %>"><i data-lucide="network"></i><span>Knowledge Graph</span></a>
         <a href="/export" class="<%= currentPath.startsWith('/export') ? 'active' : '' %>"><i data-lucide="download"></i><span>Export</span></a>
+        <div class="sidebar-divider"></div>
+        <a href="/ta" class="<%= currentPath.startsWith('/ta') ? 'active' : '' %>"><i data-lucide="users-2"></i><span>TA Management</span></a>
+        <a href="/cribs" class="<%= currentPath.startsWith('/cribs') ? 'active' : '' %>"><i data-lucide="message-square-warning"></i><span>Cribs / Regrade</span></a>
+        <a href="/announcements" class="<%= currentPath.startsWith('/announcements') ? 'active' : '' %>"><i data-lucide="megaphone"></i><span>Announcements</span></a>
+        <a href="/course-documents" class="<%= currentPath.startsWith('/course-documents') ? 'active' : '' %>"><i data-lucide="file-stack"></i><span>Course Docs</span></a>
+        <a href="/discussions" class="<%= currentPath.startsWith('/discussions') ? 'active' : '' %>"><i data-lucide="messages-square"></i><span>Discussions</span></a>
+        <a href="/live-polls" class="<%= currentPath.startsWith('/live-polls') ? 'active' : '' %>"><i data-lucide="vote"></i><span>Live Polls</span></a>
+        <a href="/class-sessions" class="<%= currentPath.startsWith('/class-sessions') ? 'active' : '' %>"><i data-lucide="calendar-clock"></i><span>Class Sessions</span></a>
+        <a href="/learning-objectives" class="<%= currentPath.startsWith('/learning-objectives') ? 'active' : '' %>"><i data-lucide="target"></i><span>Learning Objectives</span></a>
+        <a href="/active-feedback" class="<%= currentPath.startsWith('/active-feedback') ? 'active' : '' %>"><i data-lucide="hand-heart"></i><span>Active Feedback</span></a>
+        <div class="sidebar-divider"></div>
+        <a href="/integrations" class="<%= currentPath.startsWith('/integrations') ? 'active' : '' %>"><i data-lucide="puzzle"></i><span>Integrations</span></a>
       </nav>
       <div class="sidebar-footer">
         <% if (typeof subscription !== 'undefined' && subscription) { %>
         <a href="/plans" class="plan-badge-link">
           <div class="plan-indicator <%= (typeof planTier !== 'undefined' && planTier === 'PRO') ? 'plan-pro' : 'plan-free' %>">
-            <i data-lucide="<%= (typeof planTier !== 'undefined' && planTier === 'PRO') ? 'crown' : 'clock' %>"></i>
+            <i data-lucide="<%= (typeof planTier !== 'undefined' && planTier === 'PRO') ? 'crown' : 'gift' %>"></i>
             <span><%= typeof planTier !== 'undefined' ? planTier : 'FREE' %></span>
+            <% if (typeof papersUsed !== 'undefined' && typeof paperLimit !== 'undefined') { %>
+              <small style="font-size:0.65rem; opacity:0.8; display:block; margin-top:2px;"><%= papersUsed %>/<%= paperLimit %> papers</small>
+            <% } %>
           </div>
         </a>
         <% } %>
@@ -101,13 +123,47 @@
           </div>
         </div>
         <form id="assistant-form" class="assistant-input">
-          <input type="text" id="assistant-input" placeholder="Ask anything..." autocomplete="off">
+          <input type="text" id="assistant-input" placeholder="Ask anything or use mic..." autocomplete="off">
+          <button type="button" id="assistant-mic" class="btn btn-outline btn-sm btn-mic" title="Voice input"><i data-lucide="mic"></i></button>
           <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="send"></i></button>
         </form>
       </div>
     </div>
   </div>
   <script src="/js/app.js"></script>
-  <script>lucide.createIcons();</script>
+  <script>
+    lucide.createIcons();
+    /* Sidebar scroll persistence */
+    (function() {
+      var nav = document.getElementById('sidebarNav');
+      if (!nav) return;
+      var key = 'ig-sidebar-scroll';
+      var saved = sessionStorage.getItem(key);
+      if (saved) nav.scrollTop = parseInt(saved, 10);
+      var active = nav.querySelector('a.active');
+      if (active && !saved) active.scrollIntoView({ block: 'nearest' });
+      nav.addEventListener('scroll', function() {
+        sessionStorage.setItem(key, nav.scrollTop);
+      });
+      nav.querySelectorAll('a').forEach(function(a) {
+        a.addEventListener('click', function() {
+          sessionStorage.setItem(key, nav.scrollTop);
+        });
+      });
+    })();
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true },
+          ],
+          throwOnError: false,
+        });
+      }
+    });
+  </script>
 </body>
 </html>

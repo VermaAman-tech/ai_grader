@@ -2,7 +2,7 @@ const router = require('express').Router();
 const multer = require('multer');
 const { ensureAuth, ensureSubscription, asyncHandler, assertCourseOwner, assertStudentOwner } = require('../middleware/auth');
 const { requireInt } = require('../middleware/validate');
-const { Course, Student } = require('../models');
+const { Course, Student, User } = require('../models');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -32,6 +32,22 @@ function parseCSV(text) {
     rows.push(row);
   }
   return rows;
+}
+
+async function ensureStudentUser(name, email) {
+  if (!email) return null;
+  const cleanEmail = email.trim().toLowerCase();
+  let user = await User.findOne({ where: { email: cleanEmail, role: 'student' } });
+  if (!user) {
+    user = await User.create({
+      full_name: name,
+      email: cleanEmail,
+      password_hash: User.hashPassword('auto-' + Date.now()),
+      role: 'student',
+      email_verified: true,
+    });
+  }
+  return user;
 }
 
 router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
@@ -82,7 +98,7 @@ router.post('/upload', ensureAuth, ensureSubscription, upload.single('roster_fil
     if (roll === 'NAN' || roll === '') roll = null;
     if (roll && roll.endsWith('.0')) roll = roll.slice(0, -2);
 
-    const email = emailCol ? (row[emailCol] || '').trim() : null;
+    const email = emailCol ? (row[emailCol] || '').trim().toLowerCase() : null;
 
     if (roll) {
       if (seenRolls.has(roll)) { skipped++; continue; }
@@ -91,17 +107,59 @@ router.post('/upload', ensureAuth, ensureSubscription, upload.single('roster_fil
       if (existing) {
         existing.name = name;
         if (email) existing.email = email;
+        if (email && !existing.user_id) {
+          const user = await ensureStudentUser(name, email);
+          if (user) existing.user_id = user.id;
+        }
         await existing.save();
         skipped++;
         continue;
       }
     }
 
-    await Student.create({ course_id: courseId, name, roll_number: roll, email: email || null });
+    let userId = null;
+    if (email) {
+      const user = await ensureStudentUser(name, email);
+      if (user) userId = user.id;
+    }
+
+    await Student.create({ course_id: courseId, name, roll_number: roll, email: email || null, user_id: userId });
     added++;
   }
 
-  req.flash('success', `Roster imported: ${added} added, ${skipped} skipped/updated.`);
+  req.flash('success', `Roster imported: ${added} added, ${skipped} skipped/updated. Students with emails can now log in with OTP at /student/login`);
+  res.redirect(`/roster?course_id=${courseId}`);
+}));
+
+router.post('/add', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
+  const courseId = requireInt(req.body.course_id, 'Course');
+  await assertCourseOwner(req, courseId);
+
+  const name = (req.body.name || '').trim();
+  const roll = (req.body.roll_number || '').trim().toUpperCase() || null;
+  const email = (req.body.email || '').trim().toLowerCase() || null;
+
+  if (!name) {
+    req.flash('error', 'Student name is required.');
+    return res.redirect(`/roster?course_id=${courseId}`);
+  }
+
+  if (roll) {
+    const existing = await Student.findOne({ where: { course_id: courseId, roll_number: roll } });
+    if (existing) {
+      req.flash('error', `Roll number ${roll} already exists in this course.`);
+      return res.redirect(`/roster?course_id=${courseId}`);
+    }
+  }
+
+  let userId = null;
+  if (email) {
+    const user = await ensureStudentUser(name, email);
+    if (user) userId = user.id;
+  }
+
+  await Student.create({ course_id: courseId, name, roll_number: roll, email, user_id: userId });
+  req.flash('success', `Student "${name}" added.${email ? ' They can log in at /student/login with OTP.' : ''}`);
   res.redirect(`/roster?course_id=${courseId}`);
 }));
 

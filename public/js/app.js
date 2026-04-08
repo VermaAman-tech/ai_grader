@@ -24,6 +24,93 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ── Multi-File Dropzones ──
+  document.querySelectorAll('.dropzone').forEach(zone => {
+    const fileInput = zone.querySelector('input[type="file"]');
+    const fileListEl = zone.querySelector('.dropzone-files');
+    if (!fileInput || !fileListEl) return;
+
+    const MAX_FILES = 10;
+    const dt = new DataTransfer();
+
+    function syncFiles() {
+      fileInput.files = dt.files;
+    }
+
+    function renderFileList() {
+      fileListEl.innerHTML = '';
+      if (!dt.files.length) return;
+
+      for (let i = 0; i < dt.files.length; i++) {
+        const f = dt.files[i];
+        const div = document.createElement('div');
+        div.className = 'dropzone-file';
+        const ext = f.name.split('.').pop().toLowerCase();
+        const icon = ext === 'pdf' ? 'file-text' : ext === 'zip' ? 'file-archive' : 'image';
+        const sizeKB = (f.size / 1024).toFixed(0);
+        const sizeStr = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : sizeKB + ' KB';
+        div.innerHTML = `<i data-lucide="${icon}" class="file-icon" style="width:16px;height:16px;"></i>` +
+          `<span class="file-name">${f.name}</span>` +
+          `<span class="file-size">${sizeStr}</span>` +
+          `<button type="button" class="file-remove" data-idx="${i}" title="Remove">&times;</button>`;
+        fileListEl.appendChild(div);
+      }
+
+      const counter = document.createElement('div');
+      counter.className = 'dropzone-count';
+      counter.textContent = `${dt.files.length} / ${MAX_FILES} files`;
+      fileListEl.appendChild(counter);
+
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function addFiles(fileList) {
+      for (const f of fileList) {
+        if (dt.files.length >= MAX_FILES) break;
+        const ext = f.name.split('.').pop().toLowerCase();
+        if (!['pdf', 'png', 'jpg', 'jpeg', 'zip'].includes(ext)) continue;
+        let duplicate = false;
+        for (let i = 0; i < dt.files.length; i++) {
+          if (dt.files[i].name === f.name && dt.files[i].size === f.size) { duplicate = true; break; }
+        }
+        if (!duplicate) dt.items.add(f);
+      }
+      syncFiles();
+      renderFileList();
+    }
+
+    zone.addEventListener('click', (e) => {
+      if (e.target.closest('.file-remove') || e.target.closest('a')) return;
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', () => {
+      addFiles(fileInput.files);
+    });
+
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => { zone.classList.remove('drag-over'); });
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+    });
+
+    fileListEl.addEventListener('click', (e) => {
+      const btn = e.target.closest('.file-remove');
+      if (!btn) return;
+      const idx = parseInt(btn.dataset.idx);
+      const newDt = new DataTransfer();
+      for (let i = 0; i < dt.files.length; i++) {
+        if (i !== idx) newDt.items.add(dt.files[i]);
+      }
+      dt.items.clear();
+      for (let i = 0; i < newDt.files.length; i++) dt.items.add(newDt.files[i]);
+      syncFiles();
+      renderFileList();
+    });
+  });
+
   // ── AI Assistant Panel ──
   const wrapper = document.getElementById('ai-assistant');
   if (!wrapper) return;
@@ -81,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function formatMarkdown(text) {
-    return text
+    let html = text
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.+?)\*/g, '<em>$1</em>')
@@ -91,6 +178,23 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/^- (.+)$/gm, '<li>$1</li>')
       .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
       .replace(/\n/g, '<br>');
+
+    // Render LaTeX after inserting HTML
+    setTimeout(() => {
+      if (typeof renderMathInElement !== 'undefined') {
+        document.querySelectorAll('.assistant-msg-assistant').forEach(el => {
+          renderMathInElement(el, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '$', right: '$', display: false },
+            ],
+            throwOnError: false,
+          });
+        });
+      }
+    }, 50);
+
+    return html;
   }
 
   function addTypingIndicator() {
@@ -146,15 +250,38 @@ document.addEventListener('DOMContentLoaded', () => {
         addMessage('assistant', data.error);
       } else {
         addMessage('assistant', data.reply || 'No response.');
-        if (data.action && data.action.type === 'navigate' && data.action.url) {
-          setTimeout(() => { window.location.href = data.action.url; }, 1500);
-        }
+        if (data.action) handleAction(data.action);
       }
     } catch (err) {
       removeTypingIndicator();
       addMessage('assistant', 'Connection error. Please try again.');
     }
   });
+
+  function handleAction(action) {
+    if (!action || !action.type) return;
+    switch (action.type) {
+      case 'navigate':
+        if (action.url) {
+          addMessage('assistant', `Navigating to ${action.url}...`);
+          setTimeout(() => { window.location.href = action.url; }, 1200);
+        }
+        break;
+      case 'grade_all':
+        if (action.exam_id) {
+          addMessage('assistant', 'Triggering grading... Please wait.');
+          fetch(`/grading/grade-all/${action.exam_id}`, { method: 'POST' })
+            .then(() => addMessage('assistant', 'Grading started! Refreshing page...'))
+            .then(() => setTimeout(() => location.reload(), 2000))
+            .catch(() => addMessage('assistant', 'Failed to trigger grading.'));
+        }
+        break;
+      default:
+        if (action.url) {
+          setTimeout(() => { window.location.href = action.url; }, 1200);
+        }
+    }
+  }
 
   if (clearBtn) {
     clearBtn.addEventListener('click', async () => {
@@ -174,5 +301,55 @@ document.addEventListener('DOMContentLoaded', () => {
       historyLoaded = false;
       if (typeof lucide !== 'undefined') lucide.createIcons();
     });
+  }
+
+  // ── Speech-to-Text (Web Speech API — free, no API key) ──
+  const micBtn = document.getElementById('assistant-mic');
+  if (micBtn && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    let isListening = false;
+
+    micBtn.addEventListener('click', () => {
+      if (isListening) {
+        recognition.stop();
+        return;
+      }
+      recognition.start();
+    });
+
+    recognition.onstart = () => {
+      isListening = true;
+      micBtn.classList.add('mic-active');
+      input.placeholder = 'Listening...';
+    };
+
+    recognition.onresult = (event) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      input.value = transcript;
+    };
+
+    recognition.onend = () => {
+      isListening = false;
+      micBtn.classList.remove('mic-active');
+      input.placeholder = 'Ask anything or use mic...';
+      if (input.value.trim()) {
+        form.dispatchEvent(new Event('submit', { cancelable: true }));
+      }
+    };
+
+    recognition.onerror = () => {
+      isListening = false;
+      micBtn.classList.remove('mic-active');
+      input.placeholder = 'Ask anything or use mic...';
+    };
+  } else if (micBtn) {
+    micBtn.style.display = 'none';
   }
 });

@@ -1,0 +1,101 @@
+<div class="page-header">
+  <div>
+    <h1><i data-lucide="target"></i> Learning Objectives</h1>
+    <p class="page-desc">Define, track, and measure mastery of course learning objectives using Bloom's taxonomy</p>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/learning-objectives" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+    <select name="course_id" class="form-control" onchange="this.form.submit()" style="max-width:350px">
+      <option value="">Select a course...</option>
+      <% courses.forEach(c => { %>
+        <option value="<%= c.id %>" <%= selectedCourseId == c.id ? 'selected' : '' %>><%= c.code %> — <%= c.name %></option>
+      <% }); %>
+    </select>
+  </form>
+</div>
+
+<% if (selectedCourseId) { %>
+  <div class="card" style="margin-top:1rem">
+    <div class="card-body">
+      <h3>Add Learning Objective for <%= courseName %></h3>
+      <form method="POST" action="/learning-objectives/create">
+        <input type="hidden" name="course_id" value="<%= selectedCourseId %>">
+        <div style="display:grid;grid-template-columns:1fr auto auto auto;gap:0.5rem;align-items:end">
+          <div>
+            <label style="font-size:0.8rem">Objective Title</label>
+            <input type="text" name="title" class="form-control" placeholder="Students will be able to..." required style="padding:0.4rem;border-radius:6px;border:1px solid var(--outline-variant)">
+          </div>
+          <div>
+            <label style="font-size:0.8rem">Bloom's Level</label>
+            <select name="bloom_level" class="form-control" style="padding:0.4rem;border-radius:6px;border:1px solid var(--outline-variant)">
+              <option value="remember">Remember</option>
+              <option value="understand" selected>Understand</option>
+              <option value="apply">Apply</option>
+              <option value="analyze">Analyze</option>
+              <option value="evaluate">Evaluate</option>
+              <option value="create">Create</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.8rem">Mastery %</label>
+            <input type="number" name="mastery_threshold" value="70" min="0" max="100" class="form-control" style="padding:0.4rem;border-radius:6px;width:70px;border:1px solid var(--outline-variant)">
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Add</button>
+        </div>
+        <div style="margin-top:0.5rem">
+          <input type="text" name="description" class="form-control" placeholder="Description (optional)" style="padding:0.4rem;border-radius:6px;border:1px solid var(--outline-variant);width:100%">
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <% if (objectives.length === 0) { %>
+    <div class="empty-state" style="margin-top:1rem">
+      <i data-lucide="target"></i>
+      <p>No learning objectives defined yet. Add objectives to track student mastery across exams.</p>
+    </div>
+  <% } else { %>
+    <div style="display:grid;gap:0.75rem;margin-top:1rem">
+      <% objectives.forEach(obj => {
+        const m = mastery[obj.id] || {};
+        const bloomColors = { remember: '#6366f1', understand: '#3b82f6', apply: '#10b981', analyze: '#f59e0b', evaluate: '#ef4444', create: '#8b5cf6' };
+        const color = bloomColors[obj.bloom_level] || '#666';
+        const pct = m.avgPct !== null && m.avgPct !== undefined ? m.avgPct : null;
+      %>
+        <div class="card" style="border-left:4px solid <%= color %>">
+          <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem">
+            <div style="flex:1;min-width:250px">
+              <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.25rem">
+                <span class="badge" style="background:<%= color %>;color:#fff;font-size:0.65rem;padding:2px 6px;border-radius:4px;text-transform:uppercase"><%= obj.bloom_level %></span>
+                <strong><%= obj.title %></strong>
+              </div>
+              <% if (obj.description) { %><p style="margin:0;font-size:0.8rem;opacity:0.7"><%= obj.description %></p><% } %>
+            </div>
+            <div style="text-align:center;min-width:120px">
+              <% if (pct !== null) { %>
+                <div style="font-size:1.5rem;font-weight:700;color:<%= pct >= obj.mastery_threshold ? 'var(--success,#10b981)' : pct >= 50 ? '#f59e0b' : 'var(--error,#ef4444)' %>"><%= pct %>%</div>
+                <div style="font-size:0.7rem;opacity:0.6">class avg mastery</div>
+                <div class="progress-bar-mini" style="margin-top:4px">
+                  <div style="width:<%= Math.min(100, pct) %>%;background:<%= pct >= obj.mastery_threshold ? 'var(--success,#10b981)' : pct >= 50 ? '#f59e0b' : 'var(--error,#ef4444)' %>"></div>
+                </div>
+                <div style="font-size:0.65rem;opacity:0.5;margin-top:2px"><%= m.assessments %> assessment<%= m.assessments !== 1 ? 's' : '' %> · target: <%= obj.mastery_threshold %>%</div>
+              <% } else { %>
+                <div style="font-size:0.8rem;opacity:0.5">No data yet</div>
+              <% } %>
+            </div>
+            <form method="POST" action="/learning-objectives/delete/<%= obj.id %>" style="margin:0" onsubmit="return confirm('Delete this objective?')">
+              <button type="submit" class="btn btn-sm btn-outline" style="color:var(--error)" title="Delete"><i data-lucide="trash-2" style="width:14px;height:14px"></i></button>
+            </form>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  <% } %>
+<% } else { %>
+  <div class="empty-state" style="margin-top:2rem">
+    <i data-lucide="target"></i>
+    <p>Select a course to manage learning objectives</p>
+  </div>
+<% } %>

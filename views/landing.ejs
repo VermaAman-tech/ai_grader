@@ -1,173 +1,543 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Intelligrade - AI-Powered Exam Grading</title>
+  <title>Intelligrade — Course Intelligence Platform</title>
+  <meta name="description" content="The complete course intelligence platform for colleges. AI grading, learning analytics, student engagement, and 18+ tool integrations — all in one place.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/landing.css">
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 <body class="landing-body">
-  <nav class="landing-nav">
-    <div class="landing-nav-inner">
-      <a href="/" class="landing-brand"><i data-lucide="brain-circuit"></i> Intelligrade</a>
-      <div class="landing-nav-links">
+
+  <!-- ─── Navbar ─── -->
+  <nav class="ln-nav" id="lnNav">
+    <div class="ln-nav-inner">
+      <a href="/" class="ln-brand">
+        <%- include('partials/logo', { logoSize: 32, logoId: 'nav' }) %>
+        <span>Intelligrade</span>
+      </a>
+      <button class="ln-hamburger" id="lnHamburger" aria-label="Menu"><i data-lucide="menu"></i></button>
+      <div class="ln-links" id="lnLinks">
         <a href="#features">Features</a>
-        <a href="#workflow">How It Works</a>
+        <a href="#model">Our AI</a>
         <a href="#pricing">Pricing</a>
-        <a href="/login" class="btn btn-outline btn-sm">Sign In</a>
-        <a href="/register" class="btn btn-primary btn-sm">Get Started</a>
+        <button class="ln-theme-btn" id="lnThemeToggle" title="Toggle theme">
+          <i data-lucide="sun" class="theme-icon-light"></i>
+          <i data-lucide="moon" class="theme-icon-dark"></i>
+        </button>
+        <a href="/login" class="ln-signin">Sign In</a>
+        <a href="/register" class="ln-cta-nav">Get Started Free<i data-lucide="arrow-right"></i></a>
       </div>
     </div>
   </nav>
 
-  <section class="hero">
-    <div class="hero-bg"></div>
-    <div class="hero-content">
-      <div class="hero-badge">AI-Powered Grading Platform</div>
-      <h1>Grade Exams <span class="gradient-text">10x Faster</span><br>with AI Precision</h1>
-      <p class="hero-sub">Intelligrade uses advanced AI to read handwritten answers, map them to your rubric, and deliver detailed grades with actionable feedback -- saving professors hours of manual work.</p>
-      <div class="hero-actions">
-        <a href="/register" class="btn btn-primary btn-lg">Start Free Trial<i data-lucide="arrow-right"></i></a>
-        <a href="#features" class="btn btn-outline btn-lg">Learn More</a>
+  <!-- ─── Hero ─── -->
+  <section class="ln-hero">
+    <div class="ln-hero-glow"></div>
+    <div class="ln-hero-glow-2"></div>
+    <div class="ln-hero-inner">
+      <div class="ln-hero-badge"><i data-lucide="sparkles"></i> Course Intelligence Platform for Higher Education</div>
+      <h1>The Complete<br><span class="ln-grad">AI-Powered</span> Platform<br>for Professors</h1>
+      <p class="ln-hero-sub">AI grading with rubric precision. Learning analytics. Student engagement. TA management. 18+ tool integrations. One platform — zero switching.</p>
+      <div class="ln-hero-btns">
+        <a href="/register" class="ln-cta">Start Free — 10 Papers<i data-lucide="arrow-right"></i></a>
+        <a href="#features" class="ln-ghost">Explore Features</a>
       </div>
-      <div class="hero-stats">
-        <div class="stat-pill"><i data-lucide="clock"></i><strong>80%</strong> time saved</div>
-        <div class="stat-pill"><i data-lucide="target"></i><strong>95%</strong> accuracy</div>
-        <div class="stat-pill"><i data-lucide="shield-check"></i><strong>100%</strong> secure</div>
+      <div class="ln-metrics">
+        <div class="ln-metric"><strong>95%+</strong><span>Accuracy</span></div>
+        <div class="ln-metric-sep"></div>
+        <div class="ln-metric"><strong>80%</strong><span>Time Saved</span></div>
+        <div class="ln-metric-sep"></div>
+        <div class="ln-metric"><strong>18+</strong><span>Integrations</span></div>
+        <div class="ln-metric-sep"></div>
+        <div class="ln-metric"><strong>₹799</strong><span>/mo/prof</span></div>
       </div>
     </div>
   </section>
 
-  <section id="features" class="section">
-    <div class="container">
-      <div class="section-header">
-        <h2>Powerful Features for Modern Educators</h2>
-        <p>Everything you need to streamline exam grading and gain deeper insights into student performance.</p>
+  <!-- ─── Social proof bar ─── -->
+  <section class="ln-proof">
+    <div class="ln-proof-inner">
+      <span>Built for educators at</span>
+      <div class="ln-proof-logos">
+        <span class="ln-proof-tag">IIT Bombay</span>
+        <span class="ln-proof-tag">Universities</span>
+        <span class="ln-proof-tag">Engineering Colleges</span>
+        <span class="ln-proof-tag">Medical Colleges</span>
+        <span class="ln-proof-tag">Individual Professors</span>
       </div>
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-icon"><i data-lucide="scan-eye"></i></div>
+    </div>
+  </section>
+
+  <!-- ─── Features Carousel ─── -->
+  <section id="features" class="ln-section">
+    <div class="ln-container">
+      <div class="ln-section-label"><i data-lucide="layers"></i> Platform</div>
+      <h2 class="ln-section-title">A Complete Course Intelligence Platform</h2>
+      <p class="ln-section-sub">20+ integrated tools. Grading, analytics, engagement, integrations. Zero switching.</p>
+    </div>
+    <div class="ln-carousel-wrap">
+      <div class="ln-carousel" id="featureCarousel">
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--purple"><i data-lucide="scan-eye"></i></div>
           <h3>Intelligent OCR</h3>
-          <p>Advanced vision AI reads handwritten and typed answer sheets with high accuracy, converting PDF submissions into structured text.</p>
+          <p>Vision AI reads handwritten &amp; typed sheets — diagrams, equations, graphs — even from phone scans.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon"><i data-lucide="brain"></i></div>
-          <h3>AI-Powered Grading</h3>
-          <p>LLM-based grading matches student answers against rubric key points, awards partial credit, and provides detailed feedback.</p>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--blue"><i data-lucide="brain"></i></div>
+          <h3>AI Rubric Grading</h3>
+          <p>Maps answers to rubric key points. Awards partial credit. Delivers per-question feedback with confidence.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon"><i data-lucide="bar-chart-3"></i></div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--teal"><i data-lucide="network"></i></div>
+          <h3>Knowledge Graph</h3>
+          <p>Concept mastery across exams. Weak topics per student &amp; batch. Learning progression over time.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--amber"><i data-lucide="bar-chart-3"></i></div>
           <h3>Deep Analytics</h3>
-          <p>Question difficulty analysis, grade distributions, at-risk student identification, and AI-generated teaching recommendations.</p>
+          <p>Distributions, difficulty analysis, at-risk flagging, AI teaching recommendations. Download as PDF.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon"><i data-lucide="message-circle"></i></div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--purple"><i data-lucide="message-circle"></i></div>
           <h3>AI Teaching Assistant</h3>
-          <p>Chat with an AI that knows your exam data. Ask about trends, get rubric suggestions, or identify students needing support.</p>
+          <p>Copilot sidebar on every page. Voice-enabled. Ask trends, generate rubrics, design exams, plan courses.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon"><i data-lucide="shield-check"></i></div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--blue"><i data-lucide="file-plus-2"></i></div>
+          <h3>AI Exam Designer</h3>
+          <p>Upload past papers, notes, syllabi. AI generates balanced question papers with marking schemes.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--teal"><i data-lucide="wand-2"></i></div>
+          <h3>Auto-Rubric Builder</h3>
+          <p>Upload question paper + model answer. AI extracts key points &amp; drafts rubric. 3 minutes, not 30.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--amber"><i data-lucide="sliders-horizontal"></i></div>
+          <h3>Smart Normalisation</h3>
+          <p>Linear scaling, percentile curves, std-dev grading, custom boundaries. Preview before applying.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--purple"><i data-lucide="upload"></i></div>
+          <h3>Bulk Upload &amp; Grade</h3>
+          <p>ZIP upload with auto roll-number matching. Grade entire batches with one click.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--blue"><i data-lucide="shield-check"></i></div>
           <h3>Professor Override</h3>
-          <p>Full control -- review every AI grade, override scores, add notes. The AI assists; you decide.</p>
+          <p>Review every AI grade, override scores, add notes. AI assists — you decide final marks.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-icon"><i data-lucide="building-2"></i></div>
-          <h3>College-Wide Plans</h3>
-          <p>Register your institution and give all professors access. Domain-based email matching makes onboarding seamless.</p>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--teal"><i data-lucide="download"></i></div>
+          <h3>Export &amp; Email</h3>
+          <p>Excel gradebooks, PDF analytics, personalized student email reports. Share instantly.</p>
         </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--amber"><i data-lucide="mic"></i></div>
+          <h3>Voice Commands</h3>
+          <p>Speech-to-text assistant interaction. Dictate, ask, navigate — hands-free grading.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--purple"><i data-lucide="users-2"></i></div>
+          <h3>TA Management</h3>
+          <p>Invite TAs, assign grading, set permissions, track performance with consistency metrics.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--blue"><i data-lucide="messages-square"></i></div>
+          <h3>Discussions &amp; Q&A</h3>
+          <p>Course discussion board with threads, replies, anonymous posting, and Piazza import.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--teal"><i data-lucide="target"></i></div>
+          <h3>Learning Objectives</h3>
+          <p>Track Bloom's taxonomy mastery per student. See which objectives are met across assessments.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--amber"><i data-lucide="puzzle"></i></div>
+          <h3>18+ Integrations</h3>
+          <p>Moodle, Canvas, Notion, Google Drive, Zoom, Slack, Discord, Turnitin, Overleaf, Bodhitree &amp; more.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--purple"><i data-lucide="hand-heart"></i></div>
+          <h3>Live Feedback</h3>
+          <p>In-class polls, active feedback, exit tickets. Real-time understanding checks during lectures.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--blue"><i data-lucide="message-square-warning"></i></div>
+          <h3>Crib &amp; Regrade</h3>
+          <p>Student regrade portal with AI screening. Accept, reject, override — with audit trail.</p>
+        </div>
+        <div class="ln-fcard">
+          <div class="ln-fcard-icon ln-fcard-icon--teal"><i data-lucide="calendar-clock"></i></div>
+          <h3>Class Sessions</h3>
+          <p>Teaching journal — plan concepts, track coverage, record notes, link video meetings.</p>
+        </div>
+      </div>
+      <div class="ln-carousel-nav">
+        <button class="ln-carousel-btn" id="carouselPrev"><i data-lucide="chevron-left"></i></button>
+        <div class="ln-carousel-dots" id="carouselDots"></div>
+        <button class="ln-carousel-btn" id="carouselNext"><i data-lucide="chevron-right"></i></button>
       </div>
     </div>
   </section>
 
-  <section id="workflow" class="section section-alt">
-    <div class="container">
-      <div class="section-header">
-        <h2>How It Works</h2>
-        <p>Four simple steps from exam papers to complete gradebooks.</p>
-      </div>
-      <div class="workflow-steps">
-        <div class="workflow-step">
-          <div class="step-num">01</div>
+  <!-- ─── How It Works ─── -->
+  <section id="workflow" class="ln-section ln-section--alt">
+    <div class="ln-container">
+      <div class="ln-section-label"><i data-lucide="route"></i> Workflow</div>
+      <h2 class="ln-section-title">Four Steps to Complete Gradebooks</h2>
+      <div class="ln-steps">
+        <div class="ln-step">
+          <div class="ln-step-num">01</div>
+          <div class="ln-step-line"></div>
           <h3>Set Up</h3>
-          <p>Create your course, import the student roster, and define the exam with questions and rubric.</p>
+          <p>Create course, import roster, define rubric — or let AI generate one from past papers.</p>
         </div>
-        <div class="workflow-step">
-          <div class="step-num">02</div>
+        <div class="ln-step">
+          <div class="ln-step-num">02</div>
+          <div class="ln-step-line"></div>
           <h3>Upload</h3>
-          <p>Upload scanned answer sheets as PDFs -- one per student. Batch upload is supported.</p>
+          <p>Drag &amp; drop PDFs or upload a ZIP. Auto-matched to your student roster by roll number.</p>
         </div>
-        <div class="workflow-step">
-          <div class="step-num">03</div>
-          <h3>Grade</h3>
-          <p>AI reads each submission via OCR, maps answers to rubric questions, and grades with detailed feedback.</p>
+        <div class="ln-step">
+          <div class="ln-step-num">03</div>
+          <div class="ln-step-line"></div>
+          <h3>AI Grades</h3>
+          <p>Fine-tuned model reads each answer, reasons through rubric, grades with detailed feedback.</p>
         </div>
-        <div class="workflow-step">
-          <div class="step-num">04</div>
-          <h3>Review & Export</h3>
-          <p>Review grades, apply overrides, analyze class performance, and export a polished Excel gradebook.</p>
+        <div class="ln-step">
+          <div class="ln-step-num">04</div>
+          <h3>Review &amp; Act</h3>
+          <p>Analytics, knowledge graphs, AI insights. Override grades. Export reports. Email students.</p>
         </div>
       </div>
     </div>
   </section>
 
-  <section id="pricing" class="section">
-    <div class="container">
-      <div class="section-header">
-        <h2>Simple, Transparent Pricing</h2>
-        <p>Start with a free trial. Upgrade when you are ready.</p>
-      </div>
-      <div class="pricing-grid">
-        <div class="price-card">
-          <div class="price-label">Trial</div>
-          <div class="price-amount">Free</div>
-          <div class="price-period">7 days</div>
-          <ul class="price-features">
-            <li><i data-lucide="check"></i>Full feature access</li>
-            <li><i data-lucide="check"></i>Up to 50 submissions</li>
-            <li><i data-lucide="check"></i>AI grading + analytics</li>
-          </ul>
-          <a href="/register" class="btn btn-outline btn-block">Start Trial</a>
-        </div>
-        <div class="price-card featured">
-          <div class="price-badge">Popular</div>
-          <div class="price-label">Quarterly</div>
-          <div class="price-amount">$79</div>
-          <div class="price-period">3 months</div>
-          <ul class="price-features">
-            <li><i data-lucide="check"></i>Unlimited submissions</li>
-            <li><i data-lucide="check"></i>AI grading + analytics</li>
-            <li><i data-lucide="check"></i>Priority support</li>
-            <li><i data-lucide="check"></i>AI chat assistant</li>
-          </ul>
-          <a href="/register" class="btn btn-primary btn-block">Get Started</a>
-        </div>
-        <div class="price-card">
-          <div class="price-label">Annual</div>
-          <div class="price-amount">$249</div>
-          <div class="price-period">12 months</div>
-          <ul class="price-features">
-            <li><i data-lucide="check"></i>Everything in Quarterly</li>
-            <li><i data-lucide="check"></i>Best value -- save 34%</li>
-            <li><i data-lucide="check"></i>Dedicated support</li>
-          </ul>
-          <a href="/register" class="btn btn-outline btn-block">Get Started</a>
+  <!-- ─── AI Model ─── -->
+  <section id="model" class="ln-section">
+    <div class="ln-container">
+      <div class="ln-section-label"><i data-lucide="cpu"></i> Our Technology</div>
+      <h2 class="ln-section-title">Not a Generic Chatbot.<br>A Purpose-Built Evaluation Engine.</h2>
+      <p class="ln-section-sub">Fine-tuned, adapted, and RLHF-aligned specifically for handwritten exam grading.</p>
+
+      <div class="ln-model-hero">
+        <div class="ln-model-hero-icon"><i data-lucide="sparkles"></i></div>
+        <div>
+          <h3>Trained on Real Answer Scripts</h3>
+          <p>Our model has processed thousands of authentic student responses — messy handwriting, crossed-out answers, margin notes, partial attempts, and creative solutions that generic AI misses entirely. It grades the way an experienced evaluator does.</p>
         </div>
       </div>
-      <p class="pricing-note">College-wide plans available. <a href="/register">Contact us</a> for institutional pricing.</p>
+
+      <div class="ln-model-grid">
+        <div class="ln-model-card">
+          <i data-lucide="pen-tool"></i>
+          <h4>Handwriting Recognition</h4>
+          <p>Cursive, print, mixed scripts, poor-quality scans. Adapted for real classrooms.</p>
+        </div>
+        <div class="ln-model-card">
+          <i data-lucide="git-branch"></i>
+          <h4>Reasoning-First Grading</h4>
+          <p>Understands logical flow. Identifies partial credit. Recognizes correct reasoning with minor errors.</p>
+        </div>
+        <div class="ln-model-card">
+          <i data-lucide="shapes"></i>
+          <h4>Multimodal Understanding</h4>
+          <p>Diagrams, circuits, chemical equations, proofs, graphs, tables — all interpreted intelligently.</p>
+        </div>
+        <div class="ln-model-card">
+          <i data-lucide="scale"></i>
+          <h4>Rubric-Aligned Mapping</h4>
+          <p>Precise partial credit with RLHF alignment. Matched points, missing concepts, actionable feedback.</p>
+        </div>
+        <div class="ln-model-card">
+          <i data-lucide="trending-up"></i>
+          <h4>Continuously Improving</h4>
+          <p>Every professor override teaches the system. Adapts to your institution's grading style.</p>
+        </div>
+      </div>
     </div>
   </section>
 
-  <footer class="landing-footer">
-    <div class="container">
-      <div class="footer-inner">
-        <div class="footer-brand"><i data-lucide="brain-circuit"></i> Intelligrade.space</div>
-        <div class="footer-copy">&copy; 2026 Intelligrade. All rights reserved.</div>
+  <!-- ─── Who It's For ─── -->
+  <section id="who" class="ln-section ln-section--alt">
+    <div class="ln-container">
+      <div class="ln-section-label"><i data-lucide="users"></i> Built For</div>
+      <h2 class="ln-section-title">Every Educator. Every Scale.</h2>
+      <div class="ln-audience">
+        <div class="ln-audience-card">
+          <div class="ln-audience-icon"><i data-lucide="user"></i></div>
+          <h3>Individual Professors</h3>
+          <p>Sign up with any email. Perfect for independent professors, tutors, coaching faculty.</p>
+          <ul>
+            <li><i data-lucide="check"></i>10 free evaluations</li>
+            <li><i data-lucide="check"></i>From <span class="price-switch" data-inr="₹799" data-usd="$10">₹799</span>/mo per 100 students</li>
+            <li><i data-lucide="check"></i>All AI + engagement features</li>
+          </ul>
+        </div>
+        <div class="ln-audience-card ln-audience-card--pop">
+          <div class="ln-audience-badge">Most Popular</div>
+          <div class="ln-audience-icon"><i data-lucide="building-2"></i></div>
+          <h3>College Departments</h3>
+          <p>One plan for the whole department. Admin dashboard, TA management, inter-course analytics.</p>
+          <ul>
+            <li><i data-lucide="check"></i>All professors covered</li>
+            <li><i data-lucide="check"></i>From <span class="price-switch" data-inr="₹8,000" data-usd="$99">₹8,000</span>/mo per 100 students</li>
+            <li><i data-lucide="check"></i>Buy 12 profs, 2 free</li>
+          </ul>
+        </div>
+        <div class="ln-audience-card">
+          <div class="ln-audience-icon"><i data-lucide="school"></i></div>
+          <h3>Universities &amp; Enterprise</h3>
+          <p>Campus-wide deployment. All features, all departments. Custom onboarding &amp; integrations.</p>
+          <ul>
+            <li><i data-lucide="check"></i>Unlimited professors</li>
+            <li><i data-lucide="check"></i>Custom pricing + Moodle/Canvas/Bodhitree integration</li>
+            <li><i data-lucide="check"></i>Dedicated support &amp; SLA</li>
+          </ul>
+        </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ─── Pricing ─── -->
+  <section id="pricing" class="ln-section">
+    <div class="ln-container">
+      <div class="ln-section-label"><i data-lucide="tag"></i> Pricing</div>
+      <h2 class="ln-section-title">Transparent. No Hidden Fees.</h2>
+      <p class="ln-section-sub">Start free. Upgrade when ready.</p>
+
+      <div class="ln-currency-bar">
+        <button class="ln-cur-btn active" onclick="switchCurrency('inr', event)">🇮🇳 INR</button>
+        <button class="ln-cur-btn" onclick="switchCurrency('usd', event)">🌐 USD</button>
+      </div>
+
+      <div class="ln-pricing">
+        <div class="ln-price-card">
+          <div class="ln-price-tier ln-price-tier--free">FREE</div>
+          <div class="ln-price-name">Starter</div>
+          <div class="ln-price-amt">₹0</div>
+          <div class="ln-price-period">10 evaluations forever</div>
+          <ul>
+            <li><i data-lucide="check"></i>Full AI grading</li>
+            <li><i data-lucide="check"></i>Analytics &amp; insights</li>
+            <li><i data-lucide="check"></i>AI assistant</li>
+            <li><i data-lucide="check"></i>No card required</li>
+          </ul>
+          <a href="/register" class="ln-price-btn">Get Started</a>
+        </div>
+        <div class="ln-price-card">
+          <div class="ln-price-tier ln-price-tier--pro">ASSESS</div>
+          <div class="ln-price-name">Grading + Analytics</div>
+          <div class="ln-price-amt price-switch" data-inr="₹799" data-usd="$10">₹799</div>
+          <div class="ln-price-period">/mo per prof per 100 students</div>
+          <ul>
+            <li><i data-lucide="check"></i>AI grading &amp; analytics</li>
+            <li><i data-lucide="check"></i>Student learning tracking</li>
+            <li><i data-lucide="check"></i>Knowledge graph</li>
+            <li><i data-lucide="check"></i>Export &amp; email reports</li>
+          </ul>
+          <a href="/register" class="ln-price-btn">Start Free First</a>
+        </div>
+        <div class="ln-price-card ln-price-card--featured">
+          <div class="ln-price-pop">Best Value</div>
+          <div class="ln-price-tier ln-price-tier--pro">ACADEMIC</div>
+          <div class="ln-price-name">Full Academic Suite</div>
+          <div class="ln-price-amt price-switch" data-inr="₹1,499" data-usd="$18">₹1,499</div>
+          <div class="ln-price-period">/mo per prof per 100 students</div>
+          <ul>
+            <li><i data-lucide="check"></i>Everything in Assess</li>
+            <li><i data-lucide="check"></i>TA management</li>
+            <li><i data-lucide="check"></i>Discussions, polls, sessions</li>
+            <li><i data-lucide="check"></i>18+ integrations</li>
+          </ul>
+          <a href="/register" class="ln-cta ln-price-cta">Register Now</a>
+        </div>
+        <div class="ln-price-card">
+          <div class="ln-price-tier ln-price-tier--pro">COLLEGE</div>
+          <div class="ln-price-name">Enterprise</div>
+          <div class="ln-price-amt price-switch" data-inr="₹8,000" data-usd="$99">₹8,000</div>
+          <div class="ln-price-period">/mo college per 100 students</div>
+          <ul>
+            <li><i data-lucide="check"></i>All features unlocked</li>
+            <li><i data-lucide="check"></i>Buy 12 profs, 2 free</li>
+            <li><i data-lucide="check"></i>Semester &amp; annual plans</li>
+            <li><i data-lucide="check"></i>Dedicated support &amp; SLA</li>
+          </ul>
+          <a href="/register" class="ln-price-btn">Register College</a>
+        </div>
+      </div>
+      <p class="ln-pricing-note">Semester plans save 10%. Annual plans save 17%. Prices scale linearly per 100 students. <a href="/plans">See full pricing calculator →</a></p>
+    </div>
+  </section>
+
+  <!-- ─── Trust ─── -->
+  <section class="ln-section ln-section--alt">
+    <div class="ln-container">
+      <div class="ln-trust">
+        <div class="ln-trust-item">
+          <div class="ln-trust-icon"><i data-lucide="lock"></i></div>
+          <h4>Secure &amp; Private</h4>
+          <p>Encrypted sessions. No student data shared. Role-based access.</p>
+        </div>
+        <div class="ln-trust-item">
+          <div class="ln-trust-icon"><i data-lucide="zap"></i></div>
+          <h4>50 Papers in Minutes</h4>
+          <p>Bulk upload, click grade, get a complete gradebook with feedback.</p>
+        </div>
+        <div class="ln-trust-item">
+          <div class="ln-trust-icon"><i data-lucide="sliders-horizontal"></i></div>
+          <h4>You Stay in Control</h4>
+          <p>Override any grade. Every AI decision is transparent and auditable.</p>
+        </div>
+        <div class="ln-trust-item">
+          <div class="ln-trust-icon"><i data-lucide="globe"></i></div>
+          <h4>Works Everywhere</h4>
+          <p>Web-based. Desktop, tablet, mobile. India (₹) &amp; Global ($).</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Integrations ─── -->
+  <section class="ln-section">
+    <div class="ln-container">
+      <div class="ln-section-label"><i data-lucide="puzzle"></i> Integrations</div>
+      <h2 class="ln-section-title">Connects With Your Entire Stack</h2>
+      <p class="ln-section-sub">18+ integrations embedded right where you need them.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center">
+        <% ['Moodle LMS', 'Canvas LMS', 'Google Classroom', 'Bodhitree (IITB)', 'Piazza', 'Notion', 'Google Drive', 'OneDrive', 'Overleaf', 'Turnitin', 'Gradescope', 'Zoom', 'Microsoft Teams', 'Slack', 'Discord', 'GitHub Classroom', 'JupyterHub', 'GitHub Copilot'].forEach(function(name) { %>
+          <span class="ln-proof-tag"><%= name %></span>
+        <% }); %>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── CTA ─── -->
+  <section class="ln-cta-section">
+    <div class="ln-container">
+      <h2>Your entire course workflow. One platform.</h2>
+      <p>AI grading, student engagement, learning analytics, TA management — all integrated. You focus on teaching.</p>
+      <div class="ln-cta-btns">
+        <a href="/register" class="ln-cta ln-cta--lg">Create Free Account<i data-lucide="arrow-right"></i></a>
+        <a href="#model" class="ln-ghost">Learn About Our AI</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Footer ─── -->
+  <footer class="ln-footer">
+    <div class="ln-footer-inner">
+      <a href="/" class="ln-brand" style="font-size:1rem;">
+        <%- include('partials/logo', { logoSize: 24, logoId: 'footer' }) %>
+        <span>Intelligrade</span>
+      </a>
+      <div class="ln-footer-links">
+        <a href="/terms">Terms</a>
+        <a href="/privacy">Privacy</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#features">Features</a>
+      </div>
+      <div class="ln-footer-copy">&copy; 2026 Intelligrade. All rights reserved.</div>
     </div>
   </footer>
-  <script>lucide.createIcons();</script>
+
+  <script>
+    lucide.createIcons();
+
+    /* ── Theme ── */
+    const t = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', t);
+    document.getElementById('lnThemeToggle').addEventListener('click', () => {
+      const c = document.documentElement.getAttribute('data-theme');
+      const n = c === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', n);
+      localStorage.setItem('theme', n);
+    });
+
+    /* ── Mobile nav ── */
+    document.getElementById('lnHamburger').addEventListener('click', () => {
+      document.getElementById('lnLinks').classList.toggle('open');
+    });
+    document.querySelectorAll('#lnLinks a[href^="#"]').forEach(a => {
+      a.addEventListener('click', () => document.getElementById('lnLinks').classList.remove('open'));
+    });
+
+    /* ── Nav scroll effect ── */
+    window.addEventListener('scroll', () => {
+      document.getElementById('lnNav').classList.toggle('scrolled', window.scrollY > 40);
+    });
+
+    /* ── Currency ── */
+    function switchCurrency(c, e) {
+      document.querySelectorAll('.ln-cur-btn').forEach(b => b.classList.remove('active'));
+      e.target.closest('.ln-cur-btn').classList.add('active');
+      document.querySelectorAll('.price-switch').forEach(el => { el.textContent = el.dataset[c]; });
+    }
+
+    /* ── Feature Carousel ── */
+    (function() {
+      const track = document.getElementById('featureCarousel');
+      const cards = track.querySelectorAll('.ln-fcard');
+      const dotsWrap = document.getElementById('carouselDots');
+      const prevBtn = document.getElementById('carouselPrev');
+      const nextBtn = document.getElementById('carouselNext');
+
+      function getVisible() {
+        const w = window.innerWidth;
+        if (w >= 1024) return 4;
+        if (w >= 768) return 3;
+        if (w >= 500) return 2;
+        return 1;
+      }
+
+      let page = 0;
+      function totalPages() { return Math.ceil(cards.length / getVisible()); }
+
+      function buildDots() {
+        dotsWrap.innerHTML = '';
+        const tp = totalPages();
+        for (let i = 0; i < tp; i++) {
+          const d = document.createElement('button');
+          d.className = 'ln-dot' + (i === page ? ' active' : '');
+          d.addEventListener('click', () => { page = i; scroll(); });
+          dotsWrap.appendChild(d);
+        }
+      }
+
+      function scroll() {
+        const vis = getVisible();
+        const cardW = cards[0].offsetWidth + 20;
+        const offset = page * vis * cardW;
+        track.style.transform = 'translateX(-' + offset + 'px)';
+        dotsWrap.querySelectorAll('.ln-dot').forEach((d, i) => d.classList.toggle('active', i === page));
+      }
+
+      prevBtn.addEventListener('click', () => { page = Math.max(0, page - 1); scroll(); });
+      nextBtn.addEventListener('click', () => { page = Math.min(totalPages() - 1, page + 1); scroll(); });
+
+      buildDots();
+      window.addEventListener('resize', () => {
+        page = Math.min(page, totalPages() - 1);
+        buildDots();
+        scroll();
+      });
+
+      /* Touch swipe */
+      let startX = 0;
+      track.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+      track.addEventListener('touchend', e => {
+        const diff = startX - e.changedTouches[0].clientX;
+        if (diff > 50) { page = Math.min(totalPages() - 1, page + 1); scroll(); }
+        else if (diff < -50) { page = Math.max(0, page - 1); scroll(); }
+      }, { passive: true });
+    })();
+  </script>
 </body>
 </html>

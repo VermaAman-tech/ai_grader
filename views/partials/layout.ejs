@@ -102,8 +102,12 @@
          data-exam-id="<%= typeof examId !== 'undefined' && examId ? examId : '' %>"
          data-course-id="<%= typeof courseId !== 'undefined' && courseId ? courseId : '' %>"
          data-page="<%= currentPath.replace(/^\//, '') || 'dashboard' %>">
-      <button id="assistant-toggle" class="assistant-fab" title="AI Assistant">
-        <i data-lucide="sparkles"></i>
+      <button id="assistant-toggle" class="assistant-fab" type="button" title="AI Agent">
+        <span class="assistant-fab-rainbow" aria-hidden="true"></span>
+        <span class="assistant-fab-inner">
+          <i data-lucide="star" class="assistant-fab-star"></i>
+          <span class="assistant-fab-label">AI Agent</span>
+        </span>
       </button>
       <div id="assistant-panel" class="assistant-panel">
         <div class="assistant-header">

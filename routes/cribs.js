@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { ensureAuth, ensureSubscription, asyncHandler } = require('../middleware/auth');
-const { requireInt, optionalString } = require('../middleware/validate');
+const { requireInt, optionalString, optionalFloat } = require('../middleware/validate');
 const { Course, Exam, Submission, Grade, Rubric, Student, Crib, User } = require('../models');
 const { Op } = require('sequelize');
 
@@ -57,10 +57,12 @@ router.post('/resolve/:cribId', ensureAuth, ensureSubscription, asyncHandler(asy
   crib.resolved_at = new Date();
 
   if (action === 'accept' && resolved_marks !== '' && resolved_marks != null) {
-    crib.resolved_marks = Math.max(0, parseFloat(resolved_marks) || 0);
-    const grade = await Grade.findByPk(crib.grade_id);
-    if (grade) {
-      grade.override_marks = crib.resolved_marks;
+    const grade = await Grade.findByPk(crib.grade_id, { include: [{ model: Rubric }] });
+    const maxM = grade?.Rubric?.max_marks ?? 0;
+    const marks = optionalFloat(resolved_marks, 'Resolved marks', { min: 0, max: maxM });
+    if (marks != null && grade) {
+      crib.resolved_marks = marks;
+      grade.override_marks = marks;
       grade.override_note = `Crib accepted: ${crib.resolved_note || 'Marks updated via regrade request.'}`;
       grade.modified_by_session = req.sessionID;
       await grade.save();

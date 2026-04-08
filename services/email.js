@@ -1,5 +1,7 @@
 const nodemailer = require('nodemailer');
 
+const DEFAULT_FROM = process.env.SMTP_FROM || 'founders@intelligrade.space';
+
 let transporter = null;
 
 function getTransporter() {
@@ -58,7 +60,7 @@ async function sendStudentReport({ to, studentName, examName, courseName, totalM
     </div>`;
 
   await t.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    from: process.env.SMTP_FROM || process.env.SMTP_USER || DEFAULT_FROM,
     to,
     subject: `[${courseName}] ${examName} — Your Results`,
     html,
@@ -69,4 +71,19 @@ async function isConfigured() {
   return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
-module.exports = { sendStudentReport, isConfigured, getTransporter };
+async function sendOtpEmail({ to, code, subject, intro }) {
+  const t = getTransporter();
+  const text = `${intro || 'Your Intelligrade verification code is:'} ${code}\n\nThis code expires in a few minutes. If you did not request it, you can ignore this email.\n\n— Intelligrade`;
+  const html = `<p>${intro || 'Your Intelligrade verification code is:'}</p><p style="font-size:1.5rem;font-weight:700;letter-spacing:0.2em;">${code}</p><p style="color:#666;font-size:0.9rem;">This code expires in a few minutes.</p>`;
+  if (!t) return false;
+  await t.sendMail({
+    from: DEFAULT_FROM,
+    to,
+    subject: subject || 'Your Intelligrade verification code',
+    text,
+    html: `<div style="font-family:Inter,Arial,sans-serif;max-width:480px;">${html}</div>`,
+  });
+  return true;
+}
+
+module.exports = { sendStudentReport, sendOtpEmail, isConfigured, getTransporter, DEFAULT_FROM };

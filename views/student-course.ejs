@@ -108,10 +108,10 @@
     new Chart(document.getElementById('scoreTimeline'), {
       type: 'line',
       data: {
-        labels: [<%= releasedResults.map(r => `'${r.exam.name}'`).join(',') %>],
+        labels: <%- jsonForScript(releasedResults.map(r => r.exam.name)) %>,
         datasets: [{
           label: 'Score %',
-          data: [<%= releasedResults.map(r => r.pct).join(',') %>],
+          data: <%- jsonForScript(releasedResults.map(r => parseFloat(r.pct))) %>,
           borderColor: '#6C5CE7',
           backgroundColor: 'rgba(108,92,231,0.1)',
           fill: true,

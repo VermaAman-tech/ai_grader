@@ -98,7 +98,7 @@ const Student = sequelize.define('Student', {
 }, {
   indexes: [
     { fields: ['course_id'] },
-    { fields: ['course_id', 'roll_number'] },
+    { fields: ['course_id', 'roll_number'], unique: true, name: 'students_course_roll_unique' },
     { fields: ['user_id'] },
     { fields: ['email'] },
   ],
@@ -134,6 +134,7 @@ const Submission = sequelize.define('Submission', {
     { fields: ['exam_id'] },
     { fields: ['student_id'] },
     { fields: ['exam_id', 'status'] },
+    { unique: true, fields: ['exam_id', 'student_id'] },
   ],
 });
 
@@ -265,6 +266,7 @@ const CourseTA = sequelize.define('CourseTA', {
     { fields: ['course_id'] },
     { fields: ['user_id'] },
     { fields: ['course_id', 'user_id'], unique: true },
+    { fields: ['course_id', 'email'], unique: true, name: 'course_ta_course_email_unique' },
   ],
 });
 
@@ -291,6 +293,7 @@ const Crib = sequelize.define('Crib', {
     { fields: ['student_id'] },
     { fields: ['exam_id'] },
     { fields: ['status'] },
+    { unique: true, fields: ['grade_id', 'student_id'] },
   ],
 });
 

@@ -87,7 +87,7 @@
 <script>
 const edExams = {};
 <% courses.forEach(function(c) { %>
-  edExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+  edExams['<%= c.id %>'] = <%- jsonForScript(allExams[c.id] || []) %>;
 <% }); %>
 function updateEdExams() {
   const cid = document.getElementById('edCourse').value;

@@ -1,13 +1,25 @@
 function requireInt(value, fieldName) {
-  const n = parseInt(value, 10);
-  if (isNaN(n) || n < 0) throw new Error(`Invalid ${fieldName}`);
+  if (value === undefined || value === null) throw new Error(`Invalid ${fieldName}`);
+  const s = String(value).trim();
+  if (!/^\d+$/.test(s)) throw new Error(`Invalid ${fieldName}`);
+  const n = Number(s);
+  if (!Number.isSafeInteger(n) || n < 0) throw new Error(`Invalid ${fieldName}`);
   return n;
 }
 
 function requireFloat(value, fieldName, { min = 0, max = Infinity } = {}) {
-  const n = parseFloat(value);
-  if (isNaN(n) || n < min || n > max) throw new Error(`Invalid ${fieldName}`);
+  const s = String(value ?? '').trim();
+  if (!/^-?\d+(\.\d+)?$/.test(s)) throw new Error(`Invalid ${fieldName}`);
+  const n = Number(s);
+  if (!Number.isFinite(n) || n < min || n > max) throw new Error(`Invalid ${fieldName}`);
   return n;
+}
+
+/** Optional numeric field from forms; empty → null. */
+function optionalFloat(value, fieldName, { min = 0, max = Infinity } = {}) {
+  const s = String(value ?? '').trim();
+  if (s === '') return null;
+  return requireFloat(s, fieldName, { min, max });
 }
 
 function requireString(value, fieldName, { maxLen = 500 } = {}) {
@@ -28,4 +40,4 @@ function requireEmail(value) {
   return s;
 }
 
-module.exports = { requireInt, requireFloat, requireString, optionalString, requireEmail };
+module.exports = { requireInt, requireFloat, optionalFloat, requireString, optionalString, requireEmail };

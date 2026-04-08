@@ -212,7 +212,7 @@
 <% } %>
 
 <script>
-  const allExams = <%- JSON.stringify(allExams) %>;
+  const allExams = <%- jsonForScript(allExams) %>;
   const selExam = '<%= selectedExamId || "" %>';
   document.getElementById('cribCourseSel').addEventListener('change', function () {
     const sel = document.getElementById('cribExamSel');

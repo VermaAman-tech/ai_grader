@@ -17,7 +17,15 @@ const storage = multer.diskStorage({
     cb(null, `${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
   },
 });
-const upload = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 } });
+const ALLOW_DOC_EXT = new Set(['.pdf', '.txt', '.md', '.doc', '.docx']);
+const upload = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    const ext = path.extname(file.originalname || '').toLowerCase();
+    cb(null, ALLOW_DOC_EXT.has(ext));
+  },
+});
 
 router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courses = await Course.findAll({ where: { user_id: req.session.userId }, order: [['name', 'ASC']] });
@@ -56,18 +64,25 @@ router.post('/upload', ensureAuth, ensureSubscription, upload.single('document')
     return res.redirect(`/course-documents?course_id=${courseId}`);
   }
 
+  const ext = path.extname(req.file.originalname || '').toLowerCase();
+  if (!ALLOW_DOC_EXT.has(ext)) {
+    try { fs.unlinkSync(req.file.path); } catch {}
+    req.flash('error', 'Only PDF, TXT, MD, DOC, or DOCX files are allowed.');
+    return res.redirect(`/course-documents?course_id=${courseId}`);
+  }
+
   const title = requireString(req.body.title || req.file.originalname, 'Title', { maxLen: 300 });
   const docType = ['slides', 'notes', 'past_paper', 'model_answer', 'syllabus', 'assignment', 'other']
     .includes(req.body.doc_type) ? req.body.doc_type : 'other';
 
   let extractedText = '';
   try {
-    if (req.file.mimetype === 'application/pdf') {
+    if (ext === '.pdf' && req.file.mimetype === 'application/pdf') {
       const pdfParse = require('pdf-parse');
       const buffer = fs.readFileSync(req.file.path);
       const data = await pdfParse(buffer);
       extractedText = data.text || '';
-    } else {
+    } else if (ext === '.txt' || ext === '.md') {
       extractedText = fs.readFileSync(req.file.path, 'utf-8').substring(0, 50000);
     }
   } catch {}

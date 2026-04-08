@@ -65,7 +65,7 @@
 <% if (aiReport) { %>
 <div class="card mt-4">
   <div class="card-header"><i data-lucide="sparkles"></i> AI Learning Gap Analysis</div>
-  <div class="card-body ai-report"><%- aiReport.replace(/\n/g, '<br>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/^### (.+)$/gm, '<h4>$1</h4>').replace(/^## (.+)$/gm, '<h3>$1</h3>').replace(/^- (.+)$/gm, '<li>$1</li>') %></div>
+  <div class="card-body ai-report" style="white-space: pre-wrap;"><%= aiReport %></div>
 </div>
 <% } %>
 

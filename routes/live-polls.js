@@ -106,9 +106,16 @@ router.post('/close/:pollId', ensureAuth, ensureSubscription, asyncHandler(async
   res.redirect(`/live-polls?course_id=${poll.course_id}`);
 }));
 
-router.get('/api/results/:pollId', asyncHandler(async (req, res) => {
-  const poll = await LivePoll.findByPk(req.params.pollId, { include: [{ model: PollResponse }] });
-  if (!poll) return res.json({ error: 'Not found' });
+router.get('/api/results/:pollId', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
+  const pollId = requireInt(req.params.pollId, 'Poll');
+  const poll = await LivePoll.findOne({
+    where: { id: pollId },
+    include: [
+      { model: Course, required: true, where: { user_id: req.session.userId } },
+      { model: PollResponse },
+    ],
+  });
+  if (!poll) return res.status(404).json({ error: 'Not found' });
 
   let options = [];
   try { options = JSON.parse(poll.options || '[]'); } catch {}

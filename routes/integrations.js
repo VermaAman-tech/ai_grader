@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const { ensureAuth, ensureSubscription, asyncHandler } = require('../middleware/auth');
 const { requireInt } = require('../middleware/validate');
+const { assertSafeWebhookUrl } = require('../utils/webhook-url');
 const { Course, Student, Exam, Submission, Grade, Rubric, IntegrationConfig,
         DiscussionThread, DiscussionPost, Announcement } = require('../models');
 const { Op } = require('sequelize');
@@ -105,7 +106,10 @@ router.post('/save', ensureAuth, ensureSubscription, asyncHandler(async (req, re
     return res.redirect('/integrations');
   }
 
-  const courseId = parseInt(course_id) || null;
+  let courseId = null;
+  if (course_id !== undefined && course_id !== '' && course_id != null) {
+    courseId = requireInt(course_id, 'Course');
+  }
   if (courseId) {
     const course = await Course.findOne({ where: { id: courseId, user_id: req.session.userId } });
     if (!course) throw new Error('ACCESS_DENIED');
@@ -135,7 +139,10 @@ router.post('/save', ensureAuth, ensureSubscription, asyncHandler(async (req, re
 // Toggle integration active/inactive
 router.post('/toggle/:provider', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const { provider } = req.params;
-  const courseId = parseInt(req.body.course_id) || null;
+  let courseId = null;
+  if (req.body.course_id !== undefined && req.body.course_id !== '' && req.body.course_id != null) {
+    courseId = requireInt(req.body.course_id, 'Course');
+  }
 
   const config = await IntegrationConfig.findOne({
     where: { provider, user_id: req.session.userId, course_id: courseId },
@@ -208,6 +215,7 @@ router.post('/slack/test', ensureAuth, ensureSubscription, asyncHandler(async (r
     const parsed = JSON.parse(config.config || '{}');
     if (parsed.slack_webhook_url) {
       try {
+        assertSafeWebhookUrl(parsed.slack_webhook_url);
         await fetch(parsed.slack_webhook_url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -234,6 +242,7 @@ router.post('/discord/test', ensureAuth, ensureSubscription, asyncHandler(async 
     const parsed = JSON.parse(config.config || '{}');
     if (parsed.discord_webhook_url) {
       try {
+        assertSafeWebhookUrl(parsed.discord_webhook_url);
         await fetch(parsed.discord_webhook_url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

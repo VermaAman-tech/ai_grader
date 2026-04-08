@@ -77,8 +77,7 @@ function asyncHandler(fn) {
       }
       console.error(`[${req.method} ${req.originalUrl}]`, err.message);
       req.flash('error', 'Something went wrong. Please try again.');
-      const back = req.get('Referer') || '/dashboard';
-      return res.redirect(back);
+      return res.redirect('/dashboard');
     });
   };
 }

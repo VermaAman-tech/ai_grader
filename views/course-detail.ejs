@@ -24,7 +24,7 @@
   <% if (course.objectives) { %>
   <div class="card">
     <div class="card-header"><i data-lucide="target"></i> Learning Objectives</div>
-    <div class="card-body"><div class="prose"><%- course.objectives.replace(/\n/g, '<br>') %></div></div>
+    <div class="card-body"><div class="prose" style="white-space: pre-wrap;"><%= course.objectives %></div></div>
   </div>
   <% } %>
 </div>
@@ -32,7 +32,7 @@
 <% if (course.syllabus) { %>
 <div class="card mt-4">
   <div class="card-header"><i data-lucide="list"></i> Syllabus / Course Outline</div>
-  <div class="card-body"><div class="prose"><%- course.syllabus.replace(/\n/g, '<br>') %></div></div>
+  <div class="card-body"><div class="prose" style="white-space: pre-wrap;"><%= course.syllabus %></div></div>
 </div>
 <% } %>
 

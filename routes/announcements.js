@@ -41,7 +41,15 @@ router.post('/create', ensureAuth, ensureSubscription, asyncHandler(async (req, 
   const content = requireString(req.body.content, 'Content', { maxLen: 5000 });
   const type = ['general', 'assignment', 'grade_release', 'deadline'].includes(req.body.type) ? req.body.type : 'general';
   const isPinned = req.body.is_pinned === 'on';
-  const scheduledFor = req.body.scheduled_for ? new Date(req.body.scheduled_for) : null;
+  const schedRaw = (req.body.scheduled_for || '').trim();
+  let scheduledFor = null;
+  if (schedRaw) {
+    scheduledFor = new Date(schedRaw);
+    if (Number.isNaN(scheduledFor.getTime())) {
+      req.flash('error', 'Invalid scheduled date and time.');
+      return res.redirect(`/announcements?course_id=${courseId}`);
+    }
+  }
   const publishAt = scheduledFor && scheduledFor > new Date() ? scheduledFor : new Date();
 
   await Announcement.create({

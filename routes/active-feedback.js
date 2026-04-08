@@ -4,6 +4,19 @@ const { requireInt } = require('../middleware/validate');
 const { Course, ClassSession, ActiveFeedback, Student } = require('../models');
 const { Op } = require('sequelize');
 
+const FEEDBACK_CONTENT_MAX = 2000;
+
+async function assertCourseAccess(req, courseId) {
+  if (!req.session?.userId) throw new Error('ACCESS_DENIED');
+  if (req.session.role === 'student') {
+    const enr = await Student.findOne({ where: { course_id: courseId, email: req.session.email } });
+    if (!enr) throw new Error('ACCESS_DENIED');
+    return;
+  }
+  const course = await Course.findOne({ where: { id: courseId, user_id: req.session.userId } });
+  if (!course) throw new Error('ACCESS_DENIED');
+}
+
 router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courses = await Course.findAll({ where: { user_id: req.session.userId }, order: [['name', 'ASC']] });
   const courseId = parseInt(req.query.course_id) || null;
@@ -46,24 +59,45 @@ router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =>
   res.render('active-feedback', { courses, sessions, feedbackStats, selectedCourseId: courseId, courseName });
 }));
 
-router.get('/live/:sessionId', asyncHandler(async (req, res) => {
+router.get('/live/:sessionId', ensureAuth, asyncHandler(async (req, res) => {
   const sessionId = requireInt(req.params.sessionId, 'Session');
   const session = await ClassSession.findByPk(sessionId, { include: [{ model: Course }] });
   if (!session) return res.status(404).send('Session not found');
 
+  await assertCourseAccess(req, session.course_id);
+
   res.render('active-feedback-live', { layout: false, session, course: session.Course });
 }));
 
-router.post('/submit', asyncHandler(async (req, res) => {
-  const { session_id, course_id, rating, content, feedback_type, name } = req.body;
+router.post('/submit', ensureAuth, asyncHandler(async (req, res) => {
+  const courseId = requireInt(req.body.course_id, 'Course');
+  await assertCourseAccess(req, courseId);
+
+  const session_id = req.body.session_id ? requireInt(req.body.session_id, 'Session') : null;
+  if (session_id) {
+    const ses = await ClassSession.findByPk(session_id);
+    if (!ses || ses.course_id !== courseId) throw new Error('ACCESS_DENIED');
+  }
+
+  const contentRaw = (req.body.content || '').trim();
+  const content = contentRaw ? contentRaw.slice(0, FEEDBACK_CONTENT_MAX) : null;
+
+  let rating = null;
+  if (req.body.rating !== undefined && req.body.rating !== '' && req.body.rating != null) {
+    const r = requireInt(req.body.rating, 'Rating');
+    if (r < 1 || r > 5) return res.status(400).json({ error: 'Invalid rating' });
+    rating = r;
+  }
 
   await ActiveFeedback.create({
-    session_id: parseInt(session_id) || null,
-    course_id: parseInt(course_id),
-    user_id: req.session?.userId || null,
-    feedback_type: feedback_type || 'understanding',
-    content: content || null,
-    rating: parseInt(rating) || null,
+    session_id,
+    course_id: courseId,
+    user_id: req.session.userId,
+    feedback_type: ['understanding', 'pace', 'clarity', 'other'].includes(req.body.feedback_type)
+      ? req.body.feedback_type
+      : 'understanding',
+    content,
+    rating,
     is_anonymous: true,
   });
 
@@ -72,6 +106,9 @@ router.post('/submit', asyncHandler(async (req, res) => {
 
 router.get('/api/stats/:sessionId', ensureAuth, asyncHandler(async (req, res) => {
   const sessionId = requireInt(req.params.sessionId, 'Session');
+  const session = await ClassSession.findByPk(sessionId, { include: [{ model: Course }] });
+  if (!session || session.Course.user_id !== req.session.userId) throw new Error('ACCESS_DENIED');
+
   const feedback = await ActiveFeedback.findAll({ where: { session_id: sessionId } });
   const ratings = feedback.filter(f => f.rating !== null).map(f => f.rating);
   const comments = feedback.filter(f => f.content).map(f => ({

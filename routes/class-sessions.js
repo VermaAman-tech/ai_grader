@@ -73,7 +73,14 @@ router.post('/update/:id', ensureAuth, ensureSubscription, asyncHandler(async (r
   if (!session) throw new Error('ACCESS_DENIED');
 
   if (req.body.title) session.title = req.body.title;
-  if (req.body.status) session.status = req.body.status;
+  if (req.body.status) {
+    const allowed = new Set(['planned', 'in_progress', 'completed']);
+    if (!allowed.has(req.body.status)) {
+      req.flash('error', 'Invalid session status.');
+      return res.redirect(`/class-sessions?course_id=${session.course_id}`);
+    }
+    session.status = req.body.status;
+  }
   if (req.body.start_time) session.start_time = req.body.start_time;
   if (req.body.end_time) session.end_time = req.body.end_time;
   if (req.body.concepts_covered) session.concepts_covered = JSON.stringify(req.body.concepts_covered.split(',').map(c => c.trim()));

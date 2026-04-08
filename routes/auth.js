@@ -2,36 +2,24 @@ const router = require('express').Router();
 const { User, College, Subscription } = require('../models');
 const { asyncHandler } = require('../middleware/auth');
 const { Op } = require('sequelize');
+const { generateOTP, storeOTP, verifyOTP } = require('../services/otp-store');
+const { sendOtpEmail } = require('../services/email');
 
 const FREE_PAPER_LIMIT = 10;
 
 const PLAN_DURATIONS = {
-  free:       36500, // "forever" — limited by paper count
+  free:       36500,
+  trial:      14,
   monthly:    30,
   quarterly:  90,
   semiannual: 180,
   annual:     365,
 };
 
+const FREE_SUBSCRIBE_PLANS = new Set(['free', 'trial']);
 
-// In-memory OTP store (dev mode — in production, use Redis + real SMS/email)
-const otpStore = new Map();
-
-function generateOTP() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function storeOTP(key, otp) {
-  otpStore.set(key, { code: otp, expiresAt: Date.now() + 5 * 60 * 1000 });
-}
-
-function verifyOTP(key, code) {
-  const entry = otpStore.get(key);
-  if (!entry) return false;
-  if (Date.now() > entry.expiresAt) { otpStore.delete(key); return false; }
-  if (entry.code !== code) return false;
-  otpStore.delete(key);
-  return true;
+function allowDevOtpExpose() {
+  return process.env.NODE_ENV !== 'production' && process.env.DEV_OTP_EXPOSE === 'true';
 }
 
 // ─── LOGIN ───
@@ -51,6 +39,10 @@ router.post('/login', asyncHandler(async (req, res) => {
   const user = await User.findOne({ where: { email: cleanEmail }, include: [College] });
   if (!user || !user.checkPassword(password)) {
     req.flash('error', 'Invalid email or password.');
+    return res.redirect('/login');
+  }
+  if (!user.email_verified) {
+    req.flash('error', 'Please verify your email before signing in. Check your inbox for the code, or register again to resend.');
     return res.redirect('/login');
   }
   if (!user.is_active) {
@@ -103,18 +95,19 @@ router.post('/register', asyncHandler(async (req, res) => {
   const domain = cleanEmail.split('@')[1];
   let college = null;
   let userRole = role || 'individual';
+  let pendingAdminCollege = null;
 
   if (userRole === 'admin') {
     if (!institution_name || institution_name.trim().length < 2) {
       req.flash('error', 'Institution name is required.');
       return res.redirect('/register');
     }
-    college = await College.findOne({ where: { domain } });
-    if (college) {
+    const taken = await College.findOne({ where: { domain } });
+    if (taken) {
       req.flash('error', `An institution is already registered for @${domain}. Join as a member instead.`);
       return res.redirect('/register');
     }
-    college = await College.create({ name: institution_name.trim(), domain, type: 'college' });
+    pendingAdminCollege = { name: institution_name.trim(), domain, type: 'college' };
     userRole = 'admin';
   } else if (userRole === 'professor') {
     college = await College.findOne({ where: { domain } });
@@ -124,7 +117,6 @@ router.post('/register', asyncHandler(async (req, res) => {
     }
     userRole = 'professor';
   }
-  // 'individual' — no college needed
 
   const user = await User.create({
     college_id: college?.id || null,
@@ -138,22 +130,41 @@ router.post('/register', asyncHandler(async (req, res) => {
     phone_verified: false,
   });
 
-  // Generate and store OTP for email verification
   const otp = generateOTP();
-  storeOTP(`email:${cleanEmail}`, otp);
-  console.log(`[OTP] Email verification for ${cleanEmail}: ${otp}`);
+  storeOTP(`email:${cleanEmail}`, otp, 5 * 60 * 1000);
+  let sent = false;
+  try {
+    sent = await sendOtpEmail({
+      to: cleanEmail,
+      code: otp,
+      subject: 'Verify your Intelligrade account',
+      intro: 'Use this code to verify your email:',
+    });
+  } catch (e) {
+    console.error('[OTP email]', e.message);
+  }
+  const isProd = process.env.NODE_ENV === 'production';
+  if (!sent && isProd) {
+    await user.destroy();
+    req.flash('error', 'We could not send the verification email. Configure SMTP (e.g. SMTP_HOST, SMTP_USER, SMTP_PASS) and try again.');
+    return res.redirect('/register');
+  }
+  if (!sent && !isProd) {
+    console.log(`[OTP] Email verification for ${cleanEmail}: ${otp} (SMTP not configured — set env for real delivery)`);
+  }
 
-  // Store pending user info in session for verification step
   req.session.pendingUserId = user.id;
   req.session.pendingEmail = cleanEmail;
-  req.session.pendingOTP = otp; // shown on verify page in dev mode
   req.session.pendingRole = userRole;
   req.session.pendingCollegeId = college?.id || null;
   req.session.pendingCollegeName = college?.name || null;
   req.session.pendingCollegeType = college?.type || null;
+  req.session.pendingAdminCollege = pendingAdminCollege;
 
-  // For individual users, auto-create free plan (10 papers)
-  if (userRole === 'individual' || !college) {
+  if (allowDevOtpExpose()) req.session.devOtpPreview = otp;
+  else delete req.session.devOtpPreview;
+
+  if (userRole === 'individual') {
     const now = new Date();
     const end = new Date(now);
     end.setDate(end.getDate() + PLAN_DURATIONS.free);
@@ -174,10 +185,11 @@ router.post('/register', asyncHandler(async (req, res) => {
 // ─── EMAIL VERIFICATION ───
 router.get('/verify-email', (req, res) => {
   if (!req.session.pendingUserId) return res.redirect('/register');
+  const mockOTP = allowDevOtpExpose() ? req.session.devOtpPreview : null;
   res.render('verify-email', {
     layout: false,
     email: req.session.pendingEmail,
-    mockOTP: req.session.pendingOTP,
+    mockOTP,
   });
 });
 
@@ -195,12 +207,29 @@ router.post('/verify-email', asyncHandler(async (req, res) => {
   if (!user) return res.redirect('/register');
 
   user.email_verified = true;
-  await user.save();
 
   const role = req.session.pendingRole;
-  const collegeId = req.session.pendingCollegeId;
-  const collegeName = req.session.pendingCollegeName;
-  const collegeType = req.session.pendingCollegeType;
+  const pendingAdminCollege = req.session.pendingAdminCollege;
+  let collegeId = req.session.pendingCollegeId;
+  let collegeName = req.session.pendingCollegeName;
+  let collegeType = req.session.pendingCollegeType;
+
+  if (pendingAdminCollege) {
+    const created = await College.create({
+      name: pendingAdminCollege.name,
+      domain: pendingAdminCollege.domain,
+      type: pendingAdminCollege.type || 'college',
+    });
+    user.college_id = created.id;
+    collegeId = created.id;
+    collegeName = created.name;
+    collegeType = created.type;
+  }
+
+  await user.save();
+
+  delete req.session.pendingAdminCollege;
+  delete req.session.devOtpPreview;
 
   req.session.regenerate(function (err) {
     if (err) { req.flash('error', 'Session error.'); return res.redirect('/login'); }
@@ -230,10 +259,28 @@ router.post('/verify-email', asyncHandler(async (req, res) => {
 router.post('/resend-otp', asyncHandler(async (req, res) => {
   if (!req.session.pendingEmail) return res.redirect('/register');
   const otp = generateOTP();
-  storeOTP(`email:${req.session.pendingEmail}`, otp);
-  req.session.pendingOTP = otp;
-  console.log(`[OTP] Resent for ${req.session.pendingEmail}: ${otp}`);
-  req.flash('success', 'New OTP generated. Check your email (or use the code shown below in dev mode).');
+  storeOTP(`email:${req.session.pendingEmail}`, otp, 5 * 60 * 1000);
+  let sent = false;
+  try {
+    sent = await sendOtpEmail({
+      to: req.session.pendingEmail,
+      code: otp,
+      subject: 'Your new Intelligrade verification code',
+      intro: 'Use this code to verify your email:',
+    });
+  } catch (e) {
+    console.error('[OTP email]', e.message);
+  }
+  if (!sent && process.env.NODE_ENV === 'production') {
+    req.flash('error', 'Could not send email. Check SMTP configuration.');
+    return req.session.save(() => res.redirect('/verify-email'));
+  }
+  if (!sent && process.env.NODE_ENV !== 'production') {
+    console.log(`[OTP] Resent for ${req.session.pendingEmail}: ${otp}`);
+  }
+  if (allowDevOtpExpose()) req.session.devOtpPreview = otp;
+  else delete req.session.devOtpPreview;
+  req.flash('success', 'A new verification code has been sent to your email.');
   req.session.save(() => res.redirect('/verify-email'));
 }));
 
@@ -286,11 +333,15 @@ router.post('/subscribe', asyncHandler(async (req, res) => {
     return res.redirect('/plans');
   }
 
+  if (!FREE_SUBSCRIBE_PLANS.has(plan)) {
+    req.flash('error', 'Paid plans require checkout. Use the payment option on this page.');
+    return res.redirect('/plans');
+  }
+
   const now = new Date();
   const end = new Date(now);
   end.setDate(end.getDate() + PLAN_DURATIONS[plan]);
 
-  // Expire existing active sub of same scope
   if (planScope === 'individual') {
     await Subscription.update({ status: 'expired' }, {
       where: { user_id: req.session.userId, scope: 'individual', status: 'active' },

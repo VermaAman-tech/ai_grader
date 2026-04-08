@@ -37,7 +37,7 @@ router.post('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =
 }));
 
 router.post('/:id/delete', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
-  const exam = await assertExamOwner(req, parseInt(req.params.id));
+  const exam = await assertExamOwner(req, requireInt(req.params.id, 'Exam'));
   const courseId = exam.course_id;
   const examName = exam.name;
   await exam.destroy();

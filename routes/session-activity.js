@@ -1,12 +1,18 @@
 const router = require('express').Router();
 const { ensureAuth, asyncHandler, assertExamOwner } = require('../middleware/auth');
+const { requireInt } = require('../middleware/validate');
 const { ActiveSession, Grade, Submission, Student, Rubric, User } = require('../models');
 const { Op } = require('sequelize');
 
 router.get('/activity', ensureAuth, asyncHandler(async (req, res) => {
-  const examId = parseInt(req.query.exam_id);
+  let examId;
+  try {
+    examId = requireInt(req.query.exam_id, 'Exam');
+  } catch {
+    return res.json({ changes: [] });
+  }
   const since = req.query.since;
-  if (!examId || !since) return res.json({ changes: [] });
+  if (!since) return res.json({ changes: [] });
 
   try { await assertExamOwner(req, examId); } catch { return res.json({ changes: [] }); }
 
@@ -38,7 +44,11 @@ router.get('/activity', ensureAuth, asyncHandler(async (req, res) => {
 }));
 
 router.post('/heartbeat', ensureAuth, asyncHandler(async (req, res) => {
-  const examId = parseInt(req.body.exam_id) || null;
+  let examId = null;
+  if (req.body.exam_id !== undefined && req.body.exam_id !== '' && req.body.exam_id != null) {
+    examId = requireInt(req.body.exam_id, 'Exam');
+    await assertExamOwner(req, examId);
+  }
 
   await ActiveSession.upsert({
     user_id: req.session.userId,

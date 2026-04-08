@@ -8,7 +8,7 @@
     <select id="gradeCourse" onchange="updateGradingExams()">
       <option value="">-- Select Course --</option>
       <% courses.forEach(function(c) { %>
-        <option value="<%= c.id %>" data-exams='<%= JSON.stringify(allExams[c.id] || []) %>'><%= c.code %> - <%= c.name %></option>
+        <option value="<%= c.id %>" data-exams="<%- jsonForScript(allExams[c.id] || []) %>"><%= c.code %> - <%= c.name %></option>
       <% }); %>
     </select>
     <label>Exam:</label>
@@ -72,7 +72,7 @@
 <script>
 const gradingExams = {};
 <% courses.forEach(function(c) { %>
-  gradingExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+  gradingExams['<%= c.id %>'] = <%- jsonForScript(allExams[c.id] || []) %>;
 <% }); %>
 const selExamId = <%= selectedExamId || 'null' %>;
 

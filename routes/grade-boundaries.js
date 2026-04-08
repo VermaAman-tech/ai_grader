@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { ensureAuth, ensureSubscription, asyncHandler, assertExamOwner } = require('../middleware/auth');
-const { requireInt } = require('../middleware/validate');
+const { requireInt, requireFloat } = require('../middleware/validate');
 const { Course, Exam, Submission, Grade, Rubric, Student, GradeBoundary } = require('../models');
 const { linearScale, stdDevCurve, percentileBased, applyBoundaries, getDefaultBoundaries } = require('../services/normalizer');
 
@@ -62,11 +62,17 @@ router.post('/:examId/save', ensureAuth, ensureSubscription, asyncHandler(async 
 
   for (let i = 0; i < labels.length; i++) {
     if (!labels[i]) continue;
+    const min_pct = requireFloat(String(mins[i] ?? '0'), 'Minimum percent', { min: 0, max: 100 });
+    const max_pct = requireFloat(String(maxes[i] ?? '100'), 'Maximum percent', { min: 0, max: 100 });
+    if (min_pct > max_pct) {
+      req.flash('error', 'Each grade boundary must have min ≤ max (within 0–100).');
+      return res.redirect(`/grading/boundaries/${examId}`);
+    }
     await GradeBoundary.create({
       exam_id: examId,
       label: labels[i].trim(),
-      min_pct: parseFloat(mins[i]) || 0,
-      max_pct: parseFloat(maxes[i]) || 100,
+      min_pct,
+      max_pct,
       color: colors[i] || '#666',
     });
   }

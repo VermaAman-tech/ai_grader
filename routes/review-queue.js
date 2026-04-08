@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { ensureAuth, ensureSubscription, asyncHandler, assertExamOwner } = require('../middleware/auth');
-const { requireInt, requireFloat, optionalString } = require('../middleware/validate');
+const { requireInt, requireFloat, optionalString, optionalFloat } = require('../middleware/validate');
 const { Course, Exam, Submission, Grade, Rubric, Student } = require('../models');
 const { Op } = require('sequelize');
 
@@ -56,12 +56,13 @@ router.post('/override/:gradeId', ensureAuth, ensureSubscription, asyncHandler(a
   const gradeId = requireInt(req.params.gradeId, 'Grade');
   const grade = await Grade.findOne({
     where: { id: gradeId },
-    include: [{ model: Submission, include: [{ model: Exam, required: true, include: [{ model: Course, required: true, where: { user_id: req.session.userId } }] }] }],
+    include: [{ model: Rubric }, { model: Submission, include: [{ model: Exam, required: true, include: [{ model: Course, required: true, where: { user_id: req.session.userId } }] }] }],
   });
   if (!grade) throw new Error('ACCESS_DENIED');
 
   const { override_marks, override_note } = req.body;
-  grade.override_marks = override_marks !== '' ? Math.max(0, parseFloat(override_marks) || 0) : null;
+  const maxM = grade.Rubric?.max_marks ?? 0;
+  grade.override_marks = optionalFloat(override_marks, 'Override marks', { min: 0, max: maxM });
   grade.override_note = optionalString(override_note, { maxLen: 1000 });
   grade.review_status = 'overridden';
   grade.modified_by_session = req.sessionID;
@@ -76,11 +77,11 @@ router.post('/threshold/:courseId', ensureAuth, ensureSubscription, asyncHandler
   const course = await Course.findOne({ where: { id: courseId, user_id: req.session.userId } });
   if (!course) throw new Error('ACCESS_DENIED');
 
-  const threshold = Math.min(1, Math.max(0, parseFloat(req.body.threshold) || 0.6));
+  const threshold = requireFloat(req.body.threshold || '0.6', 'Threshold', { min: 0, max: 1 });
   course.review_threshold = threshold;
   await course.save();
   req.flash('success', `Review threshold set to ${(threshold * 100).toFixed(0)}%.`);
-  res.redirect(req.get('Referer') || '/review-queue');
+  res.redirect('/review-queue');
 }));
 
 module.exports = router;

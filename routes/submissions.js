@@ -5,6 +5,8 @@ const fs = require('fs');
 const { ensureAuth, ensureSubscription, asyncHandler, assertCourseOwner, assertExamOwner, assertSubmissionOwner } = require('../middleware/auth');
 const { requireInt } = require('../middleware/validate');
 const { Course, Exam, Student, Submission, IntegrationConfig } = require('../models');
+const { fileLooksLikePdf } = require('../utils/pdf');
+const { UniqueConstraintError } = require('sequelize');
 
 const uploadDir = process.env.UPLOAD_DIR || './data/uploads';
 const storage = multer.diskStorage({
@@ -22,7 +24,8 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter(req, file, cb) {
-    cb(null, file.mimetype === 'application/pdf' || file.originalname.toLowerCase().endsWith('.pdf'));
+    const ok = file.mimetype === 'application/pdf' && file.originalname.toLowerCase().endsWith('.pdf');
+    cb(null, ok);
   },
 });
 
@@ -77,20 +80,43 @@ router.post('/upload', ensureAuth, ensureSubscription, upload.array('pdf_files',
   let uploaded = 0;
   for (let i = 0; i < req.files.length; i++) {
     const file = req.files[i];
+    if (!fileLooksLikePdf(file.path)) {
+      try { fs.unlinkSync(file.path); } catch {}
+      req.flash('error', 'Each file must be a valid PDF (not just a .pdf rename).');
+      continue;
+    }
     const studentId = students[i] || students[0] || null;
     if (!studentId) {
       req.flash('error', 'Each file must be assigned to a student.');
+      try { fs.unlinkSync(file.path); } catch {}
       continue;
     }
 
-    await Submission.create({
-      exam_id: examId,
-      student_id: studentId,
-      file_name: file.originalname,
-      file_path: file.path,
-      status: 'pending',
-    });
-    uploaded++;
+    const sid = requireInt(String(studentId), 'Student');
+    const student = await Student.findOne({ where: { id: sid, course_id: courseId } });
+    if (!student) {
+      try { fs.unlinkSync(file.path); } catch {}
+      req.flash('error', 'Selected student is not in this exam\'s course.');
+      continue;
+    }
+
+    try {
+      await Submission.create({
+        exam_id: examId,
+        student_id: sid,
+        file_name: file.originalname,
+        file_path: file.path,
+        status: 'pending',
+      });
+      uploaded++;
+    } catch (e) {
+      try { fs.unlinkSync(file.path); } catch {}
+      if (e instanceof UniqueConstraintError) {
+        req.flash('error', 'A submission for this student on this exam already exists. Delete it first or use a version policy.');
+      } else {
+        throw e;
+      }
+    }
   }
 
   req.flash('success', `${uploaded} submission(s) uploaded.`);
@@ -98,7 +124,7 @@ router.post('/upload', ensureAuth, ensureSubscription, upload.array('pdf_files',
 }));
 
 router.post('/:id/delete', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
-  const sub = await assertSubmissionOwner(req, parseInt(req.params.id));
+  const sub = await assertSubmissionOwner(req, requireInt(req.params.id, 'Submission'));
   try { fs.unlinkSync(sub.file_path); } catch {}
   const examId = sub.exam_id;
   await sub.destroy();

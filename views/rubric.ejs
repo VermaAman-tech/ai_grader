@@ -8,7 +8,7 @@
     <select id="rubricCourse" onchange="updateExamDropdown()">
       <option value="">-- Select Course --</option>
       <% courses.forEach(function(c) { %>
-        <option value="<%= c.id %>" data-exams='<%= JSON.stringify(allExams[c.id] || []) %>' <%= examInfo && examInfo.courseId === c.id ? 'selected' : '' %>><%= c.code %> - <%= c.name %></option>
+        <option value="<%= c.id %>" data-exams="<%- jsonForScript(allExams[c.id] || []) %>" <%= examInfo && examInfo.courseId === c.id ? 'selected' : '' %>><%= c.code %> - <%= c.name %></option>
       <% }); %>
     </select>
     <label>Exam:</label>
@@ -172,7 +172,7 @@
 <% } %>
 
 <script>
-const allExams = <%- JSON.stringify(allExams) %>;
+const allExams = <%- jsonForScript(allExams) %>;
 const selectedExamId = <%= selectedExamId || 'null' %>;
 function updateExamDropdown() {
   const cid = document.getElementById('rubricCourse').value;

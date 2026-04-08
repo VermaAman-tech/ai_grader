@@ -3,6 +3,8 @@ const multer = require('multer');
 const { ensureAuth, ensureSubscription, asyncHandler, assertCourseOwner, assertStudentOwner } = require('../middleware/auth');
 const { requireInt } = require('../middleware/validate');
 const { Course, Student, User } = require('../models');
+const { parse: parseCsv } = require('csv-parse/sync');
+const { UniqueConstraintError } = require('sequelize');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -21,17 +23,16 @@ function findCol(headers, key) {
 }
 
 function parseCSV(text) {
-  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim());
-  const rows = [];
-  for (let i = 1; i < lines.length; i++) {
-    const vals = lines[i].split(',').map(v => v.replace(/"/g, '').trim());
-    const row = {};
-    headers.forEach((h, idx) => { row[h] = vals[idx] || ''; });
-    rows.push(row);
+  try {
+    return parseCsv(text, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+      relax_column_count: true,
+    });
+  } catch {
+    return [];
   }
-  return rows;
 }
 
 async function ensureStudentUser(name, email) {
@@ -123,8 +124,16 @@ router.post('/upload', ensureAuth, ensureSubscription, upload.single('roster_fil
       if (user) userId = user.id;
     }
 
-    await Student.create({ course_id: courseId, name, roll_number: roll, email: email || null, user_id: userId });
-    added++;
+    try {
+      await Student.create({ course_id: courseId, name, roll_number: roll, email: email || null, user_id: userId });
+      added++;
+    } catch (e) {
+      if (e instanceof UniqueConstraintError) {
+        skipped++;
+      } else {
+        throw e;
+      }
+    }
   }
 
   req.flash('success', `Roster imported: ${added} added, ${skipped} skipped/updated. Students with emails can now log in with OTP at /student/login`);
@@ -158,7 +167,15 @@ router.post('/add', ensureAuth, ensureSubscription, asyncHandler(async (req, res
     if (user) userId = user.id;
   }
 
-  await Student.create({ course_id: courseId, name, roll_number: roll, email, user_id: userId });
+  try {
+    await Student.create({ course_id: courseId, name, roll_number: roll, email, user_id: userId });
+  } catch (e) {
+    if (e instanceof UniqueConstraintError) {
+      req.flash('error', 'This roll number is already used in this course (including a concurrent add).');
+      return res.redirect(`/roster?course_id=${courseId}`);
+    }
+    throw e;
+  }
   req.flash('success', `Student "${name}" added.${email ? ' They can log in at /student/login with OTP.' : ''}`);
   res.redirect(`/roster?course_id=${courseId}`);
 }));

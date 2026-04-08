@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { ensureAuth, ensureSubscription, asyncHandler, assertExamOwner, assertSubmissionOwner, assertGradeOwner } = require('../middleware/auth');
-const { requireInt, optionalString } = require('../middleware/validate');
+const { requireInt, optionalString, optionalFloat } = require('../middleware/validate');
 const { Course, Exam, Student, Submission, Grade, Rubric, User, ActiveSession, OverrideLog } = require('../models');
 const { gradeSubmission } = require('../services/grading');
 const { Op } = require('sequelize');
@@ -161,9 +161,8 @@ router.post('/override/:gradeId', ensureAuth, ensureSubscription, asyncHandler(a
 
   const { override_marks, override_note } = req.body;
   const previousMarks = grade.awarded_marks;
-  grade.override_marks = override_marks !== '' && override_marks != null
-    ? Math.max(0, parseFloat(override_marks) || 0)
-    : null;
+  const maxM = grade.Rubric?.max_marks ?? 0;
+  grade.override_marks = optionalFloat(override_marks, 'Override marks', { min: 0, max: maxM });
   grade.override_note = optionalString(override_note, { maxLen: 1000 });
   grade.modified_by_session = req.sessionID;
   grade.review_status = 'overridden';

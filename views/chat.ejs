@@ -8,7 +8,7 @@
     <select id="chatCourse" onchange="updateChatExams()">
       <option value="">-- Any --</option>
       <% courses.forEach(function(c) { %>
-        <option value="<%= c.id %>" data-exams='<%= JSON.stringify(allExams[c.id] || []) %>'><%= c.code %> - <%= c.name %></option>
+        <option value="<%= c.id %>" data-exams="<%- jsonForScript(allExams[c.id] || []) %>"><%= c.code %> - <%= c.name %></option>
       <% }); %>
     </select>
     <select name="exam_id" id="chatExam" onchange="this.form.submit()">
@@ -58,7 +58,7 @@
 <script>
 const chatExams = {};
 <% courses.forEach(function(c) { %>
-  chatExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+  chatExams['<%= c.id %>'] = <%- jsonForScript(allExams[c.id] || []) %>;
 <% }); %>
 const selChatExamId = <%= selectedExamId || 'null' %>;
 

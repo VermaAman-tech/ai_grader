@@ -1,28 +1,42 @@
 const router = require('express').Router();
+const rateLimit = require('express-rate-limit');
 const { asyncHandler } = require('../middleware/auth');
+
+const studentOtpRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many code requests. Please try again later.',
+});
+const studentOtpVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many attempts. Please try again later.',
+});
+const pollRespondLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 80,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 const { requireInt } = require('../middleware/validate');
 const { User, Student, Course, Exam, Submission, Grade, Rubric, Crib, Announcement,
         ConceptNode, QuestionConcept, LivePoll, PollResponse, GradeBoundary,
         CourseDocument, DiscussionThread, DiscussionPost, ClassSession } = require('../models');
 const { Op } = require('sequelize');
+const { generateOTP, storeOTP, verifyOTP, clearOTP } = require('../services/otp-store');
+const { sendOtpEmail } = require('../services/email');
+const { isLocked, recordFailure, resetFailures } = require('../services/otp-throttle');
+const { UniqueConstraintError } = require('sequelize');
 
-const otpStore = new Map();
+const DISCUSSION_MAX = 8000;
+const POLL_RESPONSE_MAX = 2000;
 
-function generateOTP() {
-  return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function storeOTP(key, otp) {
-  otpStore.set(key, { code: otp, expiresAt: Date.now() + 10 * 60 * 1000 });
-}
-
-function verifyOTP(key, code) {
-  const entry = otpStore.get(key);
-  if (!entry) return false;
-  if (Date.now() > entry.expiresAt) { otpStore.delete(key); return false; }
-  if (entry.code !== code) return false;
-  otpStore.delete(key);
-  return true;
+function allowDevOtpExpose() {
+  return process.env.NODE_ENV !== 'production' && process.env.DEV_OTP_EXPOSE === 'true';
 }
 
 function ensureStudent(req, res, next) {
@@ -31,11 +45,22 @@ function ensureStudent(req, res, next) {
   res.redirect('/student/login');
 }
 
+function clientIp(req) {
+  return req.ip || req.connection?.remoteAddress || 'unknown';
+}
+
 router.get('/login', (req, res) => {
-  res.render('student-login', { layout: false, error: req.flash('error'), success: req.flash('success'), step: 'email', email: '', mockOTP: null });
+  res.render('student-login', {
+    layout: false,
+    error: req.flash('error'),
+    success: req.flash('success'),
+    step: 'email',
+    email: '',
+    mockOTP: null,
+  });
 });
 
-router.post('/request-otp', asyncHandler(async (req, res) => {
+router.post('/request-otp', studentOtpRequestLimiter, asyncHandler(async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   if (!email) {
     req.flash('error', 'Please enter your email.');
@@ -43,49 +68,86 @@ router.post('/request-otp', asyncHandler(async (req, res) => {
   }
 
   const enrollment = await Student.findOne({ where: { email } });
-  if (!enrollment) {
-    req.flash('error', 'No enrollment found for this email. Ask your professor to add you to the course roster.');
-    return res.redirect('/student/login');
-  }
-
-  let user = await User.findOne({ where: { email, role: 'student' } });
-  if (!user) {
-    user = await User.create({
-      full_name: enrollment.name,
-      email,
-      password_hash: User.hashPassword('otp-only-' + Date.now()),
-      role: 'student',
-      email_verified: true,
-      college_id: null,
-    });
-    await Student.update({ user_id: user.id }, { where: { email } });
-  }
-
-  const otp = generateOTP();
-  storeOTP(`student:${email}`, otp);
-  console.log(`[Student OTP] ${email}: ${otp}`);
-
   req.session.pendingStudentEmail = email;
-  req.session.pendingStudentOTP = otp;
+
+  let mockOTP = null;
+  if (enrollment) {
+    let user = await User.findOne({ where: { email, role: 'student' } });
+    if (!user) {
+      user = await User.create({
+        full_name: enrollment.name,
+        email,
+        password_hash: User.hashPassword('otp-only-' + Date.now()),
+        role: 'student',
+        email_verified: true,
+        college_id: null,
+      });
+      await Student.update({ user_id: user.id }, { where: { email } });
+    }
+
+    const otp = generateOTP();
+    storeOTP(`student:${email}`, otp, 10 * 60 * 1000);
+    if (allowDevOtpExpose()) mockOTP = otp;
+    let sent = false;
+    try {
+      sent = await sendOtpEmail({
+        to: email,
+        code: otp,
+        subject: 'Your Intelligrade student login code',
+        intro: 'Use this code to sign in to the student portal:',
+      });
+    } catch (e) {
+      console.error('[Student OTP email]', e.message);
+    }
+    if (!sent && process.env.NODE_ENV === 'production') {
+      clearOTP(`student:${email}`);
+      req.flash('error', 'We could not send a login code. Try again later or contact your instructor.');
+      delete req.session.pendingStudentEmail;
+      return req.session.save(() => res.redirect('/student/login'));
+    }
+    if (!sent && process.env.NODE_ENV !== 'production') {
+      console.log(`[Student OTP] ${email}: ${otp}`);
+    }
+  }
+
+  await new Promise(r => setTimeout(r, 50 + Math.floor(Math.random() * 120)));
+
+  const msg = 'If this email is on your course roster, a login code has been sent. Enter it below.';
   req.session.save(() => {
     res.render('student-login', {
-      layout: false, step: 'otp', email,
-      mockOTP: otp,
-      error: req.flash('error'), success: ['OTP sent! Check your email (dev mode: shown below).'],
+      layout: false,
+      step: 'otp',
+      email,
+      mockOTP,
+      error: [],
+      success: [msg],
     });
   });
 }));
 
-router.post('/verify-otp', asyncHandler(async (req, res) => {
+router.post('/verify-otp', studentOtpVerifyLimiter, asyncHandler(async (req, res) => {
   const email = req.session.pendingStudentEmail;
   if (!email) return res.redirect('/student/login');
 
-  const { otp } = req.body;
-  if (!verifyOTP(`student:${email}`, otp)) {
-    req.flash('error', 'Invalid or expired OTP. Please try again.');
+  const ip = clientIp(req);
+  if (isLocked('otp-email', email) || isLocked('otp-ip', ip)) {
+    req.flash('error', 'Too many attempts. Please wait before trying again.');
     return res.render('student-login', {
       layout: false, step: 'otp', email,
-      mockOTP: req.session.pendingStudentOTP,
+      mockOTP: null,
+      error: req.flash('error'), success: [],
+    });
+  }
+
+  const { otp } = req.body;
+  const enrollment = await Student.findOne({ where: { email } });
+  if (!enrollment || !verifyOTP(`student:${email}`, otp)) {
+    if (enrollment) recordFailure('otp-email', email);
+    recordFailure('otp-ip', ip);
+    req.flash('error', 'Invalid or expired code. Please try again or request a new code.');
+    return res.render('student-login', {
+      layout: false, step: 'otp', email,
+      mockOTP: null,
       error: req.flash('error'), success: [],
     });
   }
@@ -93,30 +155,68 @@ router.post('/verify-otp', asyncHandler(async (req, res) => {
   const user = await User.findOne({ where: { email, role: 'student' } });
   if (!user) return res.redirect('/student/login');
 
-  req.session.userId = user.id;
-  req.session.userName = user.full_name;
-  req.session.role = 'student';
-  req.session.email = user.email;
-  delete req.session.pendingStudentEmail;
-  delete req.session.pendingStudentOTP;
+  resetFailures('otp-email', email);
+  resetFailures('otp-ip', ip);
 
-  req.session.save(() => res.redirect('/student/dashboard'));
+  req.session.regenerate(function (err) {
+    if (err) {
+      req.flash('error', 'Session error. Please try again.');
+      return res.redirect('/student/login');
+    }
+    req.session.userId = user.id;
+    req.session.userName = user.full_name;
+    req.session.role = 'student';
+    req.session.email = user.email;
+    delete req.session.pendingStudentEmail;
+
+    req.session.save(() => res.redirect('/student/dashboard'));
+  });
 }));
 
-router.post('/resend-otp', asyncHandler(async (req, res) => {
+router.post('/resend-otp', studentOtpRequestLimiter, asyncHandler(async (req, res) => {
   const email = req.session.pendingStudentEmail;
   if (!email) return res.redirect('/student/login');
 
-  const otp = generateOTP();
-  storeOTP(`student:${email}`, otp);
-  req.session.pendingStudentOTP = otp;
-  console.log(`[Student OTP Resend] ${email}: ${otp}`);
+  const enrollment = await Student.findOne({ where: { email } });
+  if (!enrollment) {
+    const msg = 'If this email is on your course roster, a login code has been sent. Enter it below.';
+    return req.session.save(() => {
+      res.render('student-login', {
+        layout: false, step: 'otp', email,
+        mockOTP: null,
+        error: [], success: [msg],
+      });
+    });
+  }
 
+  const otp = generateOTP();
+  storeOTP(`student:${email}`, otp, 10 * 60 * 1000);
+  let sent = false;
+  try {
+    sent = await sendOtpEmail({
+      to: email,
+      code: otp,
+      subject: 'Your new Intelligrade student login code',
+      intro: 'Use this code to sign in to the student portal:',
+    });
+  } catch (e) {
+    console.error('[Student OTP email]', e.message);
+  }
+  if (!sent && process.env.NODE_ENV === 'production') {
+    req.flash('error', 'Could not send email. Try again later.');
+    return req.session.save(() => res.redirect('/student/login'));
+  }
+  if (!sent && process.env.NODE_ENV !== 'production') {
+    console.log(`[Student OTP Resend] ${email}: ${otp}`);
+  }
+
+  const msg = 'If this email is on your course roster, a login code has been sent. Enter it below.';
+  const mockOTP = allowDevOtpExpose() ? otp : null;
   req.session.save(() => {
     res.render('student-login', {
       layout: false, step: 'otp', email,
-      mockOTP: otp,
-      error: [], success: ['New OTP sent!'],
+      mockOTP,
+      error: req.flash('error'), success: [msg],
     });
   });
 }));
@@ -321,27 +421,50 @@ router.post('/crib', ensureStudent, asyncHandler(async (req, res) => {
   const examId = requireInt(exam_id, 'Exam');
 
   const exam = await Exam.findByPk(examId, { include: [{ model: Course }] });
-  if (!exam) throw new Error('ACCESS_DENIED');
+  if (!exam || !exam.grades_released) {
+    req.flash('error', 'Regrade requests are not available until grades are released.');
+    return res.redirect(exam ? `/student/course/${exam.course_id}` : '/student/dashboard');
+  }
 
   const enrollment = await Student.findOne({
     where: { course_id: exam.course_id, email: req.session.email },
   });
   if (!enrollment) throw new Error('ACCESS_DENIED');
 
-  const existing = await Crib.findOne({ where: { grade_id: gradeId, student_id: enrollment.id } });
-  if (existing) {
-    req.flash('error', 'You already submitted a crib for this question.');
+  const course = exam.Course;
+  const cribDeadline = exam.grades_released_at
+    ? new Date(new Date(exam.grades_released_at).getTime() + (course.crib_window_hours || 48) * 3600000)
+    : null;
+  if (!cribDeadline || new Date() >= cribDeadline) {
+    req.flash('error', 'The regrade request window for this exam has closed.');
     return res.redirect(`/student/grades/${examId}`);
   }
 
-  await Crib.create({
-    grade_id: gradeId,
-    student_id: enrollment.id,
-    exam_id: examId,
-    question_no: question_no || '',
-    student_reasoning: student_reasoning || '',
-    status: 'pending',
+  const grade = await Grade.findOne({
+    where: { id: gradeId },
+    include: [{ model: Submission, required: true, include: [{ model: Exam, required: true }] }],
   });
+  if (!grade || grade.Submission.exam_id !== examId || grade.Submission.student_id !== enrollment.id) {
+    req.flash('error', 'Invalid grade or exam for your account.');
+    return res.redirect(`/student/grades/${examId}`);
+  }
+
+  try {
+    await Crib.create({
+      grade_id: gradeId,
+      student_id: enrollment.id,
+      exam_id: examId,
+      question_no: (question_no || '').toString().slice(0, 50),
+      student_reasoning: (student_reasoning || '').toString().trim().slice(0, 5000) || '(no text)',
+      status: 'pending',
+    });
+  } catch (e) {
+    if (e instanceof UniqueConstraintError) {
+      req.flash('error', 'You already submitted a regrade request for this question.');
+      return res.redirect(`/student/grades/${examId}`);
+    }
+    throw e;
+  }
 
   req.flash('success', 'Crib submitted successfully. You will be notified once it is reviewed.');
   res.redirect(`/student/grades/${examId}`);
@@ -351,14 +474,18 @@ router.get('/poll/:roomCode', (req, res) => {
   res.render('student-poll', { layout: false, roomCode: req.params.roomCode });
 });
 
-router.post('/poll/:roomCode/respond', asyncHandler(async (req, res) => {
-  const poll = await LivePoll.findOne({ where: { room_code: req.params.roomCode, is_active: true } });
+router.post('/poll/:roomCode/respond', pollRespondLimiter, asyncHandler(async (req, res) => {
+  const poll = await LivePoll.findOne({ where: { room_code: req.params.roomCode.trim(), is_active: true } });
   if (!poll) return res.status(404).json({ error: 'Poll not found or closed' });
+
+  const response = String(req.body.response || '').trim().slice(0, POLL_RESPONSE_MAX);
+  const response_name = String(req.body.name || 'Anonymous').trim().slice(0, 200);
+  if (!response) return res.status(400).json({ error: 'Response required' });
 
   await PollResponse.create({
     poll_id: poll.id,
-    response: req.body.response || '',
-    response_name: req.body.name || 'Anonymous',
+    response,
+    response_name,
     user_id: req.session?.userId || null,
   });
   res.json({ ok: true });
@@ -422,7 +549,7 @@ router.post('/discussion-reply/:threadId', ensureStudent, asyncHandler(async (re
   });
   if (!enrollment) throw new Error('ACCESS_DENIED');
 
-  const content = (req.body.content || '').trim();
+  const content = (req.body.content || '').trim().slice(0, DISCUSSION_MAX);
   if (!content) {
     req.flash('error', 'Reply cannot be empty.');
     return res.redirect(`/student/discussion-thread/${threadId}`);

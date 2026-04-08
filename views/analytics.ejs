@@ -11,7 +11,7 @@
     <select id="analyticsCourse" onchange="updateAnalyticsExams()">
       <option value="">-- Select Course --</option>
       <% courses.forEach(function(c) { %>
-        <option value="<%= c.id %>" data-exams='<%= JSON.stringify(allExams[c.id] || []) %>'><%= c.code %> - <%= c.name %></option>
+        <option value="<%= c.id %>" data-exams="<%- jsonForScript(allExams[c.id] || []) %>"><%= c.code %> - <%= c.name %></option>
       <% }); %>
     </select>
     <label>Exam:</label>
@@ -154,7 +154,7 @@
 <script>
 const analyticsExams = {};
 <% courses.forEach(function(c) { %>
-  analyticsExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+  analyticsExams['<%= c.id %>'] = <%- jsonForScript(allExams[c.id] || []) %>;
 <% }); %>
 const selAExamId = <%= selectedExamId || 'null' %>;
 

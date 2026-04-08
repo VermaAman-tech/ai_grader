@@ -51,7 +51,7 @@
 <script>
 const srExams = {};
 <% courses.forEach(function(c) { %>
-  srExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+  srExams['<%= c.id %>'] = <%- jsonForScript(allExams[c.id] || []) %>;
 <% }); %>
 function updateSrExams() {
   const cid = document.getElementById('srCourse').value;

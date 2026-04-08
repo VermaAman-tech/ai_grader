@@ -1,4 +1,13 @@
 require('dotenv').config();
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd) {
+  const sec = process.env.SESSION_SECRET;
+  if (!sec || sec === 'dev-secret-change-me') {
+    console.error('FATAL: Set SESSION_SECRET in production.');
+    process.exit(1);
+  }
+}
+
 const express = require('express');
 const session = require('express-session');
 const flash = require('connect-flash');
@@ -11,7 +20,7 @@ const { sequelize } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const isProd = process.env.NODE_ENV === 'production';
+const { jsonForScript } = require('./utils/safe-json');
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -66,6 +75,7 @@ app.use((req, res, next) => {
   res.locals.success = req.flash('success');
   res.locals.error = req.flash('error');
   res.locals.currentPath = req.path;
+  res.locals.jsonForScript = jsonForScript;
   next();
 });
 

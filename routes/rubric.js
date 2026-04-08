@@ -41,7 +41,7 @@ router.post('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =
   const question_no = requireString(req.body.question_no, 'Question number', { maxLen: 50 });
   const question_text = requireString(req.body.question_text, 'Question text', { maxLen: 5000 });
   const max_marks = requireFloat(req.body.max_marks || '10', 'Max marks', { min: 0.5, max: 1000 });
-  const question_order = parseInt(req.body.question_order) || 1;
+  const question_order = requireInt(req.body.question_order || '1', 'Question order');
   const grading_notes = optionalString(req.body.grading_notes, { maxLen: 2000 });
 
   const keyPoints = [];

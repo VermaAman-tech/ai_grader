@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { ensureAuth, ensureSubscription, asyncHandler } = require('../middleware/auth');
 const { requireInt, requireString, requireEmail } = require('../middleware/validate');
 const { Course, CourseTA, User, Exam, Submission, Grade, Rubric, Student, IntegrationConfig } = require('../models');
-const { Op } = require('sequelize');
+const { Op, UniqueConstraintError } = require('sequelize');
 
 const PERMISSIONS_BY_ROLE = {
   head_ta: {
@@ -102,14 +102,22 @@ router.post('/invite', ensureAuth, ensureSubscription, asyncHandler(async (req, 
   const user = await User.findOne({ where: { email } });
   const defaultPerms = PERMISSIONS_BY_ROLE[role] || PERMISSIONS_BY_ROLE.ta;
 
-  await CourseTA.create({
-    course_id: courseId,
-    user_id: user?.id || null,
-    email,
-    role,
-    status: user ? 'active' : 'pending',
-    assigned_students: encodeStudentsAndPermissions([], defaultPerms),
-  });
+  try {
+    await CourseTA.create({
+      course_id: courseId,
+      user_id: user?.id || null,
+      email,
+      role,
+      status: user ? 'active' : 'pending',
+      assigned_students: encodeStudentsAndPermissions([], defaultPerms),
+    });
+  } catch (e) {
+    if (e instanceof UniqueConstraintError) {
+      req.flash('error', 'This person is already invited to this course.');
+      return res.redirect(`/ta?course_id=${courseId}`);
+    }
+    throw e;
+  }
 
   req.flash('success', `TA invitation sent to ${email}.`);
   res.redirect(`/ta?course_id=${courseId}`);

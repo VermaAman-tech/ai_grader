@@ -11,7 +11,7 @@
         <select id="exportCourse" onchange="updateExportExams()">
           <option value="">-- Select Course --</option>
           <% courses.forEach(function(c) { %>
-            <option value="<%= c.id %>" data-exams='<%= JSON.stringify(allExams[c.id] || []) %>'><%= c.code %> - <%= c.name %></option>
+            <option value="<%= c.id %>" data-exams="<%- jsonForScript(allExams[c.id] || []) %>"><%= c.code %> - <%= c.name %></option>
           <% }); %>
         </select>
       </div>
@@ -41,7 +41,7 @@
 <script>
 const exportExams = {};
 <% courses.forEach(function(c) { %>
-  exportExams['<%= c.id %>'] = <%- JSON.stringify(allExams[c.id] || []) %>;
+  exportExams['<%= c.id %>'] = <%- jsonForScript(allExams[c.id] || []) %>;
 <% }); %>
 function updateExportExams() {
   const cid = document.getElementById('exportCourse').value;

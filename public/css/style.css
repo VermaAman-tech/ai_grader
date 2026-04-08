@@ -1895,31 +1895,108 @@ select.form-control {
    AI ASSISTANT PANEL (Copilot-style)
    ================================================================ */
 
+/* AI Agent FAB: rounded pill, star + label, rolling rainbow border */
 .assistant-fab {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary-container) 0%, var(--primary) 100%);
-  color: var(--on-primary);
-  border: none;
-  cursor: pointer;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-lg);
-  z-index: 1000;
-  transition: transform 0.2s, box-shadow 0.2s;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  overflow: visible;
+  isolation: isolate;
 }
-.assistant-fab:hover { transform: scale(1.08); box-shadow: var(--shadow-float); }
-.assistant-fab.active { transform: scale(0.92); opacity: 0.6; }
-.assistant-fab i { width: 22px; height: 22px; }
 
-[data-theme="dark"] .assistant-fab {
-  background: linear-gradient(135deg, var(--blue) 0%, #5b8fd9 100%);
-  color: #0a0f13;
+.assistant-fab-rainbow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    #ff0844,
+    #ff8f1f,
+    #ffeb3b,
+    #00e676,
+    #00b0ff,
+    #7c4dff,
+    #e040fb,
+    #ff0844
+  );
+  background-size: 400% 100%;
+  animation: assistant-fab-rainbow-roll 3.5s linear infinite;
+  z-index: 0;
+}
+
+@keyframes assistant-fab-rainbow-roll {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 400% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-fab-rainbow { animation: none; background-position: 50% 50%; }
+}
+
+.assistant-fab-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 3px;
+  padding: 11px 20px 11px 16px;
+  border-radius: 999px;
+  background: rgba(16, 18, 22, 0.96);
+  color: #f8fafc;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+[data-theme="light"] .assistant-fab-inner {
+  background: rgba(18, 20, 26, 0.97);
+  color: #fafafa;
+}
+
+/* Lucide replaces <i> with <svg class="lucide lucide-star assistant-fab-star"> */
+.assistant-fab-star,
+.assistant-fab-inner > svg.assistant-fab-star {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  color: #fde047;
+  stroke: #fbbf24;
+  fill: #facc15;
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.55));
+}
+
+.assistant-fab-label {
+  white-space: nowrap;
+  user-select: none;
+}
+
+.assistant-fab:hover {
+  transform: scale(1.04) translateY(-2px);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.24), 0 0 24px rgba(124, 77, 255, 0.2);
+}
+
+.assistant-fab.active {
+  transform: scale(0.98);
+  opacity: 0.92;
+}
+
+.assistant-fab.active .assistant-fab-rainbow {
+  animation-duration: 6s;
 }
 
 .assistant-panel {
@@ -2088,7 +2165,14 @@ select.form-control {
 
 @media (max-width: 768px) {
   .assistant-panel { width: 100vw; right: -100vw; }
-  .assistant-fab { bottom: 16px; right: 16px; width: 48px; height: 48px; }
+  .assistant-fab { bottom: 16px; right: 16px; }
+  .assistant-fab-inner {
+    padding: 9px 14px 9px 12px;
+    gap: 8px;
+    font-size: 0.82rem;
+  }
+  .assistant-fab-star,
+  .assistant-fab-inner > svg.assistant-fab-star { width: 18px; height: 18px; }
 }
 
 /* ── Grade Boundaries ── */

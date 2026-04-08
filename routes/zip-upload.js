@@ -3,12 +3,18 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const AdmZip = require('adm-zip');
+const { UniqueConstraintError } = require('sequelize');
 const { ensureAuth, ensureSubscription, asyncHandler, assertExamOwner } = require('../middleware/auth');
 const { requireInt } = require('../middleware/validate');
-const { Course, Exam, Student, Submission } = require('../models');
+const { Exam, Student, Submission } = require('../models');
+const { bufferLooksLikePdf } = require('../utils/pdf');
 
 const uploadDir = path.resolve(process.env.UPLOAD_DIR || './data/uploads');
 const upload = multer({ dest: uploadDir, limits: { fileSize: 200 * 1024 * 1024 } });
+
+const MAX_TOTAL_UNCOMPRESSED = 200 * 1024 * 1024;
+const MAX_SINGLE_ENTRY = 50 * 1024 * 1024;
+const MAX_COMPRESSION_RATIO = 200;
 
 router.post('/upload-zip', ensureAuth, ensureSubscription, upload.single('zip_file'), asyncHandler(async (req, res) => {
   const examId = requireInt(req.body.exam_id, 'Exam');
@@ -23,34 +29,39 @@ router.post('/upload-zip', ensureAuth, ensureSubscription, upload.single('zip_fi
   const students = await Student.findAll({ where: { course_id: courseId } });
   const rollMap = {};
   for (const s of students) {
-    if (s.roll_number) rollMap[s.roll_number.toUpperCase()] = s;
-    const nameParts = s.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-    rollMap[nameParts] = rollMap[nameParts] || s;
+    if (s.roll_number) rollMap[String(s.roll_number).trim().toUpperCase()] = s;
   }
 
   let matched = 0, unmatched = 0;
   const unmatchedFiles = [];
+  let totalUncompressed = 0;
 
   try {
     const zip = new AdmZip(req.file.path);
+    const zipSize = fs.statSync(req.file.path).size;
     const entries = zip.getEntries().filter(e => !e.isDirectory && e.entryName.toLowerCase().endsWith('.pdf'));
 
     for (const entry of entries) {
-      const baseName = path.basename(entry.entryName, '.pdf').toUpperCase().trim();
+      const uncomp = entry.header.size || 0;
+      if (uncomp > MAX_SINGLE_ENTRY) {
+        req.flash('error', `ZIP rejected: entry "${entry.entryName}" exceeds maximum uncompressed size.`);
+        return res.redirect(`/submissions?course_id=${courseId}&exam_id=${examId}`);
+      }
+      totalUncompressed += uncomp;
+      if (totalUncompressed > MAX_TOTAL_UNCOMPRESSED) {
+        req.flash('error', 'ZIP rejected: total uncompressed size exceeds the allowed limit.');
+        return res.redirect(`/submissions?course_id=${courseId}&exam_id=${examId}`);
+      }
+    }
 
-      let student = rollMap[baseName];
-      if (!student) {
-        const normalized = baseName.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        student = rollMap[normalized];
-      }
-      if (!student) {
-        for (const [key, s] of Object.entries(rollMap)) {
-          if (baseName.includes(key.toUpperCase()) || key.toUpperCase().includes(baseName)) {
-            student = s;
-            break;
-          }
-        }
-      }
+    if (zipSize > 0 && totalUncompressed / zipSize > MAX_COMPRESSION_RATIO) {
+      req.flash('error', 'ZIP rejected: compression ratio too high (possible archive bomb).');
+      return res.redirect(`/submissions?course_id=${courseId}&exam_id=${examId}`);
+    }
+
+    for (const entry of entries) {
+      const baseName = path.basename(entry.entryName, '.pdf').trim().toUpperCase();
+      const student = rollMap[baseName];
 
       if (!student) {
         unmatched++;
@@ -58,19 +69,36 @@ router.post('/upload-zip', ensureAuth, ensureSubscription, upload.single('zip_fi
         continue;
       }
 
+      const raw = entry.getData();
+      if (!bufferLooksLikePdf(raw)) {
+        unmatched++;
+        unmatchedFiles.push(`${entry.entryName} (not a valid PDF)`);
+        continue;
+      }
+
       const ts = Date.now();
       const safeName = `${ts}_${entry.entryName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
       const dest = path.join(uploadDir, safeName);
-      fs.writeFileSync(dest, entry.getData());
+      fs.writeFileSync(dest, raw);
 
-      await Submission.create({
-        exam_id: examId,
-        student_id: student.id,
-        file_name: entry.entryName,
-        file_path: dest,
-        status: 'pending',
-      });
-      matched++;
+      try {
+        await Submission.create({
+          exam_id: examId,
+          student_id: student.id,
+          file_name: entry.entryName,
+          file_path: dest,
+          status: 'pending',
+        });
+        matched++;
+      } catch (e) {
+        try { fs.unlinkSync(dest); } catch {}
+        if (e instanceof UniqueConstraintError) {
+          unmatched++;
+          unmatchedFiles.push(`${entry.entryName} (duplicate submission for student)`);
+        } else {
+          throw e;
+        }
+      }
     }
   } catch (err) {
     req.flash('error', `ZIP processing failed: ${err.message}`);

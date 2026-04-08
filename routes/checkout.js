@@ -32,7 +32,7 @@ router.post('/create-session', ensureAuth, asyncHandler(async (req, res) => {
   }
 
   if (!stripe) {
-    return handleDirectSubscription(req, res, plan, scope, billing || 'monthly', coupon_code, currency);
+    return res.status(503).json({ error: 'Payment is not configured. Set STRIPE_SECRET_KEY to enable checkout.' });
   }
 
   const cur = currency === 'inr' ? 'inr' : 'usd';
@@ -131,15 +131,6 @@ router.post('/webhook', asyncHandler(async (req, res) => {
 
   res.status(200).send('OK');
 }));
-
-async function handleDirectSubscription(req, res, plan, scope, billing, couponCode, currency) {
-  if (scope !== 'individual' && req.session.role !== 'admin') {
-    return res.json({ error: 'Only admins can purchase institutional plans.' });
-  }
-
-  await activateSubscription(req.session.userId, req.session.collegeId, plan, scope, billing, 0);
-  return res.json({ url: '/dashboard' });
-}
 
 async function activateSubscription(userId, collegeId, plan, scope, billing, amount) {
   const now = new Date();

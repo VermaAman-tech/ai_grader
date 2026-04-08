@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import {
   PenTool,
   FileText,
-  Users,
   Calendar,
   ChevronRight,
+  ChevronDown,
   X,
   Bold,
   Italic,
@@ -25,32 +25,23 @@ import {
   Trophy,
   Link2,
   RefreshCw,
-  Eye,
+  ExternalLink,
   CheckCircle2,
   AlertTriangle,
   Star,
-  BarChart3,
-  ExternalLink,
+  Type,
+  Hash,
+  AlignLeft,
 } from 'lucide-react'
-import {
-  projects,
-  experiments,
-  papers,
-  ideas,
-  users,
-  getUserById,
-  getExperimentsByProject,
-  getPapersByProject,
-  getIdeasByProject,
-} from '@/lib/mock-data'
-import { formatDate } from '@/lib/utils'
+import { useDataStore } from '@/contexts/DataStore'
+import { users, getUserById } from '@/lib/mock-data'
+import { cn, formatDate } from '@/lib/utils'
 
 type SectionKey = 'abstract' | 'introduction' | 'related-work' | 'method' | 'experiments' | 'results' | 'discussion' | 'conclusion' | 'references'
 
 interface DraftSection {
   key: SectionKey
   label: string
-  wordCount: number
   complete: boolean
 }
 
@@ -58,16 +49,16 @@ interface AIPopup {
   type: 'reviewer' | 'novelty' | 'rebuttal' | 'contribution' | null
 }
 
-const SECTIONS: DraftSection[] = [
-  { key: 'abstract', label: 'Abstract', wordCount: 287, complete: true },
-  { key: 'introduction', label: 'Introduction', wordCount: 1842, complete: true },
-  { key: 'related-work', label: 'Related Work', wordCount: 2156, complete: true },
-  { key: 'method', label: 'Method', wordCount: 3210, complete: true },
-  { key: 'experiments', label: 'Experiments', wordCount: 1580, complete: false },
-  { key: 'results', label: 'Results', wordCount: 890, complete: false },
-  { key: 'discussion', label: 'Discussion', wordCount: 340, complete: false },
-  { key: 'conclusion', label: 'Conclusion', wordCount: 0, complete: false },
-  { key: 'references', label: 'References', wordCount: 0, complete: false },
+const INITIAL_SECTIONS: DraftSection[] = [
+  { key: 'abstract', label: 'Abstract', complete: true },
+  { key: 'introduction', label: 'Introduction', complete: true },
+  { key: 'related-work', label: 'Related Work', complete: true },
+  { key: 'method', label: 'Method', complete: true },
+  { key: 'experiments', label: 'Experiments', complete: false },
+  { key: 'results', label: 'Results', complete: false },
+  { key: 'discussion', label: 'Discussion', complete: false },
+  { key: 'conclusion', label: 'Conclusion', complete: false },
+  { key: 'references', label: 'References', complete: false },
 ]
 
 const SECTION_CONTENT: Record<SectionKey, string> = {
@@ -247,27 +238,69 @@ const AI_RESPONSES = {
   },
 }
 
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length
+}
+
+function countChars(text: string): number {
+  return text.length
+}
+
 export default function WritingPage() {
+  const { papers, experiments, ideas, projects } = useDataStore()
   const [selectedDraft, setSelectedDraft] = useState<string | null>(null)
   const [activeSection, setActiveSection] = useState<SectionKey>('abstract')
   const [aiPopup, setAiPopup] = useState<AIPopup>({ type: null })
   const [showOverleaf, setShowOverleaf] = useState(false)
+  const [sectionContents, setSectionContents] = useState<Record<SectionKey, string>>(SECTION_CONTENT)
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false)
 
+  const allProjects = projects
   const activeDrafts = useMemo(() =>
     projects.filter(p => p.status === 'active' || p.status === 'under-review'),
-    []
+    [projects]
   )
 
   const selectedProject = projects.find(p => p.id === selectedDraft)
-  const projectExperiments = selectedDraft ? getExperimentsByProject(selectedDraft) : []
-  const projectPapers = selectedDraft ? getPapersByProject(selectedDraft) : []
-  const projectIdeas = selectedDraft ? getIdeasByProject(selectedDraft) : []
+  const projectExperiments = useMemo(() =>
+    selectedDraft ? experiments.filter(e => e.projectId === selectedDraft) : [],
+    [selectedDraft, experiments]
+  )
+  const projectPapers = useMemo(() =>
+    selectedDraft ? papers.filter(p => p.projectIds.includes(selectedDraft)) : [],
+    [selectedDraft, papers]
+  )
+  const projectIdeas = useMemo(() =>
+    selectedDraft ? ideas.filter(i => i.projectId === selectedDraft) : [],
+    [selectedDraft, ideas]
+  )
 
-  const totalWords = SECTIONS.reduce((sum, s) => sum + s.wordCount, 0)
-  const completedSections = SECTIONS.filter(s => s.complete).length
-  const progressPercent = Math.round((completedSections / SECTIONS.length) * 100)
+  const sectionWordCounts = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const key of Object.keys(sectionContents) as SectionKey[]) {
+      counts[key] = countWords(sectionContents[key])
+    }
+    return counts
+  }, [sectionContents])
 
-  function getContextPanel(): { title: string; icon: typeof FlaskConical; items: { label: string; detail: string }[] } {
+  const totalWords = useMemo(() =>
+    Object.values(sectionWordCounts).reduce((sum, c) => sum + c, 0),
+    [sectionWordCounts]
+  )
+
+  const totalChars = useMemo(() =>
+    Object.values(sectionContents).reduce((sum, c) => sum + countChars(c), 0),
+    [sectionContents]
+  )
+
+  const completedSections = INITIAL_SECTIONS.filter(s => s.complete).length
+  const progressPercent = Math.round((completedSections / INITIAL_SECTIONS.length) * 100)
+
+  const handleSectionChange = useCallback((value: string) => {
+    setSectionContents(prev => ({ ...prev, [activeSection]: value }))
+  }, [activeSection])
+
+  function getContextPanel() {
     switch (activeSection) {
       case 'introduction':
         return {
@@ -309,14 +342,14 @@ export default function WritingPage() {
     }
   }
 
-  function getDraftStatus(project: typeof projects[0]): { label: string; color: string } {
-    if (project.status === 'under-review') return { label: 'Submitted', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' }
+  function getDraftStatus(project: typeof projects[0]) {
+    if (project.status === 'under-review') return { label: 'Submitted', color: 'bg-yellow-500/10 text-yellow-500 dark:text-yellow-400 border-yellow-500/20' }
     const milestones = project.milestones || []
     const draftMilestones = milestones.filter(m => m.title.toLowerCase().includes('draft') || m.title.toLowerCase().includes('paper'))
     const completedDrafts = draftMilestones.filter(m => m.completed).length
-    if (completedDrafts >= 2) return { label: 'Draft v2', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' }
-    if (completedDrafts >= 1) return { label: 'Draft v1', color: 'bg-brand-500/10 text-brand-400 border-brand-500/20' }
-    return { label: 'Early Draft', color: 'bg-surface-500/10 text-surface-400 border-surface-500/20' }
+    if (completedDrafts >= 2) return { label: 'Draft v2', color: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' }
+    if (completedDrafts >= 1) return { label: 'Draft v1', color: 'bg-brand-500/10 text-brand-600 dark:text-brand-400 border-brand-500/20' }
+    return { label: 'Early Draft', color: 'bg-surface-500/10 text-surface-600 dark:text-surface-400 border-surface-500/20' }
   }
 
   function getDraftProgress(project: typeof projects[0]): number {
@@ -325,10 +358,11 @@ export default function WritingPage() {
     return Math.round((milestones.filter(m => m.completed).length / milestones.length) * 100)
   }
 
-  // Editor view
   if (selectedDraft && selectedProject) {
     const context = getContextPanel()
     const ContextIcon = context.icon
+    const currentWordCount = sectionWordCounts[activeSection] || 0
+    const currentCharCount = countChars(sectionContents[activeSection])
 
     return (
       <div className="mx-auto max-w-7xl">
@@ -337,30 +371,76 @@ export default function WritingPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSelectedDraft(null)}
-              className="rounded-lg p-2 text-surface-400 hover:bg-surface-800 hover:text-surface-100"
+              className="rounded-lg p-2 text-surface-500 hover:bg-surface-100 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-800 dark:hover:text-surface-100"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div>
-              <h1 className="text-lg font-bold text-surface-100">{selectedProject.title}</h1>
-              <p className="text-xs text-surface-400">Target: {selectedProject.targetVenue}</p>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-bold text-surface-900 dark:text-surface-100">{selectedProject.title}</h1>
+                {/* Project switcher */}
+                <div className="relative">
+                  <button
+                    onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
+                    className="flex items-center gap-1 rounded-lg border border-surface-200 bg-white px-2 py-1 text-xs text-surface-500 hover:border-brand-300 hover:text-brand-600 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-400 dark:hover:border-brand-500/40 dark:hover:text-brand-400"
+                  >
+                    Switch
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                  {projectDropdownOpen && (
+                    <>
+                      <button className="fixed inset-0 z-40" onClick={() => setProjectDropdownOpen(false)} />
+                      <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-xl border border-surface-200 bg-white p-1 shadow-lg dark:border-surface-700 dark:bg-surface-800">
+                        {allProjects.map(p => (
+                          <button
+                            key={p.id}
+                            onClick={() => {
+                              setSelectedDraft(p.id)
+                              setProjectDropdownOpen(false)
+                            }}
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                              p.id === selectedDraft
+                                ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400'
+                                : 'text-surface-600 hover:bg-surface-50 dark:text-surface-300 dark:hover:bg-surface-700/50'
+                            )}
+                          >
+                            <FileText className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{p.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              <p className="text-xs text-surface-500 dark:text-surface-400">Target: {selectedProject.targetVenue}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-surface-500">{totalWords.toLocaleString()} words</span>
-            <span className="text-xs text-surface-500">·</span>
-            <span className="text-xs text-surface-500">{completedSections}/{SECTIONS.length} sections</span>
-            <div className="ml-2 h-2 w-24 overflow-hidden rounded-full bg-surface-800">
-              <div
-                className="h-full rounded-full bg-brand-500 transition-all"
-                style={{ width: `${progressPercent}%` }}
-              />
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 rounded-lg border border-surface-200 bg-surface-50 px-3 py-1.5 dark:border-surface-700 dark:bg-surface-800/60">
+              <Type className="h-3.5 w-3.5 text-surface-400 dark:text-surface-500" />
+              <span className="text-xs font-medium text-surface-600 dark:text-surface-300">{totalWords.toLocaleString()}</span>
+              <span className="text-xs text-surface-400 dark:text-surface-500">words</span>
+              <span className="text-surface-300 dark:text-surface-600">|</span>
+              <Hash className="h-3.5 w-3.5 text-surface-400 dark:text-surface-500" />
+              <span className="text-xs font-medium text-surface-600 dark:text-surface-300">{totalChars.toLocaleString()}</span>
+              <span className="text-xs text-surface-400 dark:text-surface-500">chars</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-surface-500">{completedSections}/{INITIAL_SECTIONS.length} sections</span>
+              <div className="h-2 w-24 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-800">
+                <div
+                  className="h-full rounded-full bg-brand-500 transition-all"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
             </div>
           </div>
         </div>
 
         {/* Toolbar */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-surface-700/50 bg-surface-900/80 px-4 py-2">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-surface-200 bg-white px-4 py-2 dark:border-surface-700/50 dark:bg-surface-900/80">
           <div className="flex items-center gap-1">
             {[
               { icon: Bold, label: 'Bold' },
@@ -372,14 +452,14 @@ export default function WritingPage() {
             ].map(({ icon: Icon, label }) => (
               <button
                 key={label}
-                className="rounded-lg p-2 text-surface-400 hover:bg-surface-800 hover:text-surface-100"
+                className="rounded-lg p-2 text-surface-400 hover:bg-surface-100 hover:text-surface-700 dark:hover:bg-surface-800 dark:hover:text-surface-100"
                 title={label}
               >
                 <Icon className="h-4 w-4" />
               </button>
             ))}
-            <div className="mx-2 h-5 w-px bg-surface-700" />
-            <button className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-brand-400 hover:bg-brand-500/10">
+            <div className="mx-2 h-5 w-px bg-surface-200 dark:bg-surface-700" />
+            <button className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-brand-600 hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-500/10">
               <AtSign className="h-3.5 w-3.5" />
               @cite
             </button>
@@ -387,36 +467,36 @@ export default function WritingPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setAiPopup({ type: 'reviewer' })}
-              className="btn-ghost flex items-center gap-1.5 text-xs"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
             >
-              <Shield className="h-3.5 w-3.5 text-yellow-400" />
-              Reviewer Simulator
+              <Shield className="h-3.5 w-3.5 text-yellow-500 dark:text-yellow-400" />
+              Reviewer Sim
             </button>
             <button
               onClick={() => setAiPopup({ type: 'novelty' })}
-              className="btn-ghost flex items-center gap-1.5 text-xs"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
             >
-              <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-              Novelty Checker
+              <Sparkles className="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
+              Novelty
             </button>
             <button
               onClick={() => setAiPopup({ type: 'rebuttal' })}
-              className="btn-ghost flex items-center gap-1.5 text-xs"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
             >
-              <MessageSquareText className="h-3.5 w-3.5 text-blue-400" />
-              Rebuttal Assistant
+              <MessageSquareText className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+              Rebuttal
             </button>
             <button
               onClick={() => setAiPopup({ type: 'contribution' })}
-              className="btn-ghost flex items-center gap-1.5 text-xs"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-surface-600 hover:bg-surface-100 dark:text-surface-300 dark:hover:bg-surface-800"
             >
-              <Trophy className="h-3.5 w-3.5 text-emerald-400" />
-              Contribution Tracker
+              <Trophy className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
+              Contributions
             </button>
-            <div className="mx-1 h-5 w-px bg-surface-700" />
+            <div className="mx-1 h-5 w-px bg-surface-200 dark:bg-surface-700" />
             <button
               onClick={() => setShowOverleaf(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-surface-700 bg-surface-800/50 px-3 py-1.5 text-xs font-medium text-surface-200 hover:border-emerald-500/30 hover:text-emerald-300"
+              className="flex items-center gap-1.5 rounded-lg border border-surface-200 bg-surface-50 px-3 py-1.5 text-xs font-medium text-surface-700 hover:border-emerald-400/40 hover:text-emerald-600 dark:border-surface-700 dark:bg-surface-800/50 dark:text-surface-200 dark:hover:border-emerald-500/30 dark:hover:text-emerald-300"
             >
               <Link2 className="h-3.5 w-3.5" />
               Overleaf Sync
@@ -427,27 +507,28 @@ export default function WritingPage() {
         {/* Three-panel editor */}
         <div className="grid grid-cols-[200px_1fr_280px] gap-4">
           {/* Left: Section nav */}
-          <div className="rounded-xl border border-surface-700/50 bg-surface-900/80 p-3">
-            <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-surface-500">Sections</p>
+          <div className="rounded-xl border border-surface-200 bg-white p-3 dark:border-surface-700/50 dark:bg-surface-900/80">
+            <p className="mb-3 text-[10px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">Sections</p>
             <div className="space-y-0.5">
-              {SECTIONS.map(section => (
+              {INITIAL_SECTIONS.map(section => (
                 <button
                   key={section.key}
                   onClick={() => setActiveSection(section.key)}
-                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors',
                     activeSection === section.key
-                      ? 'bg-brand-500/10 text-brand-400'
-                      : 'text-surface-400 hover:bg-surface-800 hover:text-surface-200'
-                  }`}
+                      ? 'bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400'
+                      : 'text-surface-500 hover:bg-surface-50 hover:text-surface-700 dark:text-surface-400 dark:hover:bg-surface-800 dark:hover:text-surface-200'
+                  )}
                 >
                   {section.complete ? (
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-500 dark:text-emerald-400" />
                   ) : (
-                    <div className="h-3.5 w-3.5 shrink-0 rounded-full border border-surface-600" />
+                    <div className="h-3.5 w-3.5 shrink-0 rounded-full border border-surface-300 dark:border-surface-600" />
                   )}
                   <span className="flex-1 truncate">{section.label}</span>
-                  {section.wordCount > 0 && (
-                    <span className="text-[10px] text-surface-600">{section.wordCount}</span>
+                  {(sectionWordCounts[section.key] || 0) > 0 && (
+                    <span className="text-[10px] text-surface-400 dark:text-surface-600">{sectionWordCounts[section.key]}</span>
                   )}
                 </button>
               ))}
@@ -455,43 +536,59 @@ export default function WritingPage() {
           </div>
 
           {/* Center: Editor */}
-          <div className="rounded-xl border border-surface-700/50 bg-surface-900/80 p-6">
-            <h2 className="mb-4 text-lg font-semibold text-surface-100">
-              {SECTIONS.find(s => s.key === activeSection)?.label}
-            </h2>
+          <div className="rounded-xl border border-surface-200 bg-white p-6 dark:border-surface-700/50 dark:bg-surface-900/80">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-surface-900 dark:text-surface-100">
+                {INITIAL_SECTIONS.find(s => s.key === activeSection)?.label}
+              </h2>
+              <div className="flex items-center gap-3 text-xs text-surface-400 dark:text-surface-500">
+                <span className="flex items-center gap-1">
+                  <AlignLeft className="h-3 w-3" />
+                  {currentWordCount} words
+                </span>
+                <span>{currentCharCount} chars</span>
+              </div>
+            </div>
             <textarea
-              value={SECTION_CONTENT[activeSection]}
-              onChange={() => {}}
-              className="min-h-[500px] w-full resize-none bg-transparent font-mono text-sm leading-relaxed text-surface-300 placeholder:text-surface-600 focus:outline-none"
+              value={sectionContents[activeSection]}
+              onChange={e => handleSectionChange(e.target.value)}
+              className="min-h-[500px] w-full resize-none rounded-lg border border-transparent bg-surface-50 p-4 font-mono text-sm leading-relaxed text-surface-800 placeholder:text-surface-400 focus:border-brand-300 focus:outline-none focus:ring-1 focus:ring-brand-300/50 dark:bg-surface-800/40 dark:text-surface-300 dark:placeholder:text-surface-600 dark:focus:border-brand-500/40 dark:focus:ring-brand-500/20"
               placeholder="Start writing..."
             />
-            <div className="mt-4 flex items-center justify-between border-t border-surface-700/50 pt-3 text-xs text-surface-500">
+            <div className="mt-4 flex items-center justify-between border-t border-surface-100 pt-3 text-xs text-surface-400 dark:border-surface-700/50 dark:text-surface-500">
               <span>
-                {SECTIONS.find(s => s.key === activeSection)?.wordCount || 0} words
+                Section {INITIAL_SECTIONS.findIndex(s => s.key === activeSection) + 1} of {INITIAL_SECTIONS.length}
               </span>
-              <span>
-                Section {SECTIONS.findIndex(s => s.key === activeSection) + 1} of {SECTIONS.length}
+              <span className="flex items-center gap-1.5">
+                {INITIAL_SECTIONS.find(s => s.key === activeSection)?.complete ? (
+                  <>
+                    <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                    Complete
+                  </>
+                ) : (
+                  'In progress'
+                )}
               </span>
             </div>
           </div>
 
           {/* Right: Context panel */}
-          <div className="rounded-xl border border-surface-700/50 bg-surface-900/80 p-4">
+          <div className="rounded-xl border border-surface-200 bg-white p-4 dark:border-surface-700/50 dark:bg-surface-900/80">
             <div className="mb-3 flex items-center gap-2">
-              <ContextIcon className="h-4 w-4 text-brand-400" />
-              <p className="text-xs font-semibold text-surface-200">{context.title}</p>
+              <ContextIcon className="h-4 w-4 text-brand-500 dark:text-brand-400" />
+              <p className="text-xs font-semibold text-surface-700 dark:text-surface-200">{context.title}</p>
             </div>
             <div className="space-y-2.5">
               {context.items.length === 0 ? (
-                <p className="py-6 text-center text-xs text-surface-500">No context items for this section</p>
+                <p className="py-6 text-center text-xs text-surface-400 dark:text-surface-500">No context items for this section</p>
               ) : (
                 context.items.map((item, i) => (
                   <div
                     key={i}
-                    className="rounded-lg border border-surface-700/40 bg-surface-800/40 p-3 transition-colors hover:border-brand-500/20"
+                    className="cursor-pointer rounded-lg border border-surface-100 bg-surface-50 p-3 transition-colors hover:border-brand-200 dark:border-surface-700/40 dark:bg-surface-800/40 dark:hover:border-brand-500/20"
                   >
-                    <p className="text-xs font-medium text-surface-200">{item.label}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-surface-500">{item.detail}</p>
+                    <p className="text-xs font-medium text-surface-700 dark:text-surface-200">{item.label}</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-surface-400 dark:text-surface-500">{item.detail}</p>
                   </div>
                 ))
               )}
@@ -503,35 +600,35 @@ export default function WritingPage() {
         {aiPopup.type && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button
-              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/70"
               onClick={() => setAiPopup({ type: null })}
             />
-            <div className="relative max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-surface-700 bg-surface-900 shadow-2xl">
+            <div className="relative max-h-[80vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-surface-200 bg-white shadow-2xl dark:border-surface-700 dark:bg-surface-900">
               {/* Reviewer Simulator */}
               {aiPopup.type === 'reviewer' && (
                 <>
-                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-700 bg-surface-900/95 px-6 py-4 backdrop-blur">
+                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-100 bg-white/95 px-6 py-4 backdrop-blur dark:border-surface-700 dark:bg-surface-900/95">
                     <div className="flex items-center gap-2">
-                      <Shield className="h-5 w-5 text-yellow-400" />
-                      <h2 className="text-lg font-bold text-surface-100">{AI_RESPONSES.reviewer.title}</h2>
+                      <Shield className="h-5 w-5 text-yellow-500 dark:text-yellow-400" />
+                      <h2 className="text-lg font-bold text-surface-900 dark:text-surface-100">{AI_RESPONSES.reviewer.title}</h2>
                     </div>
-                    <button onClick={() => setAiPopup({ type: null })} className="rounded-lg p-2 text-surface-400 hover:bg-surface-800 hover:text-surface-100">
+                    <button onClick={() => setAiPopup({ type: null })} className="rounded-lg p-2 text-surface-400 hover:bg-surface-100 hover:text-surface-700 dark:hover:bg-surface-800 dark:hover:text-surface-100">
                       <X className="h-5 w-5" />
                     </button>
                   </div>
                   <div className="space-y-4 p-6">
                     {AI_RESPONSES.reviewer.content.map((review, i) => (
-                      <div key={i} className="rounded-lg border border-surface-700/50 bg-surface-800/30 p-4">
-                        <h3 className="mb-2 text-sm font-semibold text-surface-200">{review.label}</h3>
+                      <div key={i} className="rounded-lg border border-surface-100 bg-surface-50 p-4 dark:border-surface-700/50 dark:bg-surface-800/30">
+                        <h3 className="mb-2 text-sm font-semibold text-surface-700 dark:text-surface-200">{review.label}</h3>
                         {review.text && (
-                          <p className="text-sm leading-relaxed text-surface-400">{review.text}</p>
+                          <p className="text-sm leading-relaxed text-surface-500 dark:text-surface-400">{review.text}</p>
                         )}
                         {review.weaknesses && (
                           <div className="space-y-2">
                             {review.weaknesses.map((w, j) => (
-                              <div key={j} className="flex gap-2 rounded-lg border border-red-500/15 bg-red-500/5 p-3">
-                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-400" />
-                                <p className="text-sm text-red-200/80">
+                              <div key={j} className="flex gap-2 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-500/15 dark:bg-red-500/5">
+                                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500 dark:text-red-400" />
+                                <p className="text-sm text-red-700 dark:text-red-200/80">
                                   <span className="font-semibold">Weakness {j + 1}:</span> {w}
                                 </p>
                               </div>
@@ -540,7 +637,7 @@ export default function WritingPage() {
                         )}
                       </div>
                     ))}
-                    <p className="text-center text-[11px] text-surface-600">
+                    <p className="text-center text-[11px] text-surface-400 dark:text-surface-600">
                       Simulated review based on paper content analysis. Not a substitute for actual peer review.
                     </p>
                   </div>
@@ -550,47 +647,47 @@ export default function WritingPage() {
               {/* Novelty Checker */}
               {aiPopup.type === 'novelty' && (
                 <>
-                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-700 bg-surface-900/95 px-6 py-4 backdrop-blur">
+                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-100 bg-white/95 px-6 py-4 backdrop-blur dark:border-surface-700 dark:bg-surface-900/95">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-purple-400" />
-                      <h2 className="text-lg font-bold text-surface-100">{AI_RESPONSES.novelty.title}</h2>
+                      <Sparkles className="h-5 w-5 text-purple-500 dark:text-purple-400" />
+                      <h2 className="text-lg font-bold text-surface-900 dark:text-surface-100">{AI_RESPONSES.novelty.title}</h2>
                     </div>
-                    <button onClick={() => setAiPopup({ type: null })} className="rounded-lg p-2 text-surface-400 hover:bg-surface-800 hover:text-surface-100">
+                    <button onClick={() => setAiPopup({ type: null })} className="rounded-lg p-2 text-surface-400 hover:bg-surface-100 hover:text-surface-700 dark:hover:bg-surface-800 dark:hover:text-surface-100">
                       <X className="h-5 w-5" />
                     </button>
                   </div>
                   <div className="space-y-5 p-6">
-                    <div className="flex items-center gap-4 rounded-xl border border-purple-500/20 bg-purple-500/5 p-4">
+                    <div className="flex items-center gap-4 rounded-xl border border-purple-200 bg-purple-50 p-4 dark:border-purple-500/20 dark:bg-purple-500/5">
                       <div className="text-center">
-                        <p className="text-3xl font-bold text-purple-400">{AI_RESPONSES.novelty.content.overlapScore}%</p>
-                        <p className="text-[10px] uppercase tracking-wider text-purple-400/60">Overlap</p>
+                        <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{AI_RESPONSES.novelty.content.overlapScore}%</p>
+                        <p className="text-[10px] uppercase tracking-wider text-purple-500/70 dark:text-purple-400/60">Overlap</p>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm text-surface-300">
+                        <p className="text-sm text-surface-600 dark:text-surface-300">
                           Your method overlaps {AI_RESPONSES.novelty.content.overlapScore}% with existing work.
-                          Consider emphasizing the <span className="font-semibold text-surface-100">adaptive threshold</span> and <span className="font-semibold text-surface-100">organ-boundary-aware loss</span> aspects.
+                          Consider emphasizing the <span className="font-semibold text-surface-900 dark:text-surface-100">adaptive threshold</span> and <span className="font-semibold text-surface-900 dark:text-surface-100">organ-boundary-aware loss</span> aspects.
                         </p>
                       </div>
                     </div>
 
                     <div>
-                      <h3 className="mb-2 text-sm font-semibold text-surface-200">Overlapping Areas</h3>
+                      <h3 className="mb-2 text-sm font-semibold text-surface-700 dark:text-surface-200">Overlapping Areas</h3>
                       {AI_RESPONSES.novelty.content.overlaps.map((o, i) => (
-                        <div key={i} className="mb-2 rounded-lg border border-surface-700/50 bg-surface-800/30 p-3">
-                          <p className="text-xs font-semibold text-surface-300">{o.paper}</p>
-                          <p className="mt-1 text-xs text-red-300/80">Overlap: {o.overlap}</p>
-                          <p className="mt-1 text-xs text-emerald-300/80">Mitigation: {o.mitigation}</p>
+                        <div key={i} className="mb-2 rounded-lg border border-surface-100 bg-surface-50 p-3 dark:border-surface-700/50 dark:bg-surface-800/30">
+                          <p className="text-xs font-semibold text-surface-700 dark:text-surface-300">{o.paper}</p>
+                          <p className="mt-1 text-xs text-red-600 dark:text-red-300/80">Overlap: {o.overlap}</p>
+                          <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-300/80">Mitigation: {o.mitigation}</p>
                         </div>
                       ))}
                     </div>
 
                     <div>
-                      <h3 className="mb-2 text-sm font-semibold text-surface-200">Unique Aspects</h3>
+                      <h3 className="mb-2 text-sm font-semibold text-surface-700 dark:text-surface-200">Unique Aspects</h3>
                       <div className="space-y-1.5">
                         {AI_RESPONSES.novelty.content.uniqueAspects.map((aspect, i) => (
-                          <div key={i} className="flex items-center gap-2 rounded-lg bg-emerald-500/5 px-3 py-2">
-                            <Star className="h-3.5 w-3.5 text-emerald-400" />
-                            <span className="text-sm text-emerald-200/80">{aspect}</span>
+                          <div key={i} className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 dark:bg-emerald-500/5">
+                            <Star className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
+                            <span className="text-sm text-emerald-700 dark:text-emerald-200/80">{aspect}</span>
                           </div>
                         ))}
                       </div>
@@ -602,21 +699,21 @@ export default function WritingPage() {
               {/* Rebuttal Assistant */}
               {aiPopup.type === 'rebuttal' && (
                 <>
-                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-700 bg-surface-900/95 px-6 py-4 backdrop-blur">
+                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-100 bg-white/95 px-6 py-4 backdrop-blur dark:border-surface-700 dark:bg-surface-900/95">
                     <div className="flex items-center gap-2">
-                      <MessageSquareText className="h-5 w-5 text-blue-400" />
-                      <h2 className="text-lg font-bold text-surface-100">{AI_RESPONSES.rebuttal.title}</h2>
+                      <MessageSquareText className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+                      <h2 className="text-lg font-bold text-surface-900 dark:text-surface-100">{AI_RESPONSES.rebuttal.title}</h2>
                     </div>
-                    <button onClick={() => setAiPopup({ type: null })} className="rounded-lg p-2 text-surface-400 hover:bg-surface-800 hover:text-surface-100">
+                    <button onClick={() => setAiPopup({ type: null })} className="rounded-lg p-2 text-surface-400 hover:bg-surface-100 hover:text-surface-700 dark:hover:bg-surface-800 dark:hover:text-surface-100">
                       <X className="h-5 w-5" />
                     </button>
                   </div>
                   <div className="space-y-4 p-6">
                     {AI_RESPONSES.rebuttal.content.map((item, i) => (
-                      <div key={i} className="rounded-lg border border-surface-700/50 bg-surface-800/30 p-4">
-                        <h3 className="mb-2 text-sm font-semibold text-blue-300">{item.reviewer}</h3>
-                        <div className="rounded-lg border border-blue-500/15 bg-blue-500/5 p-3">
-                          <p className="text-sm leading-relaxed text-surface-300">{item.suggestion}</p>
+                      <div key={i} className="rounded-lg border border-surface-100 bg-surface-50 p-4 dark:border-surface-700/50 dark:bg-surface-800/30">
+                        <h3 className="mb-2 text-sm font-semibold text-blue-600 dark:text-blue-300">{item.reviewer}</h3>
+                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-500/15 dark:bg-blue-500/5">
+                          <p className="text-sm leading-relaxed text-surface-600 dark:text-surface-300">{item.suggestion}</p>
                         </div>
                       </div>
                     ))}
@@ -627,12 +724,12 @@ export default function WritingPage() {
               {/* Contribution Tracker */}
               {aiPopup.type === 'contribution' && (
                 <>
-                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-700 bg-surface-900/95 px-6 py-4 backdrop-blur">
+                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-100 bg-white/95 px-6 py-4 backdrop-blur dark:border-surface-700 dark:bg-surface-900/95">
                     <div className="flex items-center gap-2">
-                      <Trophy className="h-5 w-5 text-emerald-400" />
-                      <h2 className="text-lg font-bold text-surface-100">{AI_RESPONSES.contribution.title}</h2>
+                      <Trophy className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
+                      <h2 className="text-lg font-bold text-surface-900 dark:text-surface-100">{AI_RESPONSES.contribution.title}</h2>
                     </div>
-                    <button onClick={() => setAiPopup({ type: null })} className="rounded-lg p-2 text-surface-400 hover:bg-surface-800 hover:text-surface-100">
+                    <button onClick={() => setAiPopup({ type: null })} className="rounded-lg p-2 text-surface-400 hover:bg-surface-100 hover:text-surface-700 dark:hover:bg-surface-800 dark:hover:text-surface-100">
                       <X className="h-5 w-5" />
                     </button>
                   </div>
@@ -640,19 +737,20 @@ export default function WritingPage() {
                     {AI_RESPONSES.contribution.content.map((item, i) => (
                       <div
                         key={i}
-                        className={`rounded-lg border p-4 ${
+                        className={cn(
+                          'rounded-lg border p-4',
                           item.status === 'backed'
-                            ? 'border-emerald-500/20 bg-emerald-500/5'
+                            ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/5'
                             : item.status === 'needs-work'
-                            ? 'border-yellow-500/20 bg-yellow-500/5'
-                            : 'border-red-500/20 bg-red-500/5'
-                        }`}
+                            ? 'border-yellow-200 bg-yellow-50 dark:border-yellow-500/20 dark:bg-yellow-500/5'
+                            : 'border-red-200 bg-red-50 dark:border-red-500/20 dark:bg-red-500/5'
+                        )}
                       >
                         <div className="flex items-start gap-3">
                           <span className="mt-0.5 text-lg">{item.icon}</span>
                           <div>
-                            <h3 className="text-sm font-semibold text-surface-200">{item.claim}</h3>
-                            <p className="mt-1 text-xs leading-relaxed text-surface-400">{item.evidence}</p>
+                            <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200">{item.claim}</h3>
+                            <p className="mt-1 text-xs leading-relaxed text-surface-500 dark:text-surface-400">{item.evidence}</p>
                           </div>
                         </div>
                       </div>
@@ -668,33 +766,33 @@ export default function WritingPage() {
         {showOverleaf && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button
-              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/70"
               onClick={() => setShowOverleaf(false)}
             />
-            <div className="relative w-full max-w-md rounded-2xl border border-surface-700 bg-surface-900 p-6 shadow-2xl">
+            <div className="relative w-full max-w-md rounded-2xl border border-surface-200 bg-white p-6 shadow-2xl dark:border-surface-700 dark:bg-surface-900">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
-                  <Link2 className="h-5 w-5 text-emerald-400" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-500/10">
+                  <Link2 className="h-5 w-5 text-emerald-500 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-surface-100">Overleaf Sync</h3>
-                  <p className="text-xs text-surface-400">Connected</p>
+                  <h3 className="font-semibold text-surface-900 dark:text-surface-100">Overleaf Sync</h3>
+                  <p className="text-xs text-surface-500 dark:text-surface-400">Connected</p>
                 </div>
-                <button onClick={() => setShowOverleaf(false)} className="ml-auto rounded-lg p-2 text-surface-400 hover:bg-surface-800 hover:text-surface-100">
+                <button onClick={() => setShowOverleaf(false)} className="ml-auto rounded-lg p-2 text-surface-400 hover:bg-surface-100 hover:text-surface-700 dark:hover:bg-surface-800 dark:hover:text-surface-100">
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4">
-                <p className="text-sm text-surface-200">
-                  Connected to Overleaf project: <span className="font-semibold text-emerald-300">MedViT_CVPR2026</span>
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/20 dark:bg-emerald-500/5">
+                <p className="text-sm text-surface-700 dark:text-surface-200">
+                  Connected to Overleaf project: <span className="font-semibold text-emerald-600 dark:text-emerald-300">MedViT_CVPR2026</span>
                 </p>
-                <p className="mt-1 text-xs text-surface-400">Last synced: 2 hours ago</p>
+                <p className="mt-1 text-xs text-surface-500 dark:text-surface-400">Last synced: 2 hours ago</p>
                 <div className="mt-3 flex gap-2">
                   <button className="btn-primary flex items-center gap-1.5 px-3 py-1.5 text-xs">
                     <RefreshCw className="h-3.5 w-3.5" />
                     Sync Now
                   </button>
-                  <button className="btn-ghost flex items-center gap-1.5 text-xs">
+                  <button className="flex items-center gap-1.5 rounded-lg border border-surface-200 bg-white px-3 py-1.5 text-xs font-medium text-surface-600 hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-800 dark:text-surface-300 dark:hover:bg-surface-700">
                     <ExternalLink className="h-3.5 w-3.5" />
                     Open in Overleaf
                   </button>
@@ -713,19 +811,19 @@ export default function WritingPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/10">
-            <PenTool className="h-5 w-5 text-brand-400" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-500/10">
+            <PenTool className="h-5 w-5 text-brand-500 dark:text-brand-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-surface-100">Paper Writing Workspace</h1>
-            <p className="text-sm text-surface-400">Draft, review, and collaborate on research papers</p>
+            <h1 className="text-2xl font-bold text-surface-900 dark:text-surface-100">Paper Writing Workspace</h1>
+            <p className="text-sm text-surface-500 dark:text-surface-400">Draft, review, and collaborate on research papers</p>
           </div>
         </div>
       </div>
 
       {/* Active Drafts */}
       <div>
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-surface-500">Active Drafts</h2>
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">Active Drafts</h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {activeDrafts.map(project => {
             const draftStatus = getDraftStatus(project)
@@ -737,30 +835,30 @@ export default function WritingPage() {
               <button
                 key={project.id}
                 onClick={() => setSelectedDraft(project.id)}
-                className="group bg-surface-900/80 border border-surface-700/50 rounded-xl p-5 card-hover text-left"
+                className="group rounded-xl border border-surface-200 bg-white p-5 text-left transition-all hover:border-brand-200 hover:shadow-md dark:border-surface-700/50 dark:bg-surface-900/80 dark:hover:border-brand-500/30 dark:hover:shadow-brand-500/5"
               >
                 <div className="mb-3 flex items-start justify-between">
-                  <h3 className="font-bold text-surface-100 group-hover:text-brand-300 transition-colors">
+                  <h3 className="font-bold text-surface-900 transition-colors group-hover:text-brand-600 dark:text-surface-100 dark:group-hover:text-brand-300">
                     {project.title}
                   </h3>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-surface-600 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-400" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-surface-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500 dark:text-surface-600 dark:group-hover:text-brand-400" />
                 </div>
 
-                <p className="mb-3 text-xs text-surface-400">
-                  Target: <span className="font-medium text-surface-300">{project.targetVenue}</span>
+                <p className="mb-3 text-xs text-surface-500 dark:text-surface-400">
+                  Target: <span className="font-medium text-surface-700 dark:text-surface-300">{project.targetVenue}</span>
                 </p>
 
                 <div className="mb-3 flex items-center gap-2">
-                  <span className={`badge text-[11px] ${draftStatus.color}`}>{draftStatus.label}</span>
+                  <span className={cn('rounded-full border px-2 py-0.5 text-[11px] font-medium', draftStatus.color)}>{draftStatus.label}</span>
                 </div>
 
                 {/* Progress bar */}
                 <div className="mb-3">
-                  <div className="mb-1 flex items-center justify-between text-[11px] text-surface-500">
+                  <div className="mb-1 flex items-center justify-between text-[11px] text-surface-400 dark:text-surface-500">
                     <span>Milestones</span>
                     <span>{progress}%</span>
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-800">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-100 dark:bg-surface-800">
                     <div
                       className="h-full rounded-full bg-brand-500 transition-all"
                       style={{ width: `${progress}%` }}
@@ -770,7 +868,7 @@ export default function WritingPage() {
 
                 {/* Last edited */}
                 {lastMilestone && (
-                  <p className="mb-3 flex items-center gap-1.5 text-[11px] text-surface-500">
+                  <p className="mb-3 flex items-center gap-1.5 text-[11px] text-surface-400 dark:text-surface-500">
                     <Calendar className="h-3 w-3" />
                     Last milestone: {formatDate(lastMilestone.date)}
                   </p>
@@ -779,15 +877,12 @@ export default function WritingPage() {
                 {/* Collaborators */}
                 <div className="flex items-center gap-1">
                   {team.map((memberId, i) => {
-                    const member = projects[0] ? (() => {
-                      const u = users.find(u => u.id === memberId)
-                      return u
-                    })() : null
+                    const member = getUserById(memberId)
                     if (!member) return null
                     return (
                       <div
                         key={memberId}
-                        className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-500/20 text-[10px] font-semibold text-brand-300 ring-2 ring-surface-900"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-100 text-[10px] font-semibold text-brand-700 ring-2 ring-white dark:bg-brand-500/20 dark:text-brand-300 dark:ring-surface-900"
                         style={{ marginLeft: i > 0 ? '-4px' : '0' }}
                         title={member.name}
                       >
@@ -796,7 +891,7 @@ export default function WritingPage() {
                     )
                   })}
                   {project.teamMemberIds.length > 4 && (
-                    <span className="ml-1 text-[11px] text-surface-500">
+                    <span className="ml-1 text-[11px] text-surface-400 dark:text-surface-500">
                       +{project.teamMemberIds.length - 4}
                     </span>
                   )}
@@ -807,26 +902,26 @@ export default function WritingPage() {
         </div>
       </div>
 
-      {/* Quick access: AI Features overview */}
-      <div className="rounded-xl border border-surface-700/50 bg-surface-900/60 p-6">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-surface-500">AI Writing Tools</h2>
+      {/* AI Tools overview */}
+      <div className="rounded-xl border border-surface-200 bg-surface-50 p-6 dark:border-surface-700/50 dark:bg-surface-900/60">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">AI Writing Tools</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { icon: Shield, color: 'text-yellow-400', bg: 'bg-yellow-500/10', title: 'Reviewer Simulator', desc: 'Get simulated peer reviews before submission' },
-            { icon: Sparkles, color: 'text-purple-400', bg: 'bg-purple-500/10', title: 'Novelty Checker', desc: 'Check overlap with existing work' },
-            { icon: MessageSquareText, color: 'text-blue-400', bg: 'bg-blue-500/10', title: 'Rebuttal Assistant', desc: 'Draft responses to reviewer concerns' },
-            { icon: Trophy, color: 'text-emerald-400', bg: 'bg-emerald-500/10', title: 'Contribution Tracker', desc: 'Track claims against evidence' },
+            { icon: Shield, color: 'text-yellow-500 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-500/10', title: 'Reviewer Simulator', desc: 'Get simulated peer reviews before submission' },
+            { icon: Sparkles, color: 'text-purple-500 dark:text-purple-400', bg: 'bg-purple-100 dark:bg-purple-500/10', title: 'Novelty Checker', desc: 'Check overlap with existing work' },
+            { icon: MessageSquareText, color: 'text-blue-500 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-500/10', title: 'Rebuttal Assistant', desc: 'Draft responses to reviewer concerns' },
+            { icon: Trophy, color: 'text-emerald-500 dark:text-emerald-400', bg: 'bg-emerald-100 dark:bg-emerald-500/10', title: 'Contribution Tracker', desc: 'Track claims against evidence' },
           ].map(tool => (
-            <div key={tool.title} className="rounded-lg border border-surface-700/40 bg-surface-800/30 p-4">
-              <div className={`mb-2 flex h-8 w-8 items-center justify-center rounded-lg ${tool.bg}`}>
-                <tool.icon className={`h-4 w-4 ${tool.color}`} />
+            <div key={tool.title} className="rounded-lg border border-surface-200 bg-white p-4 dark:border-surface-700/40 dark:bg-surface-800/30">
+              <div className={cn('mb-2 flex h-8 w-8 items-center justify-center rounded-lg', tool.bg)}>
+                <tool.icon className={cn('h-4 w-4', tool.color)} />
               </div>
-              <h3 className="text-sm font-semibold text-surface-200">{tool.title}</h3>
+              <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200">{tool.title}</h3>
               <p className="mt-1 text-xs text-surface-500">{tool.desc}</p>
             </div>
           ))}
         </div>
-        <p className="mt-3 text-center text-xs text-surface-600">Select a draft above to access these tools in the editor</p>
+        <p className="mt-3 text-center text-xs text-surface-400 dark:text-surface-600">Select a draft above to access these tools in the editor</p>
       </div>
     </div>
   )

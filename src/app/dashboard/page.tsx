@@ -1,32 +1,31 @@
 'use client'
 
 import Link from 'next/link'
+import { useState, useMemo } from 'react'
 import {
   BookOpen,
   Brain,
   FlaskConical,
   FolderKanban,
+  Lightbulb,
+  Plus,
   Quote,
+  Sparkles,
+  X,
 } from 'lucide-react'
-import { useMemo } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import {
-  activities,
-  experiments,
-  getLabStats,
-  getProjectById,
-  getUserById,
-  projects,
-} from '@/lib/mock-data'
+import { useDataStore } from '@/contexts/DataStore'
+import { getUserById } from '@/lib/mock-data'
 import {
   cn,
   formatDate,
   formatRelativeTime,
+  generateId,
   getHealthColor,
   getInitials,
   getStatusColor,
 } from '@/lib/utils'
-import type { Experiment } from '@/types'
+import type { Experiment, ProjectStatus } from '@/types'
 
 function todayLocalIso(): string {
   const d = new Date()
@@ -83,7 +82,7 @@ function HealthRing({ score }: { score: number }) {
   return (
     <div className="relative flex h-40 w-40 items-center justify-center">
       <svg
-        className="h-full w-full -rotate-90 text-surface-800"
+        className="h-full w-full -rotate-90 text-surface-200 dark:text-surface-800"
         viewBox="0 0 120 120"
         aria-hidden
       >
@@ -118,27 +117,47 @@ function HealthRing({ score }: { score: number }) {
         />
       </svg>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-bold text-surface-100">{score}%</span>
+        <span className="text-3xl font-bold text-surface-900 dark:text-surface-100">{score}%</span>
         <span className="text-xs text-surface-500">Avg health</span>
       </div>
     </div>
   )
 }
 
-const statCardClass =
-  'bg-surface-900/80 border border-surface-700/50 rounded-xl p-5 backdrop-blur-sm'
+const cardClass =
+  'bg-white dark:bg-surface-900/80 border border-surface-200 dark:border-surface-700/50 rounded-xl p-5 backdrop-blur-sm shadow-sm dark:shadow-none'
 
 export default function DashboardOverviewPage() {
   const { user } = useAuth()
-  const stats = useMemo(() => getLabStats(), [])
+  const { projects, experiments, activities, addProject, addIdea } = useDataStore()
+
+  const [showNewProject, setShowNewProject] = useState(false)
+  const [showNewIdea, setShowNewIdea] = useState(false)
+  const [npTitle, setNpTitle] = useState('')
+  const [npDesc, setNpDesc] = useState('')
+  const [npStatus, setNpStatus] = useState<ProjectStatus>('ideation')
+  const [niTitle, setNiTitle] = useState('')
+  const [niHypothesis, setNiHypothesis] = useState('')
+
+  const stats = useMemo(() => {
+    const totalProjects = projects.length
+    const runningExperiments = experiments.filter((e) => e.status === 'running').length
+    const totalPapers = 15
+    const totalCitations = 171
+    const avgHealthScore = projects.length
+      ? Math.round(projects.reduce((s, p) => s + p.healthScore, 0) / projects.length)
+      : 0
+    return { totalProjects, runningExperiments, totalPapers, totalCitations, avgHealthScore }
+  }, [projects, experiments])
+
   const activeProjects = useMemo(
     () => projects.filter((p) => p.status === 'active'),
-    [],
+    [projects],
   )
-  const recentActivities = useMemo(() => activities.slice(0, 10), [])
+  const recentActivities = useMemo(() => activities.slice(0, 10), [activities])
   const runningExps = useMemo(
     () => experiments.filter((e) => e.status === 'running'),
-    [],
+    [experiments],
   )
   const deadlineProjects = useMemo(() => {
     const withDeadline = projects.filter((p) => p.deadline)
@@ -152,67 +171,103 @@ export default function DashboardOverviewPage() {
       if (!aFuture && bFuture) return 1
       return db - da
     })
-  }, [])
+  }, [projects])
 
   const displayName = user?.name ?? 'Dr. Priya Sharma'
 
+  function handleQuickProject() {
+    if (!npTitle.trim()) return
+    addProject({
+      title: npTitle.trim(),
+      description: npDesc.trim(),
+      domain: [],
+      targetVenue: '',
+      piId: user?.id ?? 'u1',
+      teamMemberIds: [user?.id ?? 'u1'],
+      status: npStatus,
+      healthScore: 50,
+      createdAt: new Date().toISOString(),
+      milestones: [],
+      labId: 'lab1',
+    })
+    setNpTitle('')
+    setNpDesc('')
+    setNpStatus('ideation')
+    setShowNewProject(false)
+  }
+
+  function handleQuickIdea() {
+    if (!niTitle.trim()) return
+    addIdea({
+      title: niTitle.trim(),
+      hypothesis: niHypothesis.trim(),
+      motivation: '',
+      priorArt: [],
+      method: '',
+      expectedContribution: '',
+      riskAssessment: '',
+      status: 'exploring',
+      votes: 0,
+      createdBy: user?.id ?? 'u1',
+      projectId: projects[0]?.id ?? '',
+      linkedPaperIds: [],
+      comments: [],
+      createdAt: new Date().toISOString(),
+    })
+    setNiTitle('')
+    setNiHypothesis('')
+    setShowNewIdea(false)
+  }
+
   return (
     <div className="mx-auto max-w-7xl space-y-8">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight text-surface-50 md:text-3xl">
-          Welcome back, {displayName}
-        </h1>
-        <p className="text-sm text-surface-400">{formatDate(todayLocalIso())}</p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight text-surface-900 dark:text-surface-50 md:text-3xl">
+            Welcome back, {displayName}
+          </h1>
+          <p className="text-sm text-surface-500 dark:text-surface-400">{formatDate(todayLocalIso())}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowNewProject(true)}
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-600"
+          >
+            <Plus className="h-4 w-4" />
+            New Project
+          </button>
+          <button
+            onClick={() => setShowNewIdea(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-surface-200 dark:border-surface-700 bg-white dark:bg-surface-800 px-4 py-2 text-sm font-medium text-surface-700 dark:text-surface-300 shadow-sm transition-colors hover:bg-surface-50 dark:hover:bg-surface-700"
+          >
+            <Lightbulb className="h-4 w-4 text-yellow-500" />
+            New Idea
+          </button>
+        </div>
       </header>
 
       <section
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
         aria-label="Lab statistics"
       >
-        <div className={statCardClass}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-3xl font-bold text-surface-50">
-                {stats.totalProjects}
-              </p>
-              <p className="mt-1 text-sm text-surface-400">Total Projects</p>
+        {[
+          { value: stats.totalProjects, label: 'Total Projects', icon: FolderKanban },
+          { value: stats.runningExperiments, label: 'Active Experiments', icon: FlaskConical },
+          { value: stats.totalPapers, label: 'Papers in Library', icon: BookOpen },
+          { value: stats.totalCitations, label: 'Total Citations', icon: Quote },
+        ].map((stat) => (
+          <div key={stat.label} className={cardClass}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-3xl font-bold text-surface-900 dark:text-surface-50">
+                  {stat.value}
+                </p>
+                <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">{stat.label}</p>
+              </div>
+              <stat.icon className="h-8 w-8 shrink-0 text-brand-500 dark:text-brand-400" aria-hidden />
             </div>
-            <FolderKanban className="h-8 w-8 shrink-0 text-brand-400" aria-hidden />
           </div>
-        </div>
-        <div className={statCardClass}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-3xl font-bold text-surface-50">
-                {stats.runningExperiments}
-              </p>
-              <p className="mt-1 text-sm text-surface-400">Active Experiments</p>
-            </div>
-            <FlaskConical className="h-8 w-8 shrink-0 text-brand-400" aria-hidden />
-          </div>
-        </div>
-        <div className={statCardClass}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-3xl font-bold text-surface-50">
-                {stats.totalPapers}
-              </p>
-              <p className="mt-1 text-sm text-surface-400">Papers in Library</p>
-            </div>
-            <BookOpen className="h-8 w-8 shrink-0 text-brand-400" aria-hidden />
-          </div>
-        </div>
-        <div className={statCardClass}>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-3xl font-bold text-surface-50">
-                {stats.totalCitations}
-              </p>
-              <p className="mt-1 text-sm text-surface-400">Total Citations</p>
-            </div>
-            <Quote className="h-8 w-8 shrink-0 text-brand-400" aria-hidden />
-          </div>
-        </div>
+        ))}
       </section>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
@@ -220,7 +275,7 @@ export default function DashboardOverviewPage() {
           <section aria-labelledby="active-projects-heading">
             <h2
               id="active-projects-heading"
-              className="mb-4 text-lg font-semibold text-surface-100"
+              className="mb-4 text-lg font-semibold text-surface-800 dark:text-surface-100"
             >
               Active Projects
             </h2>
@@ -234,12 +289,12 @@ export default function DashboardOverviewPage() {
                     key={project.id}
                     href={`/dashboard/projects/${project.id}`}
                     className={cn(
-                      statCardClass,
-                      'block transition-colors hover:border-brand-500/30 hover:bg-surface-900',
+                      cardClass,
+                      'block transition-colors hover:border-brand-500/30 hover:bg-surface-50 dark:hover:bg-surface-900',
                     )}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="line-clamp-2 font-medium leading-snug text-surface-100">
+                      <h3 className="line-clamp-2 font-medium leading-snug text-surface-800 dark:text-surface-100">
                         {project.title}
                       </h3>
                       <span
@@ -258,7 +313,7 @@ export default function DashboardOverviewPage() {
                           {project.healthScore}%
                         </span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-surface-800">
+                      <div className="h-2 overflow-hidden rounded-full bg-surface-100 dark:bg-surface-800">
                         <div
                           className={cn(
                             'h-full rounded-full',
@@ -279,16 +334,16 @@ export default function DashboardOverviewPage() {
                             <span
                               key={uid}
                               title={member?.name}
-                              className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface-900 bg-brand-500/20 text-xs font-semibold text-brand-300"
+                              className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white dark:border-surface-900 bg-brand-100 dark:bg-brand-500/20 text-xs font-semibold text-brand-600 dark:text-brand-300"
                             >
                               {label}
                             </span>
                           )
                         })}
                       </div>
-                      <div className="min-w-0 flex-1 text-xs text-surface-400">
+                      <div className="min-w-0 flex-1 text-xs text-surface-500 dark:text-surface-400">
                         <p className="truncate">
-                          <span className="text-surface-500">Venue </span>
+                          <span className="text-surface-400 dark:text-surface-500">Venue </span>
                           {project.targetVenue}
                         </p>
                         {project.deadline && (
@@ -296,18 +351,16 @@ export default function DashboardOverviewPage() {
                             {daysLeft !== null && daysLeft >= 0 && (
                               <>
                                 Deadline in{' '}
-                                <span className="font-medium text-surface-300">
+                                <span className="font-medium text-surface-700 dark:text-surface-300">
                                   {daysLeft} day{daysLeft === 1 ? '' : 's'}
                                 </span>
                               </>
                             )}
                             {daysLeft !== null && daysLeft < 0 && (
-                              <>
-                                <span className="font-medium text-orange-400">
-                                  {Math.abs(daysLeft)} day
-                                  {Math.abs(daysLeft) === 1 ? '' : 's'} overdue
-                                </span>
-                              </>
+                              <span className="font-medium text-orange-500 dark:text-orange-400">
+                                {Math.abs(daysLeft)} day
+                                {Math.abs(daysLeft) === 1 ? '' : 's'} overdue
+                              </span>
                             )}
                           </p>
                         )}
@@ -320,12 +373,12 @@ export default function DashboardOverviewPage() {
           </section>
 
           <section
-            className={cn(statCardClass)}
+            className={cn(cardClass)}
             aria-labelledby="activity-heading"
           >
             <h2
               id="activity-heading"
-              className="mb-4 text-lg font-semibold text-surface-100"
+              className="mb-4 text-lg font-semibold text-surface-800 dark:text-surface-100"
             >
               Recent Activity
             </h2>
@@ -339,20 +392,20 @@ export default function DashboardOverviewPage() {
                 return (
                   <li key={act.id} className="flex gap-3">
                     <span
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-xs font-semibold text-brand-300"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-100 dark:bg-brand-500/20 text-xs font-semibold text-brand-600 dark:text-brand-300"
                       aria-hidden
                     >
                       {initials}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm text-surface-200">
-                        <span className="font-medium text-surface-100">
+                      <p className="text-sm text-surface-600 dark:text-surface-200">
+                        <span className="font-medium text-surface-900 dark:text-surface-100">
                           {name}
                         </span>{' '}
                         {act.action}{' '}
-                        <span className="text-surface-300">{act.target}</span>
+                        <span className="text-surface-700 dark:text-surface-300">{act.target}</span>
                       </p>
-                      <p className="mt-0.5 text-xs text-surface-500">
+                      <p className="mt-0.5 text-xs text-surface-400 dark:text-surface-500">
                         {formatRelativeTime(act.timestamp)}
                       </p>
                     </div>
@@ -365,35 +418,35 @@ export default function DashboardOverviewPage() {
 
         <aside className="space-y-6">
           <section
-            className={cn(statCardClass, 'flex flex-col items-center py-6')}
+            className={cn(cardClass, 'flex flex-col items-center py-6')}
             aria-labelledby="health-heading"
           >
             <h2
               id="health-heading"
-              className="mb-2 w-full text-center text-sm font-semibold text-surface-300"
+              className="mb-2 w-full text-center text-sm font-semibold text-surface-500 dark:text-surface-300"
             >
               Lab Health Score
             </h2>
             <HealthRing score={stats.avgHealthScore} />
           </section>
 
-          <section className={statCardClass} aria-labelledby="running-heading">
+          <section className={cardClass} aria-labelledby="running-heading">
             <h2
               id="running-heading"
-              className="mb-3 text-sm font-semibold text-surface-300"
+              className="mb-3 text-sm font-semibold text-surface-500 dark:text-surface-300"
             >
               Running Experiments
             </h2>
             <ul className="space-y-4">
               {runningExps.map((exp) => {
-                const proj = getProjectById(exp.projectId)
+                const proj = projects.find((p) => p.id === exp.projectId)
                 const progress = parseRunningProgress(exp)
                 return (
-                  <li key={exp.id} className="border-b border-surface-800/80 pb-4 last:border-0 last:pb-0">
-                    <p className="font-medium leading-snug text-surface-100">
+                  <li key={exp.id} className="border-b border-surface-100 dark:border-surface-800/80 pb-4 last:border-0 last:pb-0">
+                    <p className="font-medium leading-snug text-surface-800 dark:text-surface-100">
                       {exp.title}
                     </p>
-                    <p className="mt-1 text-xs text-surface-500">
+                    <p className="mt-1 text-xs text-surface-400 dark:text-surface-500">
                       {proj?.title ?? 'Unknown project'}
                     </p>
                     {progress ? (
@@ -402,15 +455,15 @@ export default function DashboardOverviewPage() {
                           <span>Progress</span>
                           <span>{progress.label}</span>
                         </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-surface-800">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-surface-100 dark:bg-surface-800">
                           <div
-                            className="h-full rounded-full bg-brand-400"
+                            className="h-full rounded-full bg-brand-500 dark:bg-brand-400"
                             style={{ width: `${progress.percent}%` }}
                           />
                         </div>
                       </div>
                     ) : (
-                      <p className="mt-2 text-xs italic text-surface-500">
+                      <p className="mt-2 text-xs italic text-surface-400 dark:text-surface-500">
                         In progress
                       </p>
                     )}
@@ -420,10 +473,10 @@ export default function DashboardOverviewPage() {
             </ul>
           </section>
 
-          <section className={statCardClass} aria-labelledby="deadlines-heading">
+          <section className={cardClass} aria-labelledby="deadlines-heading">
             <h2
               id="deadlines-heading"
-              className="mb-3 text-sm font-semibold text-surface-300"
+              className="mb-3 text-sm font-semibold text-surface-500 dark:text-surface-300"
             >
               Upcoming Deadlines
             </h2>
@@ -437,7 +490,7 @@ export default function DashboardOverviewPage() {
                   >
                     <Link
                       href={`/dashboard/projects/${p.id}`}
-                      className="line-clamp-2 min-w-0 flex-1 text-surface-200 transition-colors hover:text-brand-400"
+                      className="line-clamp-2 min-w-0 flex-1 text-surface-700 dark:text-surface-200 transition-colors hover:text-brand-500 dark:hover:text-brand-400"
                     >
                       {p.title}
                     </Link>
@@ -445,9 +498,9 @@ export default function DashboardOverviewPage() {
                       className={cn(
                         'shrink-0 text-xs font-medium',
                         days < 0
-                          ? 'text-orange-400'
+                          ? 'text-orange-500 dark:text-orange-400'
                           : days <= 30
-                            ? 'text-yellow-400'
+                            ? 'text-yellow-600 dark:text-yellow-400'
                             : 'text-surface-400',
                       )}
                     >
@@ -463,33 +516,164 @@ export default function DashboardOverviewPage() {
 
           <section
             className={cn(
-              statCardClass,
-              'border-brand-400/20 bg-gradient-to-br from-surface-900/90 to-brand-950/20',
+              cardClass,
+              'border-brand-200 dark:border-brand-400/20 bg-gradient-to-br from-brand-50 dark:from-surface-900/90 to-brand-100/50 dark:to-brand-950/20',
             )}
             aria-labelledby="digest-heading"
           >
             <div className="mb-3 flex items-center gap-2">
-              <Brain className="h-5 w-5 text-brand-400" aria-hidden />
+              <Sparkles className="h-5 w-5 text-brand-500 dark:text-brand-400" aria-hidden />
               <h2
                 id="digest-heading"
-                className="text-sm font-semibold text-brand-300"
+                className="text-sm font-semibold text-brand-600 dark:text-brand-300"
               >
                 AI Weekly Digest
               </h2>
             </div>
-            <p className="mb-3 text-xs font-medium text-surface-300">
-              Lab Weekly Digest — April 7, 2025
+            <p className="mb-3 text-xs font-medium text-surface-600 dark:text-surface-300">
+              Lab Weekly Digest — {formatDate(todayLocalIso())}
             </p>
-            <ul className="list-inside list-disc space-y-2 text-sm text-surface-300 marker:text-brand-400">
-              <li>3 experiments completed</li>
-              <li>2 papers added to library</li>
-              <li>1 paper submitted (NeRF-Edit → NeurIPS)</li>
-              <li>MedViT adaptive merging at epoch 87/150</li>
-              <li>Upcoming: CVPR deadline in 193 days</li>
+            <ul className="list-inside list-disc space-y-2 text-sm text-surface-600 dark:text-surface-300 marker:text-brand-500 dark:marker:text-brand-400">
+              <li>{experiments.filter((e) => e.status === 'completed').length} experiments completed</li>
+              <li>{runningExps.length} experiments currently running</li>
+              <li>{activeProjects.length} active projects in progress</li>
+              <li>Team size: {10} members across all projects</li>
+              {deadlineProjects[0] && (
+                <li>Next deadline: {deadlineProjects[0].title.split(':')[0]} in {Math.max(0, daysUntilDeadline(deadlineProjects[0].deadline!))} days</li>
+              )}
             </ul>
           </section>
         </aside>
       </div>
+
+      {showNewProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowNewProject(false)}
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-surface-200 dark:border-surface-700/50 bg-white dark:bg-surface-900 p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-surface-900 dark:text-surface-100">Quick New Project</h2>
+              <button
+                onClick={() => setShowNewProject(false)}
+                className="rounded-lg p-1.5 text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-600 dark:hover:text-surface-100 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-surface-700 dark:text-surface-300">Title</label>
+                <input
+                  type="text"
+                  value={npTitle}
+                  onChange={(e) => setNpTitle(e.target.value)}
+                  placeholder="Project title"
+                  className="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:border-brand-500/50 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-surface-700 dark:text-surface-300">Description</label>
+                <textarea
+                  value={npDesc}
+                  onChange={(e) => setNpDesc(e.target.value)}
+                  placeholder="Brief description..."
+                  rows={3}
+                  className="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:border-brand-500/50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 resize-none"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-surface-700 dark:text-surface-300">Status</label>
+                <select
+                  value={npStatus}
+                  onChange={(e) => setNpStatus(e.target.value as ProjectStatus)}
+                  className="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 focus:border-brand-500/50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 appearance-none"
+                >
+                  <option value="ideation">Ideation</option>
+                  <option value="active">Active</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setShowNewProject(false)}
+                className="rounded-lg border border-surface-300 dark:border-surface-600 px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleQuickProject}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNewIdea && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Close"
+            className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowNewIdea(false)}
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-surface-200 dark:border-surface-700/50 bg-white dark:bg-surface-900 p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-surface-900 dark:text-surface-100">Quick New Idea</h2>
+              <button
+                onClick={() => setShowNewIdea(false)}
+                className="rounded-lg p-1.5 text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-600 dark:hover:text-surface-100 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-surface-700 dark:text-surface-300">Title</label>
+                <input
+                  type="text"
+                  value={niTitle}
+                  onChange={(e) => setNiTitle(e.target.value)}
+                  placeholder="Idea title"
+                  className="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:border-brand-500/50 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-surface-700 dark:text-surface-300">Hypothesis</label>
+                <textarea
+                  value={niHypothesis}
+                  onChange={(e) => setNiHypothesis(e.target.value)}
+                  placeholder="What do you think will happen?"
+                  rows={3}
+                  className="w-full rounded-lg border border-surface-300 dark:border-surface-700 bg-white dark:bg-surface-800 px-3 py-2 text-sm text-surface-900 dark:text-surface-100 placeholder:text-surface-400 dark:placeholder:text-surface-500 focus:border-brand-500/50 focus:outline-none focus:ring-2 focus:ring-brand-500/20 resize-none"
+                />
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setShowNewIdea(false)}
+                className="rounded-lg border border-surface-300 dark:border-surface-600 px-4 py-2 text-sm font-medium text-surface-600 dark:text-surface-300 hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleQuickIdea}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 transition-colors"
+              >
+                <Lightbulb className="h-4 w-4" />
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

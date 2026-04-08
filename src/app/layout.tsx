@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ThemeProvider } from '@/contexts/ThemeContext'
+import { DataStoreProvider } from '@/contexts/DataStore'
 
 export const metadata: Metadata = {
   title: 'ResearchOS — The Operating System for Every Research Lab',
@@ -14,11 +16,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-surface-950">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+    <html lang="en" className="dark">
+      <body className="min-h-screen">
+        <ThemeProvider>
+          <AuthProvider>
+            <DataStoreProvider>
+              {children}
+            </DataStoreProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

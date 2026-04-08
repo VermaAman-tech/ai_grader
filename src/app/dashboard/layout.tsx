@@ -7,9 +7,9 @@ import {
   Bell,
   BookOpen,
   Bot,
-  Brain,
   ChevronLeft,
   ChevronRight,
+  CheckSquare,
   FolderKanban,
   FlaskConical,
   GraduationCap,
@@ -19,6 +19,7 @@ import {
   LogOut,
   Menu,
   MessageSquare,
+  Mic,
   Moon,
   PenTool,
   Plug,
@@ -43,6 +44,8 @@ const SEGMENT_LABELS: Record<string, string> = {
   papers: 'Papers',
   experiments: 'Experiments',
   writing: 'Writing',
+  meetings: 'Meetings',
+  tasks: 'Tasks',
   chat: 'Lab Chat',
   team: 'Team',
   search: 'Search',
@@ -97,6 +100,8 @@ const NAV_MAIN: NavItem[] = [
 ]
 
 const NAV_COLLABORATE: NavItem[] = [
+  { label: 'Meetings', href: '/dashboard/meetings', icon: Mic },
+  { label: 'Tasks', href: '/dashboard/tasks', icon: CheckSquare },
   { label: 'Lab Chat', href: '/dashboard/chat', icon: MessageSquare },
   { label: 'Team', href: '/dashboard/team', icon: Users },
 ]

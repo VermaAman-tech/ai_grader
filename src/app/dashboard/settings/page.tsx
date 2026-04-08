@@ -47,6 +47,9 @@ const LLM_MODELS: Record<string, string[]> = {
   mock: ['Mock LLM (built-in)'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
   anthropic: ['claude-sonnet-4-20250514', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+  ollama: ['llama3', 'llama3:70b', 'mistral', 'mixtral', 'codellama', 'phi3', 'gemma2', 'qwen2'],
+  groq: ['llama3-70b-8192', 'llama3-8b-8192', 'mixtral-8x7b-32768', 'gemma-7b-it'],
+  together: ['meta-llama/Llama-3-70b-chat-hf', 'mistralai/Mixtral-8x7B-Instruct-v0.1', 'Qwen/Qwen2-72B-Instruct'],
 }
 
 export default function SettingsPage() {
@@ -455,11 +458,14 @@ export default function SettingsPage() {
             {/* Provider Selection */}
             <div className={sectionCls}>
               <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-3">Provider</label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {([
                   { value: 'mock' as const, label: 'Mock (Built-in)', desc: 'No API key needed' },
                   { value: 'openai' as const, label: 'OpenAI', desc: 'GPT-4o, GPT-4' },
                   { value: 'anthropic' as const, label: 'Anthropic', desc: 'Claude 3.5, Claude 3' },
+                  { value: 'ollama' as const, label: 'Ollama (Local)', desc: 'Private, on-device AI' },
+                  { value: 'groq' as const, label: 'Groq', desc: 'Ultra-fast inference' },
+                  { value: 'together' as const, label: 'Together AI', desc: 'Open-source models' },
                 ]).map(opt => (
                   <button key={opt.value}
                     onClick={() => setLlmConfig(prev => ({ ...prev, provider: opt.value, model: LLM_MODELS[opt.value][0] }))}
@@ -473,8 +479,23 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* Ollama Base URL */}
+            {llmConfig.provider === 'ollama' && (
+              <div className={sectionCls}>
+                <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">Ollama Server URL</label>
+                <input
+                  type="text"
+                  value={(llmConfig as Record<string, unknown>).baseUrl as string ?? 'http://localhost:11434'}
+                  onChange={e => setLlmConfig(prev => ({ ...prev, baseUrl: e.target.value } as typeof prev))}
+                  placeholder="http://localhost:11434"
+                  className={inputCls}
+                />
+                <p className="text-xs text-surface-500 mt-1.5">Your data stays completely local. Install Ollama at <a href="https://ollama.com" target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline">ollama.com</a> and run your preferred model.</p>
+              </div>
+            )}
+
             {/* API Key */}
-            {llmConfig.provider !== 'mock' && (
+            {llmConfig.provider !== 'mock' && llmConfig.provider !== 'ollama' && (
               <div className={sectionCls}>
                 <label className="block text-xs font-medium text-surface-600 dark:text-surface-400 mb-1.5">
                   API Key {llmConfig.provider === 'openai' ? '(OpenAI)' : '(Anthropic)'}
@@ -516,9 +537,9 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-sm font-medium text-surface-800 dark:text-surface-200">How it works</p>
                   <p className="text-xs text-surface-500 mt-1 leading-relaxed">
-                    When set to Mock, the chat uses built-in response templates — great for testing.
-                    Switch to OpenAI or Anthropic and provide your API key to get real AI-powered research assistance.
-                    The model is used in the Lab Chat for summarizing papers, brainstorming ideas, and more.
+                    <strong>Mock</strong> uses built-in templates for testing. <strong>OpenAI</strong>, <strong>Anthropic</strong>, <strong>Groq</strong>, or <strong>Together AI</strong> need an API key for real AI assistance.
+                    <strong>Ollama</strong> runs models locally — perfect for confidential research where data cannot leave your machine.
+                    AI is used across meetings, chat, paper review, idea generation, and task management.
                   </p>
                 </div>
               </div>

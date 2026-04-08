@@ -176,6 +176,86 @@ export interface ActivityItem {
   timestamp: string
 }
 
+export type TaskStatus = 'pending' | 'in-progress' | 'done' | 'blocked' | 'cancelled'
+export type TaskPriority = 'low' | 'medium' | 'high' | 'critical'
+export type MeetingStatus = 'scheduled' | 'in-progress' | 'completed' | 'cancelled'
+
+export interface Meeting {
+  id: string
+  title: string
+  projectId?: string
+  scheduledAt: string
+  duration: number
+  attendeeIds: string[]
+  status: MeetingStatus
+  transcript?: TranscriptSegment[]
+  summary?: MeetingSummary
+  recordingUrl?: string
+  createdBy: string
+  labId: string
+}
+
+export interface TranscriptSegment {
+  id: string
+  speakerId: string
+  text: string
+  startTime: number
+  endTime: number
+}
+
+export interface MeetingSummary {
+  overview: string
+  keyDecisions: string[]
+  actionItems: ActionItem[]
+  nextSteps: string[]
+  blockers: string[]
+  progressUpdates: string[]
+}
+
+export interface ActionItem {
+  id: string
+  title: string
+  assigneeId: string
+  dueDate?: string
+  priority: TaskPriority
+  approved: boolean
+}
+
+export interface Task {
+  id: string
+  title: string
+  description: string
+  assigneeId: string
+  projectId?: string
+  meetingId?: string
+  status: TaskStatus
+  priority: TaskPriority
+  dueDate?: string
+  createdAt: string
+  completedAt?: string
+  tags: string[]
+  labId: string
+}
+
+export type AIProvider = 'mock' | 'openai' | 'anthropic' | 'ollama' | 'groq' | 'together'
+
+export interface AIProviderConfig {
+  provider: AIProvider
+  apiKey?: string
+  model?: string
+  baseUrl?: string
+  label: string
+}
+
+export interface AIFeatureConfig {
+  meetingSummary: AIProvider
+  todoExtraction: AIProvider
+  assistant: AIProvider
+  paperReview: AIProvider
+  ideaGeneration: AIProvider
+  codeReview: AIProvider
+}
+
 export interface PricingTier {
   name: string
   tagline: string

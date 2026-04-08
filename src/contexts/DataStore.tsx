@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import type {
   Project, Paper, Idea, Experiment, ChatChannel, ChatMessage,
-  Publication, Integration, ActivityItem, IdeaComment
+  Publication, Integration, ActivityItem, IdeaComment, Meeting, Task, TaskStatus, ActionItem
 } from '@/types'
 import {
   projects as initialProjects,
@@ -15,8 +15,8 @@ import {
   publications as initialPublications,
   integrations as initialIntegrations,
   activities as initialActivities,
-  users,
-  getUserById,
+  meetings as initialMeetings,
+  tasks as initialTasks,
 } from '@/lib/mock-data'
 import { generateId } from '@/lib/utils'
 
@@ -30,6 +30,8 @@ interface DataStoreContextType {
   publications: Publication[]
   integrations: Integration[]
   activities: ActivityItem[]
+  meetings: Meeting[]
+  tasks: Task[]
 
   addProject: (p: Omit<Project, 'id'>) => Project
   updateProject: (id: string, updates: Partial<Project>) => void
@@ -54,8 +56,18 @@ interface DataStoreContextType {
   addMessage: (m: Omit<ChatMessage, 'id'>) => ChatMessage
 
   toggleIntegration: (id: string) => void
-
   addActivity: (a: Omit<ActivityItem, 'id'>) => void
+
+  addMeeting: (m: Omit<Meeting, 'id'>) => Meeting
+  updateMeeting: (id: string, updates: Partial<Meeting>) => void
+  deleteMeeting: (id: string) => void
+  approveMeetingAction: (meetingId: string, actionId: string, approved: boolean) => void
+  pushMeetingTodos: (meetingId: string) => void
+
+  addTask: (t: Omit<Task, 'id'>) => Task
+  updateTask: (id: string, updates: Partial<Task>) => void
+  updateTaskStatus: (id: string, status: TaskStatus) => void
+  deleteTask: (id: string) => void
 }
 
 const DataStoreContext = createContext<DataStoreContextType>(null as unknown as DataStoreContextType)
@@ -70,6 +82,8 @@ export function DataStoreProvider({ children }: { children: React.ReactNode }) {
   const [publications, setPublications] = useState<Publication[]>(initialPublications)
   const [ints, setInts] = useState<Integration[]>(initialIntegrations)
   const [activities, setActivities] = useState<ActivityItem[]>(initialActivities)
+  const [meetings, setMeetings] = useState<Meeting[]>(initialMeetings)
+  const [taskList, setTasks] = useState<Task[]>(initialTasks)
 
   const addActivity = useCallback((a: Omit<ActivityItem, 'id'>) => {
     setActivities(prev => [{ ...a, id: `act-${generateId()}` }, ...prev])
@@ -115,8 +129,7 @@ export function DataStoreProvider({ children }: { children: React.ReactNode }) {
   }, [])
   const addIdeaComment = useCallback((ideaId: string, comment: Omit<IdeaComment, 'id'>) => {
     setIdeas(prev => prev.map(i => i.id === ideaId ? {
-      ...i,
-      comments: [...i.comments, { ...comment, id: `c-${generateId()}` }]
+      ...i, comments: [...i.comments, { ...comment, id: `c-${generateId()}` }]
     } : i))
   }, [])
 
@@ -150,16 +163,86 @@ export function DataStoreProvider({ children }: { children: React.ReactNode }) {
     setInts(prev => prev.map(i => i.id === id ? { ...i, connected: !i.connected } : i))
   }, [])
 
+  const addMeeting = useCallback((m: Omit<Meeting, 'id'>) => {
+    const mtg = { ...m, id: `mtg-${generateId()}` } as Meeting
+    setMeetings(prev => [...prev, mtg])
+    return mtg
+  }, [])
+  const updateMeeting = useCallback((id: string, updates: Partial<Meeting>) => {
+    setMeetings(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m))
+  }, [])
+  const deleteMeeting = useCallback((id: string) => {
+    setMeetings(prev => prev.filter(m => m.id !== id))
+  }, [])
+  const approveMeetingAction = useCallback((meetingId: string, actionId: string, approved: boolean) => {
+    setMeetings(prev => prev.map(m => {
+      if (m.id !== meetingId || !m.summary) return m
+      return {
+        ...m,
+        summary: {
+          ...m.summary,
+          actionItems: m.summary.actionItems.map(ai =>
+            ai.id === actionId ? { ...ai, approved } : ai
+          ),
+        },
+      }
+    }))
+  }, [])
+  const pushMeetingTodos = useCallback((meetingId: string) => {
+    setMeetings(prev => {
+      const mtg = prev.find(m => m.id === meetingId)
+      if (!mtg?.summary) return prev
+      const approved = mtg.summary.actionItems.filter(ai => ai.approved)
+      const newTasks: Task[] = approved.map(ai => ({
+        id: `tsk-${generateId()}`,
+        title: ai.title,
+        description: `Auto-generated from meeting: ${mtg.title}`,
+        assigneeId: ai.assigneeId,
+        projectId: mtg.projectId,
+        meetingId: mtg.id,
+        status: 'pending' as const,
+        priority: ai.priority,
+        dueDate: ai.dueDate,
+        createdAt: new Date().toISOString(),
+        tags: ['meeting-todo'],
+        labId: mtg.labId,
+      }))
+      setTasks(t => [...t, ...newTasks])
+      return prev
+    })
+  }, [])
+
+  const addTask = useCallback((t: Omit<Task, 'id'>) => {
+    const task = { ...t, id: `tsk-${generateId()}` } as Task
+    setTasks(prev => [...prev, task])
+    return task
+  }, [])
+  const updateTask = useCallback((id: string, updates: Partial<Task>) => {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
+  }, [])
+  const updateTaskStatus = useCallback((id: string, status: TaskStatus) => {
+    setTasks(prev => prev.map(t => t.id === id ? {
+      ...t,
+      status,
+      completedAt: status === 'done' ? new Date().toISOString() : t.completedAt,
+    } : t))
+  }, [])
+  const deleteTask = useCallback((id: string) => {
+    setTasks(prev => prev.filter(t => t.id !== id))
+  }, [])
+
   return (
     <DataStoreContext.Provider value={{
       projects, papers, ideas, experiments, channels, messages: msgs,
-      publications, integrations: ints, activities,
+      publications, integrations: ints, activities, meetings, tasks: taskList,
       addProject, updateProject, deleteProject,
       addPaper, updatePaper, deletePaper,
       addIdea, updateIdea, deleteIdea, voteIdea, addIdeaComment,
       addExperiment, updateExperiment, deleteExperiment,
       addChannel, deleteChannel, addMessage,
       toggleIntegration, addActivity,
+      addMeeting, updateMeeting, deleteMeeting, approveMeetingAction, pushMeetingTodos,
+      addTask, updateTask, updateTaskStatus, deleteTask,
     }}>
       {children}
     </DataStoreContext.Provider>

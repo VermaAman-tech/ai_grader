@@ -1,4 +1,4 @@
-import { User, Lab, Project, Paper, Idea, Experiment, ChatChannel, ChatMessage, Publication, Integration, ActivityItem, PricingTier } from '@/types'
+import { User, Lab, Project, Paper, Idea, Experiment, ChatChannel, ChatMessage, Publication, Integration, ActivityItem, PricingTier, Meeting, Task } from '@/types'
 
 export const users: User[] = [
   { id: 'u1', name: 'Dr. Priya Sharma', email: 'priya@iitd.ac.in', role: 'pi', avatar: 'PS', department: 'Computer Science', joinedAt: '2020-01-15', researchDNA: ['Deep Learning', 'Computer Vision', 'Medical Imaging', 'Transformers'], labId: 'lab1' },
@@ -256,6 +256,139 @@ export const pricingTiers: PricingTier[] = [
     features: ['White-label option', 'Air-gapped deployment', 'Custom LLM (no data leaves org)', 'IP protection + audit trails', 'Legal & compliance module', 'ERP/HRIS integration', 'Dedicated engineering support', 'Custom integrations'],
     cta: 'Talk to Sales',
   },
+]
+
+export const meetings: Meeting[] = [
+  {
+    id: 'mtg1', title: 'Weekly Lab Meeting — MedViT Progress Review', projectId: 'p1', scheduledAt: '2025-04-07T15:00:00Z', duration: 60, attendeeIds: ['u1','u2','u5'], status: 'completed', createdBy: 'u1', labId: 'lab1',
+    transcript: [
+      { id: 'ts1', speakerId: 'u1', text: 'Let\'s start with MedViT updates. Arjun, how is the adaptive token merging experiment going?', startTime: 0, endTime: 15 },
+      { id: 'ts2', speakerId: 'u2', text: 'Great news — we\'re at epoch 87 of 150. Preliminary dice_mean is 0.893 with 42% token reduction. The organ-aware boundary loss is really helping with pancreas segmentation.', startTime: 15, endTime: 45 },
+      { id: 'ts3', speakerId: 'u1', text: 'That\'s excellent progress. What about the ablation study on the boundary loss weight?', startTime: 45, endTime: 55 },
+      { id: 'ts4', speakerId: 'u2', text: 'I haven\'t started that yet. I was planning to run a sweep with weights 0.1, 0.3, 0.5, 0.7, and 1.0 once the current run finishes.', startTime: 55, endTime: 75 },
+      { id: 'ts5', speakerId: 'u5', text: 'I can help with the GNN ablation setup if you need extra GPU time. My current ZINC experiments should finish by Wednesday.', startTime: 75, endTime: 90 },
+      { id: 'ts6', speakerId: 'u1', text: 'Good idea, Kavya. Arjun, please coordinate with Kavya on GPU scheduling. Also, we need to start writing the related work section — CVPR deadline is 193 days away.', startTime: 90, endTime: 120 },
+      { id: 'ts7', speakerId: 'u2', text: 'I\'ll draft the related work section this week and share it by Friday.', startTime: 120, endTime: 135 },
+      { id: 'ts8', speakerId: 'u1', text: 'Perfect. One more thing — I want us to compare against Segment Anything\'s medical fine-tune. Kavya, can you set up that baseline by next week?', startTime: 135, endTime: 160 },
+      { id: 'ts9', speakerId: 'u5', text: 'Sure, I\'ll have the SAM-Med baseline ready by next Monday.', startTime: 160, endTime: 170 },
+      { id: 'ts10', speakerId: 'u1', text: 'Great. Let\'s also discuss the NeRF-Edit rebuttal preparation in our next meeting. I\'ll send a separate agenda for that.', startTime: 170, endTime: 190 },
+    ],
+    summary: {
+      overview: 'Discussed MedViT progress — adaptive token merging experiment at epoch 87/150 showing dice_mean of 0.893 with 42% token reduction. Planned ablation studies and baseline comparisons.',
+      keyDecisions: [
+        'Run boundary loss weight ablation sweep [0.1, 0.3, 0.5, 0.7, 1.0]',
+        'Add SAM-Med as additional baseline comparison',
+        'Start writing related work section for CVPR submission',
+      ],
+      actionItems: [
+        { id: 'ai1', title: 'Run boundary loss weight ablation sweep', assigneeId: 'u2', dueDate: '2025-04-14', priority: 'high', approved: true },
+        { id: 'ai2', title: 'Draft related work section for MedViT paper', assigneeId: 'u2', dueDate: '2025-04-11', priority: 'high', approved: true },
+        { id: 'ai3', title: 'Set up SAM-Med baseline experiment', assigneeId: 'u5', dueDate: '2025-04-14', priority: 'medium', approved: true },
+        { id: 'ai4', title: 'Coordinate GPU scheduling with Kavya', assigneeId: 'u2', dueDate: '2025-04-09', priority: 'medium', approved: false },
+        { id: 'ai5', title: 'Prepare NeRF-Edit rebuttal discussion agenda', assigneeId: 'u1', dueDate: '2025-04-13', priority: 'low', approved: true },
+      ],
+      nextSteps: [
+        'Complete current training run (expected ~18 hours)',
+        'Run ablation sweep on boundary loss weight',
+        'Set up and run SAM-Med baseline',
+        'Draft related work section',
+        'Schedule NeRF-Edit rebuttal prep meeting',
+      ],
+      blockers: ['GPU nodes 3-4 occupied by RoboSim training until Wednesday'],
+      progressUpdates: [
+        'MedViT e6 at epoch 87/150 — dice_mean 0.893, token reduction 42%',
+        'Pancreas segmentation improved significantly with organ-aware loss',
+      ],
+    },
+  },
+  {
+    id: 'mtg2', title: 'LinguaBridge Sprint Planning', projectId: 'p2', scheduledAt: '2025-04-04T10:00:00Z', duration: 45, attendeeIds: ['u1','u3','u10'], status: 'completed', createdBy: 'u3', labId: 'lab1',
+    transcript: [
+      { id: 'ts11', speakerId: 'u3', text: 'The Dravidian adapter is training well. Tamil to Kannada zero-shot is at 0.79 F1 at epoch 15. I expect it to cross 0.82 by end of training.', startTime: 0, endTime: 20 },
+      { id: 'ts12', speakerId: 'u1', text: 'That\'s encouraging. How about the Telugu evaluation? We need at least 3 languages for ACL.', startTime: 20, endTime: 35 },
+      { id: 'ts13', speakerId: 'u3', text: 'Telugu WikiANN data is ready. I\'ll start the evaluation once Kannada training finishes.', startTime: 35, endTime: 50 },
+      { id: 'ts14', speakerId: 'u10', text: 'I\'ve been looking at combining the script adapter with our code generation work. There might be interesting cross-lingual code-switching patterns we can exploit.', startTime: 50, endTime: 70 },
+      { id: 'ts15', speakerId: 'u1', text: 'Interesting angle. Let\'s explore that after ACL submission. For now, focus on the core experiments. Sneha, make sure to document all hyperparameters in the experiment tracker.', startTime: 70, endTime: 95 },
+    ],
+    summary: {
+      overview: 'Sprint planning for LinguaBridge — Dravidian adapter showing strong results (Tamil→Kannada 0.79 F1). Planning Telugu evaluation and ACL submission timeline.',
+      keyDecisions: [
+        'Need minimum 3 Dravidian languages for ACL submission',
+        'Telugu evaluation after Kannada training completes',
+        'Defer cross-lingual code exploration to post-ACL',
+      ],
+      actionItems: [
+        { id: 'ai6', title: 'Complete Kannada zero-shot evaluation', assigneeId: 'u3', dueDate: '2025-04-10', priority: 'high', approved: true },
+        { id: 'ai7', title: 'Start Telugu NER evaluation', assigneeId: 'u3', dueDate: '2025-04-12', priority: 'high', approved: true },
+        { id: 'ai8', title: 'Document all hyperparameters in experiment tracker', assigneeId: 'u3', dueDate: '2025-04-08', priority: 'medium', approved: true },
+        { id: 'ai9', title: 'Write cross-lingual code-switching exploration proposal', assigneeId: 'u10', dueDate: '2025-04-20', priority: 'low', approved: false },
+      ],
+      nextSteps: [
+        'Finish Dravidian adapter training',
+        'Run zero-shot evaluation on Kannada and Telugu',
+        'Begin writing method section for ACL paper',
+      ],
+      blockers: [],
+      progressUpdates: [
+        'Tamil→Kannada zero-shot F1: 0.79 at epoch 15/30',
+        'Telugu WikiANN data preprocessed and ready',
+      ],
+    },
+  },
+  {
+    id: 'mtg3', title: 'Lab-wide All Hands — Monthly Review', scheduledAt: '2025-04-01T14:00:00Z', duration: 90, attendeeIds: ['u1','u2','u3','u4','u5','u6','u7','u8','u9','u10'], status: 'completed', createdBy: 'u1', labId: 'lab1',
+    summary: {
+      overview: 'Monthly lab-wide review covering all active projects, publication updates, upcoming deadlines, and resource allocation. NeRF-Edit submitted to NeurIPS. EdgeViT gaining citations.',
+      keyDecisions: [
+        'Prioritize CVPR and ACL submissions as next major deadlines',
+        'Allocate GPU node 5 for new FedMed experiments',
+        'Schedule reading group on scaling laws',
+      ],
+      actionItems: [
+        { id: 'ai10', title: 'Update project health scores in dashboard', assigneeId: 'u1', dueDate: '2025-04-05', priority: 'medium', approved: true },
+        { id: 'ai11', title: 'Submit GPU allocation request for FedMed', assigneeId: 'u8', dueDate: '2025-04-07', priority: 'high', approved: true },
+        { id: 'ai12', title: 'Organize reading group on scaling laws paper', assigneeId: 'u10', dueDate: '2025-04-10', priority: 'low', approved: true },
+      ],
+      nextSteps: [
+        'Each project lead to update milestones by end of week',
+        'FedMed team to present initial formulation next month',
+        'Reading group schedule to be posted in #reading-group channel',
+      ],
+      blockers: ['FedMed blocked on ethics committee approval for hospital data access'],
+      progressUpdates: [
+        'NeRF-Edit: submitted to NeurIPS 2025',
+        'EdgeViT: 47 citations and growing',
+        'MedViT: adaptive token merging showing promising results',
+        'LinguaBridge: Devanagari adapter validated, Dravidian in progress',
+        'RoboSim: PPO baseline established, physics-informed rewards next',
+        'CodeReason: VeriBench baseline complete, verification loop WIP',
+      ],
+    },
+  },
+  {
+    id: 'mtg4', title: 'RoboSim Experiment Debrief', projectId: 'p3', scheduledAt: '2025-04-10T11:00:00Z', duration: 30, attendeeIds: ['u1','u4','u6'], status: 'scheduled', createdBy: 'u4', labId: 'lab1',
+  },
+  {
+    id: 'mtg5', title: 'FedMed Kickoff — Problem Formulation', projectId: 'p5', scheduledAt: '2025-04-12T15:00:00Z', duration: 60, attendeeIds: ['u1','u8','u5'], status: 'scheduled', createdBy: 'u1', labId: 'lab1',
+  },
+]
+
+export const tasks: Task[] = [
+  { id: 'tsk1', title: 'Run boundary loss weight ablation sweep', description: 'Test boundary loss weights [0.1, 0.3, 0.5, 0.7, 1.0] for MedViT adaptive token merging', assigneeId: 'u2', projectId: 'p1', meetingId: 'mtg1', status: 'in-progress', priority: 'high', dueDate: '2025-04-14', createdAt: '2025-04-07T16:00:00Z', tags: ['experiment', 'ablation', 'medvit'], labId: 'lab1' },
+  { id: 'tsk2', title: 'Draft related work section for MedViT paper', description: 'Cover ViT-based medical segmentation, token efficiency methods, and self-supervised pretraining for medical imaging', assigneeId: 'u2', projectId: 'p1', meetingId: 'mtg1', status: 'in-progress', priority: 'high', dueDate: '2025-04-11', createdAt: '2025-04-07T16:00:00Z', tags: ['writing', 'paper', 'medvit'], labId: 'lab1' },
+  { id: 'tsk3', title: 'Set up SAM-Med baseline experiment', description: 'Fine-tune Segment Anything on medical data and benchmark against MedViT on CT-ORG', assigneeId: 'u5', projectId: 'p1', meetingId: 'mtg1', status: 'pending', priority: 'medium', dueDate: '2025-04-14', createdAt: '2025-04-07T16:00:00Z', tags: ['experiment', 'baseline', 'medvit'], labId: 'lab1' },
+  { id: 'tsk4', title: 'Coordinate GPU scheduling with Kavya', description: 'Plan GPU usage for ablation sweep — need nodes after RoboSim finishes', assigneeId: 'u2', projectId: 'p1', meetingId: 'mtg1', status: 'done', priority: 'medium', dueDate: '2025-04-09', createdAt: '2025-04-07T16:00:00Z', completedAt: '2025-04-08T10:00:00Z', tags: ['logistics', 'gpu'], labId: 'lab1' },
+  { id: 'tsk5', title: 'Complete Kannada zero-shot evaluation', description: 'Run zero-shot NER evaluation on Kannada WikiANN with trained Dravidian adapter', assigneeId: 'u3', projectId: 'p2', meetingId: 'mtg2', status: 'in-progress', priority: 'high', dueDate: '2025-04-10', createdAt: '2025-04-04T11:00:00Z', tags: ['evaluation', 'linguabridge'], labId: 'lab1' },
+  { id: 'tsk6', title: 'Start Telugu NER evaluation', description: 'Extend Dravidian adapter evaluation to Telugu WikiANN', assigneeId: 'u3', projectId: 'p2', meetingId: 'mtg2', status: 'pending', priority: 'high', dueDate: '2025-04-12', createdAt: '2025-04-04T11:00:00Z', tags: ['evaluation', 'linguabridge'], labId: 'lab1' },
+  { id: 'tsk7', title: 'Document all hyperparameters in experiment tracker', description: 'Log all adapter training configs, learning rates, batch sizes in ResearchOS experiment tracker', assigneeId: 'u3', projectId: 'p2', meetingId: 'mtg2', status: 'done', priority: 'medium', dueDate: '2025-04-08', createdAt: '2025-04-04T11:00:00Z', completedAt: '2025-04-06T14:00:00Z', tags: ['documentation', 'linguabridge'], labId: 'lab1' },
+  { id: 'tsk8', title: 'Update project health scores in dashboard', description: 'Review all active projects and update health scores based on current progress', assigneeId: 'u1', meetingId: 'mtg3', status: 'done', priority: 'medium', dueDate: '2025-04-05', createdAt: '2025-04-01T15:30:00Z', completedAt: '2025-04-04T09:00:00Z', tags: ['admin', 'review'], labId: 'lab1' },
+  { id: 'tsk9', title: 'Submit GPU allocation request for FedMed', description: 'Request dedicated GPU node for federated learning experiments', assigneeId: 'u8', projectId: 'p5', meetingId: 'mtg3', status: 'in-progress', priority: 'high', dueDate: '2025-04-07', createdAt: '2025-04-01T15:30:00Z', tags: ['logistics', 'gpu', 'fedmed'], labId: 'lab1' },
+  { id: 'tsk10', title: 'Organize reading group on scaling laws paper', description: 'Set up discussion session and share the Kaplan et al. scaling laws paper', assigneeId: 'u10', meetingId: 'mtg3', status: 'done', priority: 'low', dueDate: '2025-04-10', createdAt: '2025-04-01T15:30:00Z', completedAt: '2025-04-07T16:00:00Z', tags: ['reading-group', 'learning'], labId: 'lab1' },
+  { id: 'tsk11', title: 'Prepare NeRF-Edit rebuttal discussion agenda', description: 'Compile potential reviewer concerns and prepare discussion points for rebuttal strategy', assigneeId: 'u1', projectId: 'p4', meetingId: 'mtg1', status: 'pending', priority: 'low', dueDate: '2025-04-13', createdAt: '2025-04-07T16:00:00Z', tags: ['writing', 'rebuttal', 'nerf-edit'], labId: 'lab1' },
+  { id: 'tsk12', title: 'Design physics-informed reward function for cloth manipulation', description: 'Implement FEM-based dense reward terms for PPO training in IsaacGym', assigneeId: 'u4', projectId: 'p3', status: 'in-progress', priority: 'high', dueDate: '2025-04-18', createdAt: '2025-03-28T10:00:00Z', tags: ['experiment', 'robosim', 'reward-design'], labId: 'lab1' },
+  { id: 'tsk13', title: 'Implement verification loop for CodeReason', description: 'Build the bounded model checking feedback loop that sends counterexamples back to the LLM', assigneeId: 'u10', projectId: 'p6', status: 'in-progress', priority: 'high', dueDate: '2025-05-15', createdAt: '2025-03-15T10:00:00Z', tags: ['implementation', 'codereason'], labId: 'lab1' },
+  { id: 'tsk14', title: 'Review GNN-Drug architecture proposal', description: 'Review and provide feedback on the geometric-aware GNN architecture design', assigneeId: 'u1', projectId: 'p7', status: 'pending', priority: 'medium', dueDate: '2025-04-15', createdAt: '2025-04-05T10:00:00Z', tags: ['review', 'gnn-drug'], labId: 'lab1' },
+  { id: 'tsk15', title: 'Write cross-lingual code-switching exploration proposal', description: 'Draft proposal for combining script adapters with code generation for multilingual code-switching', assigneeId: 'u10', projectId: 'p2', meetingId: 'mtg2', status: 'pending', priority: 'low', dueDate: '2025-04-20', createdAt: '2025-04-04T11:00:00Z', tags: ['proposal', 'research-direction'], labId: 'lab1' },
 ]
 
 export function getUserById(id: string): User | undefined {

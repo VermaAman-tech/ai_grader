@@ -77,7 +77,8 @@ export interface LLMMessage {
 export interface LLMConfig {
   apiKey?: string
   model?: string
-  provider?: 'openai' | 'anthropic' | 'mock'
+  provider?: 'openai' | 'anthropic' | 'ollama' | 'groq' | 'together' | 'mock'
+  baseUrl?: string
 }
 
 function getConfig(): LLMConfig {
@@ -158,6 +159,41 @@ async function callAnthropic(messages: LLMMessage[], config: LLMConfig): Promise
   return data.content?.[0]?.text || 'No response generated.'
 }
 
+async function callOllama(messages: LLMMessage[], config: LLMConfig): Promise<string> {
+  const base = config.baseUrl || 'http://localhost:11434'
+  const res = await fetch(`${base}/api/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: config.model || 'llama3',
+      messages: messages.map(m => ({ role: m.role, content: m.content })),
+      stream: false,
+    }),
+  })
+  if (!res.ok) throw new Error(`Ollama error: ${res.status}`)
+  const data = await res.json()
+  return data.message?.content || 'No response generated.'
+}
+
+async function callOpenAICompatible(messages: LLMMessage[], config: LLMConfig, baseUrl: string): Promise<string> {
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${config.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: config.model || 'llama3-70b-8192',
+      messages: messages.map(m => ({ role: m.role, content: m.content })),
+      max_tokens: 1000,
+      temperature: 0.7,
+    }),
+  })
+  if (!res.ok) throw new Error(`API error: ${res.status}`)
+  const data = await res.json()
+  return data.choices?.[0]?.message?.content || 'No response generated.'
+}
+
 const SYSTEM_PROMPT = `You are ResearchOS AI Assistant — an intelligent research companion for the Visual Intelligence & Learning Lab (VILL) at IIT Delhi. You help researchers with:
 
 - Summarizing and analyzing papers
@@ -188,6 +224,14 @@ export async function chatWithLLM(
       case 'anthropic':
         if (!config.apiKey) throw new Error('No API key')
         return await callAnthropic(fullMessages, config)
+      case 'ollama':
+        return await callOllama(fullMessages, config)
+      case 'groq':
+        if (!config.apiKey) throw new Error('No API key')
+        return await callOpenAICompatible(fullMessages, config, 'https://api.groq.com/openai/v1')
+      case 'together':
+        if (!config.apiKey) throw new Error('No API key')
+        return await callOpenAICompatible(fullMessages, config, 'https://api.together.xyz/v1')
       default:
         return await callMockLLM(fullMessages)
     }

@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const rateLimit = require('express-rate-limit');
-const { asyncHandler } = require('../middleware/auth');
+const { asyncHandler, setSessionUser } = require('../middleware/auth');
 
 const studentOtpRequestLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -25,7 +25,8 @@ const pollRespondLimiter = rateLimit({
 const { requireInt } = require('../middleware/validate');
 const { User, Student, Course, Exam, Submission, Grade, Rubric, Crib, Announcement,
         ConceptNode, QuestionConcept, LivePoll, PollResponse, GradeBoundary,
-        CourseDocument, DiscussionThread, DiscussionPost, ClassSession } = require('../models');
+        CourseDocument, DiscussionThread, DiscussionPost, ClassSession,
+        CourseTA, CourseEnrollment } = require('../models');
 const { Op } = require('sequelize');
 const { generateOTP, storeOTP, verifyOTP, clearOTP } = require('../services/otp-store');
 const { sendOtpEmail } = require('../services/email');
@@ -40,9 +41,51 @@ function allowDevOtpExpose() {
 }
 
 function ensureStudent(req, res, next) {
-  if (req.session && req.session.userId && req.session.role === 'student') return next();
-  req.flash('error', 'Please sign in as a student.');
-  res.redirect('/student/login');
+  if (req.session && req.session.userId) {
+    if (req.session.role === 'student') return next();
+    const userId = req.session.userId;
+    return Promise.all([
+      Student.findOne({ where: { user_id: userId } }),
+      CourseEnrollment.findOne({ where: { user_id: userId, role: 'student', status: 'active' } }),
+      CourseTA.findOne({ where: { user_id: userId, status: 'active' } }),
+    ]).then(([roster, enrollment, ta]) => {
+      if (roster || enrollment || ta) return next();
+      req.flash('error', 'No student enrollment found for your account.');
+      return res.redirect('/dashboard');
+    }).catch(() => res.redirect('/login'));
+  }
+  req.flash('error', 'Please sign in to continue.');
+  res.redirect('/login');
+}
+
+async function getStudentTAAssignments(userId) {
+  const tas = await CourseTA.findAll({
+    where: { user_id: userId, status: 'active' },
+    include: [{ model: Course }],
+  });
+  return tas.filter(t => t.Course).map(t => ({
+    courseId: t.Course.id,
+    courseCode: t.Course.code,
+    courseName: t.Course.name,
+    taId: t.id,
+    role: t.role,
+  }));
+}
+
+async function findStudentEnrollment(courseId, email, userId) {
+  const roster = await Student.findOne({
+    where: { course_id: courseId, email },
+    include: [{ model: Course, include: [{ model: User, attributes: ['full_name'] }] }],
+  });
+  if (roster) return { roster, course: roster.Course };
+
+  const ce = await CourseEnrollment.findOne({
+    where: { course_id: courseId, user_id: userId, role: 'student', status: 'active' },
+    include: [{ model: Course, include: [{ model: User, attributes: ['full_name'] }] }],
+  });
+  if (ce) return { roster: null, course: ce.Course };
+
+  return null;
 }
 
 function clientIp(req) {
@@ -50,21 +93,15 @@ function clientIp(req) {
 }
 
 router.get('/login', (req, res) => {
-  res.render('student-login', {
-    layout: false,
-    error: req.flash('error'),
-    success: req.flash('success'),
-    step: 'email',
-    email: '',
-    mockOTP: null,
-  });
+  if (req.session && req.session.userId) return res.redirect('/dashboard');
+  res.redirect('/login');
 });
 
 router.post('/request-otp', studentOtpRequestLimiter, asyncHandler(async (req, res) => {
   const email = (req.body.email || '').trim().toLowerCase();
   if (!email) {
     req.flash('error', 'Please enter your email.');
-    return res.redirect('/student/login');
+    return res.redirect('/login');
   }
 
   const enrollment = await Student.findOne({ where: { email } });
@@ -72,7 +109,7 @@ router.post('/request-otp', studentOtpRequestLimiter, asyncHandler(async (req, r
 
   let mockOTP = null;
   if (enrollment) {
-    let user = await User.findOne({ where: { email, role: 'student' } });
+    let user = await User.findOne({ where: { email } });
     if (!user) {
       user = await User.create({
         full_name: enrollment.name,
@@ -103,7 +140,7 @@ router.post('/request-otp', studentOtpRequestLimiter, asyncHandler(async (req, r
       clearOTP(`student:${email}`);
       req.flash('error', 'We could not send a login code. Try again later or contact your instructor.');
       delete req.session.pendingStudentEmail;
-      return req.session.save(() => res.redirect('/student/login'));
+      return req.session.save(() => res.redirect('/login'));
     }
     if (!sent && process.env.NODE_ENV !== 'production') {
       console.log(`[Student OTP] ${email}: ${otp}`);
@@ -127,7 +164,7 @@ router.post('/request-otp', studentOtpRequestLimiter, asyncHandler(async (req, r
 
 router.post('/verify-otp', studentOtpVerifyLimiter, asyncHandler(async (req, res) => {
   const email = req.session.pendingStudentEmail;
-  if (!email) return res.redirect('/student/login');
+  if (!email) return res.redirect('/login');
 
   const ip = clientIp(req);
   if (isLocked('otp-email', email) || isLocked('otp-ip', ip)) {
@@ -152,8 +189,8 @@ router.post('/verify-otp', studentOtpVerifyLimiter, asyncHandler(async (req, res
     });
   }
 
-  const user = await User.findOne({ where: { email, role: 'student' } });
-  if (!user) return res.redirect('/student/login');
+  const user = await User.findOne({ where: { email } });
+  if (!user) return res.redirect('/login');
 
   resetFailures('otp-email', email);
   resetFailures('otp-ip', ip);
@@ -161,21 +198,17 @@ router.post('/verify-otp', studentOtpVerifyLimiter, asyncHandler(async (req, res
   req.session.regenerate(function (err) {
     if (err) {
       req.flash('error', 'Session error. Please try again.');
-      return res.redirect('/student/login');
+      return res.redirect('/login');
     }
-    req.session.userId = user.id;
-    req.session.userName = user.full_name;
-    req.session.role = 'student';
-    req.session.email = user.email;
+    setSessionUser(req.session, user);
     delete req.session.pendingStudentEmail;
-
     req.session.save(() => res.redirect('/student/dashboard'));
   });
 }));
 
 router.post('/resend-otp', studentOtpRequestLimiter, asyncHandler(async (req, res) => {
   const email = req.session.pendingStudentEmail;
-  if (!email) return res.redirect('/student/login');
+  if (!email) return res.redirect('/login');
 
   const enrollment = await Student.findOne({ where: { email } });
   if (!enrollment) {
@@ -204,7 +237,7 @@ router.post('/resend-otp', studentOtpRequestLimiter, asyncHandler(async (req, re
   }
   if (!sent && process.env.NODE_ENV === 'production') {
     req.flash('error', 'Could not send email. Try again later.');
-    return req.session.save(() => res.redirect('/student/login'));
+    return req.session.save(() => res.redirect('/login'));
   }
   if (!sent && process.env.NODE_ENV !== 'production') {
     console.log(`[Student OTP Resend] ${email}: ${otp}`);
@@ -222,7 +255,7 @@ router.post('/resend-otp', studentOtpRequestLimiter, asyncHandler(async (req, re
 }));
 
 router.get('/logout', (req, res) => {
-  req.session.destroy(() => res.redirect('/student/login'));
+  req.session.destroy(() => res.redirect('/'));
 });
 
 router.get('/dashboard', ensureStudent, asyncHandler(async (req, res) => {
@@ -231,8 +264,21 @@ router.get('/dashboard', ensureStudent, asyncHandler(async (req, res) => {
     include: [{ model: Course, include: [{ model: User, attributes: ['full_name'] }] }],
   });
 
-  const courseIds = enrollments.map(e => e.course_id);
-  const studentIds = enrollments.map(e => e.id);
+  const courseEnrollments = await CourseEnrollment.findAll({
+    where: { user_id: req.session.userId, role: 'student', status: 'active' },
+    include: [{ model: Course, include: [{ model: User, attributes: ['full_name'] }] }],
+  });
+
+  const seenCourseIds = new Set(enrollments.map(e => e.course_id));
+  for (const ce of courseEnrollments) {
+    if (ce.Course && !seenCourseIds.has(ce.course_id)) {
+      seenCourseIds.add(ce.course_id);
+      enrollments.push(ce);
+    }
+  }
+
+  const courseIds = [...seenCourseIds];
+  const studentIds = enrollments.filter(e => e.id && e.course_id).map(e => e.id);
 
   const announcements = courseIds.length ? await Announcement.findAll({
     where: { course_id: { [Op.in]: courseIds }, published_at: { [Op.lte]: new Date() } },
@@ -250,58 +296,109 @@ router.get('/dashboard', ensureStudent, asyncHandler(async (req, res) => {
 
   const totalExams = studentIds.length ? await Submission.count({ where: { student_id: { [Op.in]: studentIds } } }) : 0;
 
-  const conceptMastery = {};
-  for (const sid of studentIds) {
-    const grades = await Grade.findAll({
-      include: [
-        { model: Submission, required: true, where: { student_id: sid } },
-        { model: Rubric, include: [{ model: QuestionConcept, include: [ConceptNode] }] },
-      ],
-    });
-    for (const g of grades) {
-      const maxMarks = g.Rubric?.max_marks || 1;
-      const effective = g.override_marks !== null ? g.override_marks : g.awarded_marks;
-      const pct = (effective / maxMarks) * 100;
-      const concepts = g.Rubric?.QuestionConcepts || [];
-      for (const qc of concepts) {
-        const name = qc.ConceptNode?.name;
-        if (!name) continue;
-        if (!conceptMastery[name]) conceptMastery[name] = { total: 0, count: 0 };
-        conceptMastery[name].total += pct;
-        conceptMastery[name].count += 1;
-      }
-    }
-  }
-  const masteryList = Object.entries(conceptMastery)
-    .map(([name, d]) => ({ name, avg: Math.round(d.total / d.count), count: d.count }))
-    .sort((a, b) => a.avg - b.avg);
+  const taAssignments = await getStudentTAAssignments(req.session.userId);
 
   res.render('student-dashboard', {
-    layout: false,
+    layout: 'partials/student-layout',
+    pageTitle: 'Dashboard',
+    currentPage: 'dashboard',
+    taAssignments,
     enrollments,
     announcements,
     recentGrades: submissions,
-    stats: { totalCourses: courseIds.length, totalExams, gradedExams: submissions.length },
-    conceptMastery: masteryList,
+    stats: { totalCourses: courseIds.length, totalExams, gradedExams: submissions.length, taCount: taAssignments.length },
+  });
+}));
+
+router.get('/courses', ensureStudent, asyncHandler(async (req, res) => {
+  const enrollments = await Student.findAll({
+    where: { email: req.session.email },
+    include: [{ model: Course, include: [{ model: User, attributes: ['full_name'] }] }],
+  });
+  const courseEnrollments = await CourseEnrollment.findAll({
+    where: { user_id: req.session.userId, role: 'student', status: 'active' },
+    include: [{ model: Course, include: [{ model: User, attributes: ['full_name'] }] }],
+  });
+  const seenIds = new Set(enrollments.map(e => e.course_id));
+  for (const ce of courseEnrollments) {
+    if (ce.Course && !seenIds.has(ce.course_id)) {
+      seenIds.add(ce.course_id);
+      enrollments.push(ce);
+    }
+  }
+  const taAssignments = await getStudentTAAssignments(req.session.userId);
+  res.render('student-courses', {
+    layout: 'partials/student-layout',
+    pageTitle: 'My Courses',
+    currentPage: 'courses',
+    taAssignments,
+    enrollments,
+  });
+}));
+
+/* TA Panel — loaded via fetch inside the floating window */
+router.get('/ta-panel/:courseId', ensureStudent, asyncHandler(async (req, res) => {
+  const courseId = requireInt(req.params.courseId, 'Course');
+  const ta = await CourseTA.findOne({
+    where: { user_id: req.session.userId, course_id: courseId, status: 'active' },
+    include: [{ model: Course, include: [{ model: User, attributes: ['full_name'] }] }],
+  });
+  if (!ta) return res.status(403).send('<p>You are not assigned as a TA for this course.</p>');
+
+  const course = ta.Course;
+  const exams = await Exam.findAll({ where: { course_id: courseId }, order: [['created_at', 'DESC']] });
+  const examIds = exams.map(e => e.id);
+
+  const pendingCount = examIds.length
+    ? await Submission.count({ where: { exam_id: { [Op.in]: examIds }, status: 'pending' } })
+    : 0;
+  const gradedCount = examIds.length
+    ? await Submission.count({ where: { exam_id: { [Op.in]: examIds }, status: 'done' } })
+    : 0;
+  const studentCount = await Student.count({ where: { course_id: courseId } });
+  const announcements = await Announcement.findAll({
+    where: { course_id: courseId },
+    order: [['created_at', 'DESC']],
+    limit: 5,
+  });
+
+  const permissions = {
+    can_grade: ta.can_grade !== false,
+    can_view_analytics: ta.can_view_analytics === true || ta.role === 'head_ta',
+    can_manage_roster: ta.can_manage_roster === true || ta.role === 'head_ta',
+    can_post_announcements: ta.can_post_announcements === true || ta.role === 'head_ta',
+    can_access_cribs: ta.can_access_cribs === true || ta.role === 'head_ta',
+    can_manage_docs: ta.can_manage_docs === true || ta.role === 'head_ta',
+  };
+
+  res.render('student-ta-panel', {
+    layout: false,
+    course,
+    exams,
+    ta,
+    permissions,
+    pendingCount,
+    gradedCount,
+    studentCount,
+    announcements,
   });
 }));
 
 router.get('/course/:courseId', ensureStudent, asyncHandler(async (req, res) => {
   const courseId = requireInt(req.params.courseId, 'Course');
-  const enrollment = await Student.findOne({
-    where: { course_id: courseId, email: req.session.email },
-    include: [{ model: Course, include: [{ model: User, attributes: ['full_name'] }] }],
-  });
-  if (!enrollment) throw new Error('ACCESS_DENIED');
+  const found = await findStudentEnrollment(courseId, req.session.email, req.session.userId);
+  if (!found) throw new Error('ACCESS_DENIED');
+
+  const { roster: enrollment, course } = found;
 
   const exams = await Exam.findAll({ where: { course_id: courseId }, order: [['created_at', 'DESC']] });
 
   const examResults = [];
   for (const exam of exams) {
-    const sub = await Submission.findOne({
+    const sub = enrollment ? await Submission.findOne({
       where: { exam_id: exam.id, student_id: enrollment.id },
       include: [{ model: Grade, include: [{ model: Rubric }] }],
-    });
+    }) : null;
     const grades = sub ? sub.Grades.map(g => ({
       ...g.toJSON(),
       effectiveMarks: g.override_marks !== null ? g.override_marks : g.awarded_marks,
@@ -340,10 +437,14 @@ router.get('/course/:courseId', ensureStudent, asyncHandler(async (req, res) => 
     limit: 5,
   });
 
+  const taAssignments = await getStudentTAAssignments(req.session.userId);
   res.render('student-course', {
-    layout: false,
+    layout: 'partials/student-layout',
+    pageTitle: course.code,
+    currentPage: 'course-' + courseId,
+    taAssignments,
     enrollment,
-    course: enrollment.Course,
+    course,
     examResults,
     announcements,
     concepts,
@@ -358,20 +459,19 @@ router.get('/grades/:examId', ensureStudent, asyncHandler(async (req, res) => {
   const exam = await Exam.findByPk(examId, { include: [{ model: Course }] });
   if (!exam) throw new Error('ACCESS_DENIED');
 
-  const enrollment = await Student.findOne({
-    where: { course_id: exam.course_id, email: req.session.email },
-  });
-  if (!enrollment) throw new Error('ACCESS_DENIED');
+  const found = await findStudentEnrollment(exam.course_id, req.session.email, req.session.userId);
+  if (!found) throw new Error('ACCESS_DENIED');
+  const enrollment = found.roster;
 
   if (!exam.grades_released) {
     req.flash('error', 'Grades have not been released yet.');
     return res.redirect(`/student/course/${exam.course_id}`);
   }
 
-  const sub = await Submission.findOne({
+  const sub = enrollment ? await Submission.findOne({
     where: { exam_id: examId, student_id: enrollment.id },
     include: [{ model: Grade, include: [{ model: Rubric, include: [{ model: QuestionConcept, include: [ConceptNode] }] }] }],
-  });
+  }) : null;
 
   if (!sub) {
     req.flash('error', 'No submission found for this exam.');
@@ -407,8 +507,12 @@ router.get('/grades/:examId', ensureStudent, asyncHandler(async (req, res) => {
     : null;
   const canCrib = cribDeadline ? new Date() < cribDeadline : false;
 
+  const taAssignments = await getStudentTAAssignments(req.session.userId);
   res.render('student-grades', {
-    layout: false,
+    layout: 'partials/student-layout',
+    pageTitle: exam.name + ' Grades',
+    currentPage: 'grades-' + examId,
+    taAssignments,
     exam, course, sub, grades, totalAwarded, totalMax,
     existingCribs, canCrib, cribDeadline,
     enrollment,
@@ -426,10 +530,9 @@ router.post('/crib', ensureStudent, asyncHandler(async (req, res) => {
     return res.redirect(exam ? `/student/course/${exam.course_id}` : '/student/dashboard');
   }
 
-  const enrollment = await Student.findOne({
-    where: { course_id: exam.course_id, email: req.session.email },
-  });
-  if (!enrollment) throw new Error('ACCESS_DENIED');
+  const found = await findStudentEnrollment(exam.course_id, req.session.email, req.session.userId);
+  if (!found || !found.roster) throw new Error('ACCESS_DENIED');
+  const enrollment = found.roster;
 
   const course = exam.Course;
   const cribDeadline = exam.grades_released_at
@@ -493,11 +596,10 @@ router.post('/poll/:roomCode/respond', pollRespondLimiter, asyncHandler(async (r
 
 router.get('/discussions/:courseId', ensureStudent, asyncHandler(async (req, res) => {
   const courseId = requireInt(req.params.courseId, 'Course');
-  const enrollment = await Student.findOne({
-    where: { course_id: courseId, email: req.session.email },
-    include: [{ model: Course }],
-  });
-  if (!enrollment) throw new Error('ACCESS_DENIED');
+  const found = await findStudentEnrollment(courseId, req.session.email, req.session.userId);
+  if (!found) throw new Error('ACCESS_DENIED');
+  const enrollment = found.roster;
+  const courseObj = found.course;
 
   const threads = await DiscussionThread.findAll({
     where: { course_id: courseId },
@@ -508,7 +610,8 @@ router.get('/discussions/:courseId', ensureStudent, asyncHandler(async (req, res
     order: [['is_pinned', 'DESC'], ['created_at', 'DESC']],
   });
 
-  res.render('student-discussions', { layout: false, course: enrollment.Course, threads, enrollment });
+  const taAssignments = await getStudentTAAssignments(req.session.userId);
+  res.render('student-discussions', { layout: 'partials/student-layout', pageTitle: 'Discussions', currentPage: 'discussions', taAssignments, course: courseObj, threads, enrollment });
 }));
 
 router.get('/discussion-thread/:threadId', ensureStudent, asyncHandler(async (req, res) => {
@@ -522,10 +625,9 @@ router.get('/discussion-thread/:threadId', ensureStudent, asyncHandler(async (re
   });
   if (!thread) throw new Error('ACCESS_DENIED');
 
-  const enrollment = await Student.findOne({
-    where: { course_id: thread.course_id, email: req.session.email },
-  });
-  if (!enrollment) throw new Error('ACCESS_DENIED');
+  const found = await findStudentEnrollment(thread.course_id, req.session.email, req.session.userId);
+  if (!found) throw new Error('ACCESS_DENIED');
+  const enrollment = found.roster;
 
   thread.view_count += 1;
   await thread.save();
@@ -536,7 +638,8 @@ router.get('/discussion-thread/:threadId', ensureStudent, asyncHandler(async (re
     order: [['created_at', 'ASC']],
   });
 
-  res.render('student-discussion-thread', { layout: false, thread, posts, course: thread.Course, enrollment });
+  const taAssignments = await getStudentTAAssignments(req.session.userId);
+  res.render('student-discussion-thread', { layout: 'partials/student-layout', pageTitle: thread.title, currentPage: 'discussions', taAssignments, thread, posts, course: thread.Course, enrollment });
 }));
 
 router.post('/discussion-reply/:threadId', ensureStudent, asyncHandler(async (req, res) => {
@@ -544,10 +647,8 @@ router.post('/discussion-reply/:threadId', ensureStudent, asyncHandler(async (re
   const thread = await DiscussionThread.findByPk(threadId);
   if (!thread) throw new Error('ACCESS_DENIED');
 
-  const enrollment = await Student.findOne({
-    where: { course_id: thread.course_id, email: req.session.email },
-  });
-  if (!enrollment) throw new Error('ACCESS_DENIED');
+  const found = await findStudentEnrollment(thread.course_id, req.session.email, req.session.userId);
+  if (!found) throw new Error('ACCESS_DENIED');
 
   const content = (req.body.content || '').trim().slice(0, DISCUSSION_MAX);
   if (!content) {

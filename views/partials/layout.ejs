@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Intelligrade</title>
+  <%- include('theme-init') %>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
@@ -66,7 +67,7 @@
           <i data-lucide="user-circle"></i>
           <div>
             <div class="user-name"><%= session.userName || '' %></div>
-            <div class="user-role"><%= session.role === 'admin' ? 'Admin' : 'Professor' %><% if (session.collegeName) { %> &middot; <%= session.collegeName %><% } %></div>
+            <div class="user-role"><%= session.role === 'admin' ? 'Admin' : session.role === 'student' ? 'Student' : 'Professor' %><% if (session.collegeName) { %> &middot; <%= session.collegeName %><% } %></div>
           </div>
         </div>
         <a href="/logout" class="logout-link"><i data-lucide="log-out"></i><span>Sign Out</span></a>

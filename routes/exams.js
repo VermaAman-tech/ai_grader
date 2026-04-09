@@ -36,6 +36,23 @@ router.post('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =
   res.redirect(`/exams?course_id=${courseId}`);
 }));
 
+router.post('/:id/release-grades', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
+  const exam = await assertExamOwner(req, requireInt(req.params.id, 'Exam'));
+  if (exam.grades_released) {
+    exam.grades_released = false;
+    exam.grades_released_at = null;
+    await exam.save();
+    req.flash('success', `Grades for "${exam.name}" are now hidden from students.`);
+  } else {
+    exam.grades_released = true;
+    exam.grades_released_at = new Date();
+    await exam.save();
+    req.flash('success', `Grades for "${exam.name}" have been released to students.`);
+  }
+  const returnTo = req.body.return_to || `/grading?exam_id=${exam.id}`;
+  res.redirect(returnTo);
+}));
+
 router.post('/:id/delete', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const exam = await assertExamOwner(req, requireInt(req.params.id, 'Exam'));
   const courseId = exam.course_id;

@@ -28,8 +28,10 @@ router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =>
   }
 
   let submissions = [];
+  let examInfo = null;
   if (examId) {
-    await assertExamOwner(req, examId);
+    const exam = await assertExamOwner(req, examId);
+    examInfo = { id: exam.id, name: exam.name, grades_released: exam.grades_released };
     const raw = await Submission.findAll({
       where: { exam_id: examId },
       include: [{ model: Student }],
@@ -48,7 +50,7 @@ router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =>
   }
 
   res.locals.examId = examId;
-  res.render('grading', { courses, allExams, submissions, selectedExamId: examId });
+  res.render('grading', { courses, allExams, submissions, selectedExamId: examId, examInfo });
 }));
 
 router.post('/grade/:submissionId', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
@@ -65,9 +67,14 @@ router.post('/grade/:submissionId', ensureAuth, ensureSubscription, asyncHandler
     throw err;
   }
 
-  await gradeSubmission(submissionId);
-  await User.increment('papers_graded_total', { by: 1, where: { id: req.session.userId } });
-  req.flash('success', 'Grading complete!');
+  try {
+    await gradeSubmission(submissionId);
+    await User.increment('papers_graded_total', { by: 1, where: { id: req.session.userId } });
+    req.flash('success', 'Grading complete!');
+  } catch (gradeErr) {
+    console.error(`[Grading] Submission ${submissionId} failed:`, gradeErr.message);
+    req.flash('error', `Grading failed: ${gradeErr.message}. Check that AI/OCR is configured and the PDF is valid.`);
+  }
   res.redirect(`/grading?exam_id=${sub.exam_id}`);
 }));
 
@@ -101,10 +108,19 @@ router.post('/grade-all/:examId', ensureAuth, ensureSubscription, asyncHandler(a
       await gradeSubmission(sub.id);
       await User.increment('papers_graded_total', { by: 1, where: { id: req.session.userId } });
       ok++;
-    } catch { fail++; }
+    } catch (e) {
+      console.error(`[Batch Grading] Submission ${sub.id} failed:`, e.message);
+      fail++;
+    }
   }
 
-  req.flash('success', `Batch grading: ${ok} succeeded, ${fail} failed.`);
+  if (fail > 0 && ok === 0) {
+    req.flash('error', `Batch grading failed for all ${fail} submission(s). Check AI/OCR config and PDF validity.`);
+  } else if (fail > 0) {
+    req.flash('success', `Batch grading: ${ok} succeeded, ${fail} failed (check logs for details).`);
+  } else {
+    req.flash('success', `Batch grading complete: ${ok} submission(s) graded.`);
+  }
   res.redirect(`/grading?exam_id=${examId}`);
 }));
 

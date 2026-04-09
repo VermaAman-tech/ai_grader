@@ -1,6 +1,6 @@
 <div class="page-header">
   <h1><i data-lucide="layout-dashboard"></i> Dashboard</h1>
-  <p class="text-muted">Welcome back, <%= session.userName %>. Here is your grading overview.</p>
+  <p class="text-muted">Welcome back, <%= session.userName %>.</p>
 </div>
 
 <% if (sub) { %>
@@ -18,10 +18,7 @@
         <% if (freeInfo && freeInfo.used >= freeInfo.limit) { %><span class="text-warning">(limit reached)</span><% } %>
       <% } else { %>
         <strong><%= sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) %></strong> plan
-        &middot; <%= sub.scope === 'college' ? 'Institution-wide' : sub.scope === 'school' ? 'School-wide' : 'Individual' %>
         &middot; Expires <%= new Date(sub.end_date).toLocaleDateString() %>
-        <% const dLeft = Math.ceil((new Date(sub.end_date) - new Date()) / (1000*60*60*24)); %>
-        <% if (dLeft <= 14) { %><span class="text-warning">(<%= dLeft %> day<%= dLeft !== 1 ? 's' : '' %> left)</span><% } %>
       <% } %>
     </span>
   </div>
@@ -29,92 +26,125 @@
 </div>
 <% } %>
 
-<div class="kpi-grid">
-  <div class="kpi-card">
-    <div class="kpi-icon blue"><i data-lucide="book-open"></i></div>
-    <div class="kpi-data"><div class="kpi-value"><%= stats.courses %></div><div class="kpi-label">Courses</div></div>
+<% if (!hasAnyCourses) { %>
+<div class="card" style="text-align:center; padding:3rem 2rem;">
+  <i data-lucide="book-open" style="width:48px;height:48px;opacity:0.3;margin-bottom:1rem;"></i>
+  <h3 style="margin:0 0 0.5rem;">No courses yet</h3>
+  <p class="text-muted" style="margin-bottom:1.5rem;">Create a course to start grading, or join one with a code from your professor.</p>
+  <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;">
+    <a href="/courses" class="btn btn-primary"><i data-lucide="plus"></i> Create a Course</a>
+    <a href="/courses/join" class="btn btn-outline"><i data-lucide="log-in"></i> Join a Course</a>
   </div>
-  <div class="kpi-card">
-    <div class="kpi-icon purple"><i data-lucide="file-text"></i></div>
-    <div class="kpi-data"><div class="kpi-value"><%= stats.exams %></div><div class="kpi-label">Exams</div></div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-icon green"><i data-lucide="users"></i></div>
-    <div class="kpi-data"><div class="kpi-value"><%= stats.students %></div><div class="kpi-label">Students</div></div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-icon amber"><i data-lucide="upload"></i></div>
-    <div class="kpi-data"><div class="kpi-value"><%= stats.submissions %></div><div class="kpi-label">Submissions</div></div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-icon teal"><i data-lucide="check-circle"></i></div>
-    <div class="kpi-data"><div class="kpi-value"><%= stats.done %></div><div class="kpi-label">Graded</div></div>
-  </div>
-  <div class="kpi-card">
-    <div class="kpi-icon red"><i data-lucide="alert-circle"></i></div>
-    <div class="kpi-data"><div class="kpi-value"><%= stats.errors %></div><div class="kpi-label">Errors</div></div>
-  </div>
-  <% if (freeInfo) { %>
-  <div class="kpi-card">
-    <div class="kpi-icon amber"><i data-lucide="file-clock"></i></div>
-    <div class="kpi-data">
-      <div class="kpi-value"><%= freeInfo.used %> / <%= freeInfo.limit %></div>
-      <div class="kpi-label">Free Evaluations Used</div>
-    </div>
-  </div>
-  <% } %>
+</div>
+<% } else { %>
+
+<div style="display:flex; gap:0.75rem; margin-bottom:1.5rem; flex-wrap:wrap;">
+  <a href="/courses" class="btn btn-primary btn-sm"><i data-lucide="plus"></i> Create Course</a>
+  <a href="/courses/join" class="btn btn-outline btn-sm"><i data-lucide="log-in"></i> Join Course</a>
 </div>
 
-<div class="grid-2">
-  <div class="card">
-    <div class="card-header"><i data-lucide="list-checks"></i> Workflow Checklist</div>
-    <div class="card-body">
-      <div class="checklist">
-        <div class="check-item <%= stats.courses > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.courses > 0 ? 'check-circle-2' : 'circle' %>"></i> Create a course</div>
-        <div class="check-item <%= stats.students > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.students > 0 ? 'check-circle-2' : 'circle' %>"></i> Import student roster</div>
-        <div class="check-item <%= stats.exams > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.exams > 0 ? 'check-circle-2' : 'circle' %>"></i> Create an exam</div>
-        <div class="check-item <%= stats.rubrics > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.rubrics > 0 ? 'check-circle-2' : 'circle' %>"></i> Define rubric questions</div>
-        <div class="check-item <%= stats.submissions > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.submissions > 0 ? 'check-circle-2' : 'circle' %>"></i> Upload submissions</div>
-        <div class="check-item <%= stats.done > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.done > 0 ? 'check-circle-2' : 'circle' %>"></i> Run AI grading</div>
+<% if (ownedCourses.length) { %>
+  <% if (stats.courses > 0) { %>
+  <div class="kpi-grid" style="margin-bottom:1.5rem;">
+    <div class="kpi-card">
+      <div class="kpi-icon blue"><i data-lucide="book-open"></i></div>
+      <div class="kpi-data"><div class="kpi-value"><%= stats.courses %></div><div class="kpi-label">Courses</div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon purple"><i data-lucide="file-text"></i></div>
+      <div class="kpi-data"><div class="kpi-value"><%= stats.exams %></div><div class="kpi-label">Exams</div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon green"><i data-lucide="users"></i></div>
+      <div class="kpi-data"><div class="kpi-value"><%= stats.students %></div><div class="kpi-label">Students</div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon teal"><i data-lucide="check-circle"></i></div>
+      <div class="kpi-data"><div class="kpi-value"><%= stats.done %></div><div class="kpi-label">Graded</div></div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-icon amber"><i data-lucide="clock"></i></div>
+      <div class="kpi-data"><div class="kpi-value"><%= stats.pending %></div><div class="kpi-label">Pending</div></div>
+    </div>
+    <% if (freeInfo) { %>
+    <div class="kpi-card">
+      <div class="kpi-icon amber"><i data-lucide="file-clock"></i></div>
+      <div class="kpi-data">
+        <div class="kpi-value"><%= freeInfo.used %> / <%= freeInfo.limit %></div>
+        <div class="kpi-label">Free Evaluations</div>
       </div>
     </div>
+    <% } %>
   </div>
+  <% } %>
 
   <div class="card">
-    <div class="card-header"><i data-lucide="book-open"></i> Recent Courses</div>
+    <div class="card-header"><i data-lucide="book-open"></i> Courses I Teach</div>
     <div class="card-body">
-      <% if (recentCourses.length) { %>
-        <% recentCourses.forEach(function(c) { %>
-          <div class="list-item">
-            <div><strong><%= c.code %></strong> &mdash; <%= c.name %></div>
-            <span class="badge"><%= c.semester || 'N/A' %></span>
+      <% ownedCourses.forEach(function(c) { %>
+        <div class="list-item">
+          <div>
+            <strong><%= c.code %></strong> &mdash; <%= c.name %>
+            <% if (c.join_code) { %><span class="badge" title="Join code"><%= c.join_code %></span><% } %>
           </div>
-        <% }); %>
-      <% } else { %>
-        <p class="text-muted">No courses yet. <a href="/courses">Create one</a>.</p>
-      <% } %>
+          <div>
+            <span class="badge"><%= c.semester || 'N/A' %></span>
+            <a href="/courses/<%= c.id %>" class="btn btn-sm btn-outline" style="margin-left:0.5rem;">Open</a>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+<% } %>
+
+<% if (taCourses.length) { %>
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="users-2"></i> Courses I TA</div>
+  <div class="card-body">
+    <% taCourses.forEach(function(c) { %>
+      <div class="list-item">
+        <div>
+          <strong><%= c.code %></strong> &mdash; <%= c.name %>
+          <span class="text-muted" style="font-size:0.82rem;"> &middot; Prof. <%= c.professorName %></span>
+        </div>
+        <a href="/ta-portal/course/<%= c.id %>" class="btn btn-sm btn-outline">TA View</a>
+      </div>
+    <% }); %>
+  </div>
+</div>
+<% } %>
+
+<% if (enrolledCourses.length) { %>
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="graduation-cap"></i> Courses I'm Enrolled In</div>
+  <div class="card-body">
+    <% enrolledCourses.forEach(function(c) { %>
+      <div class="list-item">
+        <div>
+          <strong><%= c.code %></strong> &mdash; <%= c.name %>
+          <span class="text-muted" style="font-size:0.82rem;"> &middot; Prof. <%= c.professorName %></span>
+        </div>
+        <a href="/student/course/<%= c.id %>" class="btn btn-sm btn-outline">View</a>
+      </div>
+    <% }); %>
+  </div>
+</div>
+<% } %>
+
+<% if (ownedCourses.length) { %>
+<div class="card mt-4">
+  <div class="card-header"><i data-lucide="list-checks"></i> Getting Started Checklist</div>
+  <div class="card-body">
+    <div class="checklist">
+      <div class="check-item <%= stats.courses > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.courses > 0 ? 'check-circle-2' : 'circle' %>"></i> Create a course</div>
+      <div class="check-item <%= stats.students > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.students > 0 ? 'check-circle-2' : 'circle' %>"></i> Import student roster</div>
+      <div class="check-item <%= stats.exams > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.exams > 0 ? 'check-circle-2' : 'circle' %>"></i> Create an exam</div>
+      <div class="check-item <%= stats.rubrics > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.rubrics > 0 ? 'check-circle-2' : 'circle' %>"></i> Define rubric questions</div>
+      <div class="check-item <%= stats.submissions > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.submissions > 0 ? 'check-circle-2' : 'circle' %>"></i> Upload submissions</div>
+      <div class="check-item <%= stats.done > 0 ? 'done' : '' %>"><i data-lucide="<%= stats.done > 0 ? 'check-circle-2' : 'circle' %>"></i> Run AI grading</div>
     </div>
   </div>
 </div>
+<% } %>
 
-<% if (recentSubs.length) { %>
-<div class="card mt-4">
-  <div class="card-header"><i data-lucide="clock"></i> Recent Submissions</div>
-  <div class="card-body">
-    <table class="table">
-      <thead><tr><th>Student</th><th>Exam</th><th>File</th><th>Status</th><th>Uploaded</th></tr></thead>
-      <tbody>
-        <% recentSubs.forEach(function(s) { %>
-          <tr>
-            <td><%= s.Student?.name || 'Unknown' %></td>
-            <td><%= s.Exam?.name || '' %></td>
-            <td><%= s.file_name %></td>
-            <td><span class="status-badge status-<%= s.status %>"><%= s.status %></span></td>
-            <td><%= new Date(s.created_at).toLocaleDateString() %></td>
-          </tr>
-        <% }); %>
-      </tbody>
-    </table>
-  </div>
-</div>
 <% } %>

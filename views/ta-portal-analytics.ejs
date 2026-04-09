@@ -1,0 +1,70 @@
+<div class="page-header">
+  <h1><i data-lucide="bar-chart-3"></i> Analytics</h1>
+  <p class="page-sub"><%= course.code ? course.code + ' — ' : '' %><%= course.name %></p>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/ta-portal/analytics/<%= course.id %>" class="inline-form">
+    <label>Exam:</label>
+    <select name="exam_id" onchange="this.form.submit()">
+      <option value="">-- Select Exam --</option>
+      <% exams.forEach(function(e) { %>
+        <option value="<%= e.id %>" <%= selectedExamId === e.id ? 'selected' : '' %>><%= e.name %></option>
+      <% }); %>
+    </select>
+  </form>
+</div>
+
+<% if (analytics) { %>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="kpi-icon blue"><i data-lucide="users"></i></div><div class="kpi-data"><div class="kpi-value"><%= analytics.totalStudents %></div><div class="kpi-label">Students</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green"><i data-lucide="check-circle"></i></div><div class="kpi-data"><div class="kpi-value"><%= analytics.gradedCount %></div><div class="kpi-label">Graded</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon purple"><i data-lucide="trending-up"></i></div><div class="kpi-data"><div class="kpi-value"><%= analytics.classAvg %></div><div class="kpi-label">Average</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon amber"><i data-lucide="minus"></i></div><div class="kpi-data"><div class="kpi-value"><%= analytics.classMedian %></div><div class="kpi-label">Median</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon teal"><i data-lucide="percent"></i></div><div class="kpi-data"><div class="kpi-value"><%= analytics.passRate %>%</div><div class="kpi-label">Pass Rate</div></div></div>
+  </div>
+
+  <% if (analytics.questionStats && analytics.questionStats.length) { %>
+    <div class="card" style="margin-bottom:18px">
+      <div class="card-header"><i data-lucide="bar-chart-3"></i> Per-Question Performance</div>
+      <div class="card-body">
+        <table class="table table-compact">
+          <thead><tr><th>Question</th><th>Avg Score</th><th>Max</th><th>Difficulty</th><th style="width:200px">Performance</th></tr></thead>
+          <tbody>
+            <% analytics.questionStats.forEach(function(q) { %>
+              <tr>
+                <td style="font-weight:600"><%= q.questionNo %></td>
+                <td><%= q.avgScore %></td>
+                <td><%= q.maxMarks %></td>
+                <td><span class="badge"><%= q.difficulty %></span></td>
+                <td>
+                  <div style="height:8px;border-radius:4px;background:var(--surface-container);overflow:hidden">
+                    <div style="height:100%;border-radius:4px;background:linear-gradient(135deg,var(--primary),var(--primary-container));width:<%= q.maxMarks > 0 ? ((q.avgScore / q.maxMarks) * 100).toFixed(0) : 0 %>%"></div>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% } %>
+
+  <% if (analytics.gradeDistribution) { %>
+    <div class="card">
+      <div class="card-header"><i data-lucide="pie-chart"></i> Grade Distribution</div>
+      <div class="card-body" style="display:flex;gap:1.25rem;flex-wrap:wrap">
+        <% Object.entries(analytics.gradeDistribution).forEach(function([grade, count]) { %>
+          <div style="text-align:center;min-width:50px">
+            <div style="font-family:var(--font-display);font-size:1.25rem;font-weight:800"><%= count %></div>
+            <div class="text-muted" style="font-size:0.75rem;font-weight:600"><%= grade %></div>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+  <% } %>
+<% } else if (selectedExamId) { %>
+  <div class="empty-state"><i data-lucide="bar-chart-3"></i><h3>No Data Yet</h3><p>No analytics data available for this exam. Grade some submissions first.</p></div>
+<% } else { %>
+  <div class="empty-state"><i data-lucide="bar-chart-3"></i><h3>Select an Exam</h3><p>Choose an exam from the filter above to view analytics.</p></div>
+<% } %>

@@ -11,7 +11,7 @@ if (isProd) {
 const express = require('express');
 const session = require('express-session');
 const flash = require('connect-flash');
-const methodOverride = require('method-override');
+const helmet = require('helmet');
 const ejsLayouts = require('express-ejs-layouts');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
@@ -27,10 +27,26 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(ejsLayouts);
 app.set('layout', 'partials/layout');
 
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://unpkg.com", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.jsdelivr.net"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(express.json({ limit: '2mb' }));
-app.use(methodOverride('_method'));
 
 app.use(session({
   secret: process.env.SESSION_SECRET || 'dev-secret-change-me',
@@ -70,6 +86,14 @@ const gradingLimiter = rateLimit({
   message: 'Grading rate limit reached. Please wait a moment.',
 });
 
+const sensitiveAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests. Please try again in 15 minutes.',
+});
+
 app.use((req, res, next) => {
   res.locals.session = req.session;
   res.locals.success = req.flash('success');
@@ -80,7 +104,11 @@ app.use((req, res, next) => {
 });
 
 app.get('/', (req, res) => {
-  if (req.session.userId) return res.redirect('/dashboard');
+  if (req.session.userId) {
+    const role = req.session.role;
+    if (role === 'student' || role === 'user') return res.redirect('/student/dashboard');
+    return res.redirect('/dashboard');
+  }
   res.render('landing', { layout: false });
 });
 
@@ -94,45 +122,60 @@ app.get('/privacy', (req, res) => {
 
 app.post('/login', authLimiter);
 app.post('/register', authLimiter);
+app.post('/request-otp', sensitiveAuthLimiter);
+app.post('/verify-login-otp', sensitiveAuthLimiter);
+app.post('/verify-email', sensitiveAuthLimiter);
+app.post('/resend-otp', sensitiveAuthLimiter);
+app.post('/forgot-password', sensitiveAuthLimiter);
 
-// ── Core routes ──
+const { ensureProfessor } = require('./middleware/auth');
+
+// ── Core routes (auth & dashboard have their own role guards) ──
 app.use('/', require('./routes/auth'));
 app.use('/', require('./routes/dashboard'));
-app.use('/courses', require('./routes/courses'));
-app.use('/exams', require('./routes/exams'));
-app.use('/roster', require('./routes/roster'));
-app.use('/rubric', require('./routes/rubric'));
-app.use('/submissions', require('./routes/submissions'));
-app.use('/grading', gradingLimiter, require('./routes/grading'));
-app.use('/analytics', require('./routes/analytics'));
-app.use('/assistant', require('./routes/assistant'));
-app.use('/export', require('./routes/export'));
-app.use('/rubric/ai', require('./routes/rubric-ai'));
-app.use('/grading/boundaries', require('./routes/grade-boundaries'));
-app.use('/grading/email', require('./routes/email-grades'));
-app.use('/submissions', require('./routes/zip-upload'));
-app.use('/exam-design', require('./routes/exam-design'));
-app.use('/student-reports', require('./routes/student-reports'));
-app.use('/knowledge-graph', require('./routes/knowledge-graph'));
+
+// ── Course join routes (accessible to all authenticated users) ──
+app.use('/courses/join', require('./routes/course-join'));
+
+// ── Professor-only routes (students/TAs blocked at mount level) ──
+app.use('/courses', ensureProfessor, require('./routes/courses'));
+app.use('/exams', ensureProfessor, require('./routes/exams'));
+app.use('/roster', ensureProfessor, require('./routes/roster'));
+app.use('/rubric', ensureProfessor, require('./routes/rubric'));
+app.use('/submissions', ensureProfessor, require('./routes/submissions'));
+app.use('/grading', ensureProfessor, gradingLimiter, require('./routes/grading'));
+app.use('/analytics', ensureProfessor, require('./routes/analytics'));
+app.use('/assistant', ensureProfessor, require('./routes/assistant'));
+app.use('/export', ensureProfessor, require('./routes/export'));
+app.use('/rubric/ai', ensureProfessor, require('./routes/rubric-ai'));
+app.use('/grading/boundaries', ensureProfessor, require('./routes/grade-boundaries'));
+app.use('/grading/email', ensureProfessor, require('./routes/email-grades'));
+app.use('/submissions', ensureProfessor, require('./routes/zip-upload'));
+app.use('/exam-design', ensureProfessor, require('./routes/exam-design'));
+app.use('/student-reports', ensureProfessor, require('./routes/student-reports'));
+app.use('/knowledge-graph', ensureProfessor, require('./routes/knowledge-graph'));
 app.use('/api/session', require('./routes/session-activity'));
 app.use('/checkout', require('./routes/checkout'));
 
-// ── New feature routes (features2.md) ──
-app.use('/review-queue', require('./routes/review-queue'));
-app.use('/ta', require('./routes/ta'));
-app.use('/cribs', require('./routes/cribs'));
-app.use('/announcements', require('./routes/announcements'));
-app.use('/course-documents', require('./routes/course-documents'));
-app.use('/discussions', require('./routes/discussions'));
-app.use('/live-polls', require('./routes/live-polls'));
-app.use('/class-sessions', require('./routes/class-sessions'));
+// ── New feature routes (professor-only) ──
+app.use('/review-queue', ensureProfessor, require('./routes/review-queue'));
+app.use('/ta', ensureProfessor, require('./routes/ta'));
+app.use('/cribs', ensureProfessor, require('./routes/cribs'));
+app.use('/announcements', ensureProfessor, require('./routes/announcements'));
+app.use('/course-documents', ensureProfessor, require('./routes/course-documents'));
+app.use('/discussions', ensureProfessor, require('./routes/discussions'));
+app.use('/live-polls', ensureProfessor, require('./routes/live-polls'));
+app.use('/class-sessions', ensureProfessor, require('./routes/class-sessions'));
 
-// ── Learning Objectives & Active Feedback ──
-app.use('/learning-objectives', require('./routes/learning-objectives'));
-app.use('/active-feedback', require('./routes/active-feedback'));
+// ── Learning Objectives & Active Feedback (professor-only) ──
+app.use('/learning-objectives', ensureProfessor, require('./routes/learning-objectives'));
+app.use('/active-feedback', ensureProfessor, require('./routes/active-feedback'));
 
-// ── Integrations (Moodle, Piazza) ──
-app.use('/integrations', require('./routes/integrations'));
+// ── Integrations (professor-only) ──
+app.use('/integrations', ensureProfessor, require('./routes/integrations'));
+
+// ── TA portal (separate auth flow) ──
+app.use('/ta-portal', require('./routes/ta-portal'));
 
 // ── Student portal (separate auth flow) ──
 app.use('/student', require('./routes/student-portal'));
@@ -142,6 +185,17 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, _next) => {
+  // Handle multer / file upload errors gracefully
+  if (err && err.name === 'MulterError') {
+    req.flash('error', `Upload error: ${err.message}`);
+    const ref = req.get('referer');
+    return res.redirect(ref || '/dashboard');
+  }
+  if (err && err.code === 'LIMIT_FILE_SIZE') {
+    req.flash('error', 'File is too large.');
+    const ref = req.get('referer');
+    return res.redirect(ref || '/dashboard');
+  }
   console.error(err.stack);
   res.status(500).render('500', { layout: false });
 });

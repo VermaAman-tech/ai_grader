@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Intelligrade — Course Intelligence Platform</title>
+  <%- include('partials/theme-init') %>
   <meta name="description" content="The complete course intelligence platform for colleges. AI grading, learning analytics, student engagement, and 18+ tool integrations — all in one place.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,6 +27,7 @@
         <a href="#features">Features</a>
         <a href="#model">Our AI</a>
         <a href="#pricing">Pricing</a>
+        <a href="/courses/join" style="font-size:0.85rem; opacity:0.75;">Join a Course</a>
         <button class="ln-theme-btn" id="lnThemeToggle" title="Toggle theme">
           <i data-lucide="sun" class="theme-icon-light"></i>
           <i data-lucide="moon" class="theme-icon-dark"></i>
@@ -452,13 +454,11 @@
     lucide.createIcons();
 
     /* ── Theme ── */
-    const t = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', t);
     document.getElementById('lnThemeToggle').addEventListener('click', () => {
       const c = document.documentElement.getAttribute('data-theme');
       const n = c === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', n);
-      localStorage.setItem('theme', n);
+      localStorage.setItem('ig-theme', n);
     });
 
     /* ── Mobile nav ── */

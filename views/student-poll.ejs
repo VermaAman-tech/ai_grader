@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Live Poll - Intelligrade</title>
+  <%- include('partials/theme-init') %>
   <link rel="stylesheet" href="/css/style.css">
   <style>
     body { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:1rem; }
@@ -73,8 +74,6 @@
       }
     }
     loadPoll();
-    const t = localStorage.getItem('theme');
-    if (t) document.documentElement.setAttribute('data-theme', t);
   </script>
 </body>
 </html>

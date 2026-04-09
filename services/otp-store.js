@@ -1,7 +1,8 @@
+const crypto = require('crypto');
 const store = new Map();
 
 function generateOTP() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  return String(100000 + (crypto.randomInt(900000)));
 }
 
 function storeOTP(key, otp, ttlMs = 10 * 60 * 1000) {

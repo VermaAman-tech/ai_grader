@@ -16,7 +16,7 @@
       <option value="">-- Select Exam --</option>
     </select>
   </form>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
     <% if (selectedExamId && submissions.some(s => s.status === 'pending' || s.status === 'error')) { %>
       <form method="POST" action="/grading/grade-all/<%= selectedExamId %>" style="display:inline">
         <button class="btn btn-primary btn-sm" onclick="return confirm('Grade all pending submissions? This may take several minutes.')"><i data-lucide="zap"></i> Grade All Pending</button>
@@ -25,6 +25,16 @@
     <% if (selectedExamId && submissions.some(s => s.status === 'done')) { %>
       <a href="/grading/boundaries/<%= selectedExamId %>" class="btn btn-outline btn-sm"><i data-lucide="sliders"></i> Grade Boundaries</a>
       <a href="/grading/email/<%= selectedExamId %>" class="btn btn-outline btn-sm"><i data-lucide="mail"></i> Email Results</a>
+    <% } %>
+    <% if (selectedExamId && typeof examInfo !== 'undefined' && examInfo) { %>
+      <form method="POST" action="/exams/<%= selectedExamId %>/release-grades" style="display:inline">
+        <input type="hidden" name="return_to" value="/grading?exam_id=<%= selectedExamId %>">
+        <% if (examInfo.grades_released) { %>
+          <button class="btn btn-sm btn-outline" style="border-color:var(--success);color:var(--success);" onclick="return confirm('Hide grades from students?')"><i data-lucide="eye-off"></i> Unreleased (Visible)</button>
+        <% } else { %>
+          <button class="btn btn-sm btn-primary" style="background:var(--success);" onclick="return confirm('Release grades to all students?')"><i data-lucide="send"></i> Release Grades</button>
+        <% } %>
+      </form>
     <% } %>
   </div>
 </div>

@@ -1,0 +1,80 @@
+<div class="page-header">
+  <h1><i data-lucide="eye"></i> <%= submission.Student ? submission.Student.name : 'Unknown Student' %></h1>
+  <p class="page-sub"><%= submission.Student ? (submission.Student.roll_number || '') : '' %> &middot; <%= exam.name %> &middot; <code style="font-size:0.82rem"><%= submission.file_name %></code></p>
+</div>
+
+<div class="kpi-grid" style="margin-bottom:1.5rem">
+  <div class="kpi-card" style="border-left:4px solid var(--primary)">
+    <div class="kpi-icon blue"><i data-lucide="award"></i></div>
+    <div class="kpi-data">
+      <div class="kpi-value"><%= totalAwarded.toFixed(1) %> / <%= totalMax %></div>
+      <div class="kpi-label"><%= totalMax > 0 ? ((totalAwarded / totalMax) * 100).toFixed(1) : 0 %>% — Total Score</div>
+    </div>
+  </div>
+</div>
+
+<% grades.forEach(function(g) { %>
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Q<%= g.question_no %><% if (g.Rubric && g.Rubric.question_text) { %> — <%= g.Rubric.question_text %><% } %></span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="badge <%= g.confidence >= 80 ? 'badge-success' : (g.confidence >= 50 ? 'badge-warning' : 'badge-danger') %>"><%= Math.round(g.confidence) %>% conf</span>
+        <strong style="font-size:0.95rem"><%= g.effectiveMarks.toFixed(1) %> / <%= g.Rubric ? g.Rubric.max_marks : '?' %></strong>
+      </div>
+    </div>
+    <div class="card-body">
+      <% if (g.ocr_text) { %>
+        <details style="margin-bottom:0.75rem">
+          <summary class="text-muted" style="font-size:0.78rem;cursor:pointer">Extracted Answer Text</summary>
+          <pre style="background:var(--surface-container);border-radius:var(--radius);padding:0.75rem;font-size:0.8rem;line-height:1.6;max-height:200px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin-top:0.5rem;font-family:var(--font-mono)"><%= g.ocr_text %></pre>
+        </details>
+      <% } %>
+
+      <p style="font-size:0.87rem;line-height:1.6;margin-bottom:0.75rem"><%= g.feedback %></p>
+
+      <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.75rem">
+        <div style="flex:1;min-width:180px">
+          <div class="text-muted" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:0.5rem">Matched Points</div>
+          <% (g.parsedMatched || []).forEach(function(p) { %>
+            <div style="display:flex;align-items:flex-start;gap:4px;font-size:0.82rem;margin-bottom:3px"><span style="color:var(--success)">&#10003;</span> <%= p %></div>
+          <% }); %>
+          <% if (!(g.parsedMatched || []).length) { %><span class="text-muted" style="font-size:0.82rem">None</span><% } %>
+        </div>
+        <div style="flex:1;min-width:180px">
+          <div class="text-muted" style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:0.5rem">Missing Points</div>
+          <% (g.parsedMissing || []).forEach(function(p) { %>
+            <div style="display:flex;align-items:flex-start;gap:4px;font-size:0.82rem;margin-bottom:3px"><span style="color:var(--error)">&#10007;</span> <%= p %></div>
+          <% }); %>
+          <% if (!(g.parsedMissing || []).length) { %><span class="text-muted" style="font-size:0.82rem">None</span><% } %>
+        </div>
+      </div>
+
+      <% if (g.override_marks !== null && g.override_marks !== undefined) { %>
+        <div style="background:var(--tertiary-container);padding:0.5rem 0.75rem;border-radius:var(--radius);font-size:0.82rem;margin-bottom:0.5rem">
+          <strong>Override:</strong> <%= g.override_marks %><% if (g.override_note) { %> &middot; <%= g.override_note %><% } %>
+        </div>
+      <% } %>
+
+      <details>
+        <summary class="text-muted" style="font-size:0.78rem;cursor:pointer">Override Score</summary>
+        <form method="POST" action="/ta-portal/override/<%= g.id %>" style="background:var(--surface-container-low);border-radius:var(--radius);padding:0.85rem;margin-top:0.5rem">
+          <div style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap">
+            <div>
+              <label style="font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px">New Marks (max <%= g.Rubric ? g.Rubric.max_marks : '?' %>)</label>
+              <input type="number" name="override_marks" step="0.5" min="0" max="<%= g.Rubric ? g.Rubric.max_marks : 100 %>" class="form-control" style="width:100px" value="<%= g.override_marks != null ? g.override_marks : '' %>">
+            </div>
+            <div style="flex:1">
+              <label style="font-size:0.75rem;font-weight:600;display:block;margin-bottom:3px">Note</label>
+              <input type="text" name="override_note" class="form-control" placeholder="Reason for override" value="<%= g.override_note || '' %>">
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">Save</button>
+          </div>
+        </form>
+      </details>
+    </div>
+  </div>
+<% }); %>
+
+<div style="margin-top:1rem">
+  <a href="/ta-portal/grading/<%= exam.id %>" class="btn btn-outline">&larr; Back to Submissions</a>
+</div>

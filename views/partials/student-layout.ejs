@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof pageTitle !== 'undefined' ? pageTitle : 'Student Portal' %> - Intelligrade</title>
+  <%- include('theme-init') %>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/student-portal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="sp-shell">
+    <aside class="sp-sidebar" id="spSidebar">
+      <div class="sp-brand">
+        <%- include('logo', { logoSize: 28, logoId: 'sp' }) %>
+        <span>Intelligrade</span>
+      </div>
+
+      <nav class="sp-nav" id="spSidebarNav">
+        <a href="/student/dashboard" class="<%= typeof currentPage !== 'undefined' && currentPage === 'dashboard' ? 'active' : '' %>">
+          <i data-lucide="layout-dashboard"></i><span>Dashboard</span>
+        </a>
+        <a href="/student/courses" class="<%= typeof currentPage !== 'undefined' && currentPage === 'courses' ? 'active' : '' %>">
+          <i data-lucide="book-open"></i><span>My Courses</span>
+        </a>
+        <a href="/courses/join" class="<%= typeof currentPage !== 'undefined' && currentPage === 'join' ? 'active' : '' %>">
+          <i data-lucide="log-in"></i><span>Join Course</span>
+        </a>
+
+        <% if (typeof taAssignments !== 'undefined' && taAssignments.length > 0) { %>
+          <div class="sp-nav-divider"></div>
+          <div class="sp-nav-section">Teaching Assistant</div>
+          <% taAssignments.forEach(function(ta) { %>
+            <a href="#" class="sp-ta-course-link" data-course-id="<%= ta.courseId %>" data-course-code="<%= ta.courseCode %>" data-course-name="<%= ta.courseName %>">
+              <i data-lucide="users-2"></i><span><%= ta.courseCode %></span>
+              <span class="sp-ta-badge">TA</span>
+            </a>
+          <% }); %>
+        <% } %>
+      </nav>
+
+      <div class="sp-sidebar-footer">
+        <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+          <i data-lucide="sun" class="theme-icon-light"></i>
+          <i data-lucide="moon" class="theme-icon-dark"></i>
+        </button>
+        <div class="sp-user-info">
+          <i data-lucide="user-circle"></i>
+          <div>
+            <div class="sp-user-name"><%= session.userName || '' %></div>
+            <div class="sp-user-role">Student</div>
+          </div>
+        </div>
+        <a href="/logout" class="sp-logout"><i data-lucide="log-out"></i><span>Sign Out</span></a>
+      </div>
+    </aside>
+
+    <main class="sp-main">
+      <header class="sp-topbar">
+        <button class="sp-sidebar-toggle" onclick="document.getElementById('spSidebar').classList.toggle('open')">
+          <i data-lucide="menu"></i>
+        </button>
+        <div style="flex:1"></div>
+      </header>
+
+      <% if (typeof success !== 'undefined' && success && success.length) { %>
+        <% (Array.isArray(success) ? success : [success]).forEach(function(msg) { %>
+          <div class="alert alert-success"><i data-lucide="check-circle-2"></i><span><%= msg %></span><button class="alert-close" onclick="this.parentElement.remove()">&times;</button></div>
+        <% }); %>
+      <% } %>
+      <% if (typeof error !== 'undefined' && error && error.length) { %>
+        <% (Array.isArray(error) ? error : [error]).forEach(function(msg) { %>
+          <div class="alert alert-error"><i data-lucide="alert-triangle"></i><span><%= msg %></span><button class="alert-close" onclick="this.parentElement.remove()">&times;</button></div>
+        <% }); %>
+      <% } %>
+
+      <div class="sp-page-content">
+        <%- body %>
+      </div>
+    </main>
+  </div>
+
+  <!-- TA Floating Panel -->
+  <div id="taPanelOverlay" class="ta-panel-overlay" style="display:none">
+    <div class="ta-panel">
+      <div class="ta-panel-header">
+        <div class="ta-panel-title">
+          <i data-lucide="users-2"></i>
+          <span>TA Panel — <span id="taPanelCourseName"></span></span>
+        </div>
+        <button id="taPanelClose" class="ta-panel-close">&times;</button>
+      </div>
+      <div class="ta-panel-body" id="taPanelBody">
+        <div class="ta-panel-loading">
+          <i data-lucide="loader-2" class="spin"></i>
+          <span>Loading course data...</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script src="/js/student-portal.js"></script>
+  <script>
+    lucide.createIcons();
+    (function() {
+      var nav = document.getElementById('spSidebarNav');
+      if (!nav) return;
+      var key = 'ig-sp-sidebar-scroll';
+      var saved = sessionStorage.getItem(key);
+      if (saved) nav.scrollTop = parseInt(saved, 10);
+      var active = nav.querySelector('a.active');
+      if (active && !saved) active.scrollIntoView({ block: 'nearest' });
+      nav.addEventListener('scroll', function() {
+        sessionStorage.setItem(key, nav.scrollTop);
+      });
+    })();
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true },
+          ],
+          throwOnError: false,
+        });
+      }
+    });
+  </script>
+</body>
+</html>

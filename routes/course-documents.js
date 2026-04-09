@@ -14,7 +14,8 @@ const storage = multer.diskStorage({
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    cb(null, `${Date.now()}_${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
+    const safe = (file.originalname || 'file').replace(/\0/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${Date.now()}_${safe}`);
   },
 });
 const ALLOW_DOC_EXT = new Set(['.pdf', '.txt', '.md', '.doc', '.docx']);
@@ -22,7 +23,8 @@ const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter(req, file, cb) {
-    const ext = path.extname(file.originalname || '').toLowerCase();
+    const safeName = (file.originalname || '').replace(/\0/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const ext = path.extname(safeName).toLowerCase();
     cb(null, ALLOW_DOC_EXT.has(ext));
   },
 });

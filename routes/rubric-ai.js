@@ -12,7 +12,8 @@ const upload = multer({
   dest: uploadDir,
   limits: { fileSize: 30 * 1024 * 1024, files: 10 },
   fileFilter(req, file, cb) {
-    cb(null, /\.(pdf|png|jpg|jpeg|zip)$/i.test(file.originalname));
+    const safeName = (file.originalname || '').replace(/\0/g, '');
+    cb(null, /\.(pdf|png|jpg|jpeg|zip)$/i.test(safeName));
   },
 });
 

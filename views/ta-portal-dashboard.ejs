@@ -1,0 +1,56 @@
+<div class="page-header">
+  <h1><i data-lucide="users-2"></i> Teaching Assistant</h1>
+  <p class="page-sub">Your assigned courses and overview</p>
+</div>
+
+<div class="kpi-grid" style="margin-bottom:1.5rem">
+  <div class="kpi-card">
+    <div class="kpi-icon blue"><i data-lucide="book-open"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= stats.totalCourses %></div><div class="kpi-label">Courses</div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon amber"><i data-lucide="clock"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= stats.pendingGrading %></div><div class="kpi-label">Pending Grading</div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon green"><i data-lucide="check-circle"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= stats.gradedTotal %></div><div class="kpi-label">Papers Graded</div></div>
+  </div>
+</div>
+
+<% if (!courseData.length) { %>
+  <div class="empty-state">
+    <i data-lucide="users-2"></i>
+    <h3>No TA Assignments</h3>
+    <p>You haven't been invited as a TA for any courses yet. Ask your professor to send an invitation.</p>
+  </div>
+<% } else { %>
+  <div class="card-grid">
+    <% courseData.forEach(function(cd) { %>
+      <a href="/ta-portal/course/<%= cd.course.id %>" class="card" style="text-decoration:none;color:inherit;display:block;transition:transform 0.15s,box-shadow 0.15s;">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;align-items:center;gap:8px">
+            <i data-lucide="book-open"></i>
+            <span><%= cd.course.code ? cd.course.code + ' — ' : '' %><%= cd.course.name %></span>
+          </div>
+          <span class="badge <%= cd.assignment.role === 'head_ta' ? 'badge-info' : 'badge-success' %>" style="font-size:0.65rem"><%= cd.assignment.role === 'head_ta' ? 'HEAD TA' : 'TA' %></span>
+        </div>
+        <div class="card-body">
+          <p class="text-muted" style="margin-bottom:0.75rem;font-size:0.85rem">Prof. <%= cd.professor %></p>
+          <div style="display:flex;gap:1rem;flex-wrap:wrap;font-size:0.82rem;margin-bottom:0.75rem">
+            <span style="display:flex;align-items:center;gap:4px"><i data-lucide="file-text" style="width:14px;height:14px;opacity:0.5"></i> <%= cd.examCount %> exam<%= cd.examCount !== 1 ? 's' : '' %></span>
+            <span style="display:flex;align-items:center;gap:4px"><i data-lucide="clock" style="width:14px;height:14px;opacity:0.5"></i> <%= cd.pendingGrading %> pending</span>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <% if (cd.permissions.can_grade) { %><span class="badge badge-outline">Grading</span><% } %>
+            <% if (cd.permissions.can_view_analytics) { %><span class="badge badge-outline">Analytics</span><% } %>
+            <% if (cd.permissions.can_manage_roster) { %><span class="badge badge-outline">Roster</span><% } %>
+            <% if (cd.permissions.can_access_cribs) { %><span class="badge badge-outline">Cribs</span><% } %>
+            <% if (cd.permissions.can_post_announcements) { %><span class="badge badge-outline">Announce</span><% } %>
+            <% if (cd.permissions.can_manage_docs) { %><span class="badge badge-outline">Docs</span><% } %>
+          </div>
+        </div>
+      </a>
+    <% }); %>
+  </div>
+<% } %>

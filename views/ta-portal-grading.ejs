@@ -1,0 +1,59 @@
+<div class="page-header">
+  <h1><i data-lucide="check-circle"></i> <%= exam.name %></h1>
+  <p class="page-sub"><%= course.code ? course.code + ' — ' : '' %><%= course.name %> &middot; <%= submissions.length %> submission<%= submissions.length !== 1 ? 's' : '' %></p>
+</div>
+
+<div class="filter-bar">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <% if (typeof assignedQuestions !== 'undefined' && assignedQuestions.length) { %>
+      <span class="text-muted" style="font-size:0.82rem">Assigned:</span>
+      <% assignedQuestions.forEach(function(q) { %><span class="badge badge-outline"><%= q %></span><% }); %>
+    <% } %>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto">
+    <% if (submissions.some(function(s) { return s.status === 'pending' || s.status === 'error'; })) { %>
+      <form method="POST" action="/ta-portal/grade-all/<%= exam.id %>" style="display:inline">
+        <button class="btn btn-primary btn-sm" onclick="this.disabled=true;this.textContent='Grading...';this.form.submit()"><i data-lucide="zap"></i> Grade All Pending</button>
+      </form>
+    <% } %>
+  </div>
+</div>
+
+<% if (!submissions.length) { %>
+  <div class="empty-state"><i data-lucide="inbox"></i><h3>No Submissions</h3><p>No submissions found for your assigned students in this exam.</p></div>
+<% } else { %>
+  <div class="card">
+    <div class="card-header"><i data-lucide="files"></i> Submissions</div>
+    <div class="card-body">
+      <table class="table">
+        <thead>
+          <tr><th>Student</th><th>File</th><th>Progress</th><th>Status</th><th>Action</th></tr>
+        </thead>
+        <tbody>
+          <% submissions.forEach(function(sub) { %>
+            <tr>
+              <td>
+                <div style="font-weight:600"><%= sub.Student ? sub.Student.name : 'Unknown' %></div>
+                <div class="text-muted" style="font-size:0.78rem"><%= sub.Student ? (sub.Student.roll_number || '') : '' %></div>
+              </td>
+              <td class="text-muted" style="font-size:0.85rem"><%= sub.file_name %></td>
+              <td><%= sub.gradeCount %>/<%= sub.rubricCount %></td>
+              <td>
+                <span class="badge <%= sub.status === 'graded' || sub.status === 'done' ? 'badge-success' : (sub.status === 'error' ? 'badge-danger' : 'badge-warning') %>"><%= sub.status %></span>
+              </td>
+              <td class="actions-cell">
+                <% if (sub.isFullyGraded) { %>
+                  <a href="/ta-portal/review/<%= sub.id %>" class="btn btn-sm btn-outline">Review</a>
+                <% } else { %>
+                  <form method="POST" action="/ta-portal/grade/<%= sub.id %>" style="margin:0;display:inline">
+                    <button type="submit" class="btn btn-sm btn-primary" onclick="this.disabled=true;this.textContent='...';this.form.submit()">Grade</button>
+                  </form>
+                <% } %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+<% } %>

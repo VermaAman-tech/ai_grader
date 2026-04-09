@@ -1,0 +1,53 @@
+<div class="page-header">
+  <h1><i data-lucide="megaphone"></i> Announcements</h1>
+  <p class="page-sub"><%= course.code ? course.code + ' — ' : '' %><%= course.name %></p>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+  <div class="card-header"><i data-lucide="plus-circle"></i> New Announcement</div>
+  <div class="card-body">
+    <form method="POST" action="/ta-portal/announcements/<%= course.id %>">
+      <div style="display:flex;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:200px;margin:0">
+          <label>Title</label>
+          <input type="text" name="title" required class="form-control" placeholder="Announcement title" maxlength="300">
+        </div>
+        <div class="form-group" style="min-width:140px;margin:0">
+          <label>Type</label>
+          <select name="type" class="form-control">
+            <option value="general">General</option>
+            <option value="assignment">Assignment</option>
+            <option value="grade_release">Grade Release</option>
+            <option value="deadline">Deadline</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin:0 0 0.75rem">
+        <label>Content</label>
+        <textarea name="content" required class="form-control" rows="4" placeholder="Write your announcement..." maxlength="5000" style="resize:vertical"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="send"></i> Publish</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><i data-lucide="megaphone"></i> All Announcements (<%= announcements.length %>)</div>
+  <div class="card-body">
+    <% if (!announcements.length) { %>
+      <div class="empty-state" style="padding:2rem 1rem"><i data-lucide="megaphone"></i><h3>No Announcements</h3><p>No announcements posted yet.</p></div>
+    <% } else { %>
+      <% announcements.forEach(function(a) { %>
+        <div style="padding:0.7rem 0;<%= a !== announcements[announcements.length - 1] ? 'border-bottom:1px solid var(--ghost-border)' : '' %>">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+            <span style="font-weight:700;font-size:0.92rem"><%= a.title %></span>
+            <% if (a.is_pinned) { %><span class="badge badge-warning" style="font-size:0.6rem">Pinned</span><% } %>
+            <span class="badge" style="font-size:0.6rem"><%= a.type || 'general' %></span>
+          </div>
+          <p style="font-size:0.85rem;line-height:1.5;margin:2px 0"><%= a.content %></p>
+          <div class="text-muted" style="font-size:0.75rem;margin-top:3px"><%= a.User ? a.User.full_name : '' %> &middot; <%= new Date(a.created_at || a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) %></div>
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+</div>

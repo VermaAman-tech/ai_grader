@@ -1,0 +1,57 @@
+<div class="page-header">
+  <h1><i data-lucide="file-stack"></i> Documents</h1>
+  <p class="page-sub"><%= course.code ? course.code + ' — ' : '' %><%= course.name %></p>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+  <div class="card-header"><i data-lucide="upload"></i> Upload Document</div>
+  <div class="card-body">
+    <form method="POST" action="/ta-portal/documents/<%= course.id %>/upload" enctype="multipart/form-data">
+      <div style="display:flex;gap:0.75rem;margin-bottom:0.75rem;flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:200px;margin:0">
+          <label>Title</label>
+          <input type="text" name="title" class="form-control" placeholder="Document title" maxlength="300">
+        </div>
+        <div class="form-group" style="min-width:140px;margin:0">
+          <label>Type</label>
+          <select name="doc_type" class="form-control">
+            <option value="notes">Notes</option>
+            <option value="slides">Slides</option>
+            <option value="past_paper">Past Paper</option>
+            <option value="model_answer">Model Answer</option>
+            <option value="assignment">Assignment</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin:0 0 0.75rem">
+        <label>File (PDF, TXT, MD, DOC, DOCX)</label>
+        <input type="file" name="document" required class="form-control" accept=".pdf,.txt,.md,.doc,.docx">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="upload"></i> Upload</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><i data-lucide="file-stack"></i> All Documents (<%= documents.length %>)</div>
+  <div class="card-body">
+    <% if (!documents.length) { %>
+      <div class="empty-state" style="padding:2rem 1rem"><i data-lucide="file-stack"></i><h3>No Documents</h3><p>No documents uploaded yet.</p></div>
+    <% } else { %>
+      <table class="table">
+        <thead><tr><th>Title</th><th>Type</th><th>File</th><th>Date</th></tr></thead>
+        <tbody>
+          <% documents.forEach(function(d) { %>
+            <tr>
+              <td style="font-weight:600"><%= d.title %></td>
+              <td><span class="badge"><%= d.doc_type || 'other' %></span></td>
+              <td class="text-muted" style="font-size:0.85rem"><%= d.file_name %></td>
+              <td class="text-muted"><%= new Date(d.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+</div>

@@ -25,7 +25,7 @@
   </div>
 <% } else { %>
 <table class="table">
-  <thead><tr><th>Name</th><th>Type</th><th>Total Marks</th><th>Rubric Qs</th><th>Submissions</th><th>Actions</th></tr></thead>
+  <thead><tr><th>Name</th><th>Type</th><th>Total Marks</th><th>Rubric Qs</th><th>Submissions</th><th>Released</th><th>Actions</th></tr></thead>
   <tbody>
     <% exams.forEach(function(e) { %>
       <tr>
@@ -34,6 +34,16 @@
         <td><%= e.total_marks %></td>
         <td><%= e.rubricCount %></td>
         <td><%= e.subCount %></td>
+        <td>
+          <form method="POST" action="/exams/<%= e.id %>/release-grades" style="display:inline">
+            <input type="hidden" name="return_to" value="/exams?course_id=<%= selectedCourseId %>">
+            <% if (e.grades_released) { %>
+              <button class="btn btn-sm btn-outline" style="border-color:var(--success);color:var(--success);" title="Click to hide grades"><i data-lucide="check-circle"></i> Released</button>
+            <% } else { %>
+              <button class="btn btn-sm btn-outline" title="Click to release grades"><i data-lucide="lock"></i> Not released</button>
+            <% } %>
+          </form>
+        </td>
         <td class="actions-cell">
           <a href="/rubric?exam_id=<%= e.id %>" class="btn btn-sm btn-outline">Rubric</a>
           <a href="/submissions?course_id=<%= selectedCourseId %>&exam_id=<%= e.id %>" class="btn btn-sm btn-outline">Submissions</a>

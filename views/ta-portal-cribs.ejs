@@ -1,0 +1,69 @@
+<div class="page-header">
+  <h1><i data-lucide="message-square-warning"></i> Cribs / Regrade Requests</h1>
+  <p class="page-sub"><%= course.code ? course.code + ' — ' : '' %><%= course.name %></p>
+</div>
+
+<div class="filter-bar">
+  <form method="GET" action="/ta-portal/cribs/<%= course.id %>" class="inline-form">
+    <label>Exam:</label>
+    <select name="exam_id" onchange="this.form.submit()">
+      <option value="">-- Select Exam --</option>
+      <% exams.forEach(function(e) { %>
+        <option value="<%= e.id %>" <%= selectedExamId === e.id ? 'selected' : '' %>><%= e.name %></option>
+      <% }); %>
+    </select>
+  </form>
+</div>
+
+<% if (selectedExamId) { %>
+  <div class="kpi-grid" style="margin-bottom:1.5rem">
+    <div class="kpi-card"><div class="kpi-icon blue"><i data-lucide="message-square-warning"></i></div><div class="kpi-data"><div class="kpi-value"><%= stats.total %></div><div class="kpi-label">Total</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon amber"><i data-lucide="clock"></i></div><div class="kpi-data"><div class="kpi-value"><%= stats.pending %></div><div class="kpi-label">Pending</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon green"><i data-lucide="check"></i></div><div class="kpi-data"><div class="kpi-value"><%= stats.accepted %></div><div class="kpi-label">Accepted</div></div></div>
+    <div class="kpi-card"><div class="kpi-icon" style="background:var(--error-bg);color:var(--error)"><i data-lucide="x"></i></div><div class="kpi-data"><div class="kpi-value"><%= stats.rejected %></div><div class="kpi-label">Rejected</div></div></div>
+  </div>
+
+  <% if (!cribs.length) { %>
+    <div class="empty-state"><i data-lucide="message-square-warning"></i><h3>No Cribs</h3><p>No regrade requests for this exam.</p></div>
+  <% } else { %>
+    <% cribs.forEach(function(c) { %>
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;align-items:center;gap:8px">
+            <i data-lucide="message-square-warning"></i>
+            <span><%= c.Student ? c.Student.name : 'Unknown' %> — Q<%= c.Grade ? c.Grade.question_no : '?' %></span>
+          </div>
+          <span class="badge <%= c.status === 'accepted' ? 'badge-success' : (c.status === 'rejected' ? 'badge-danger' : 'badge-warning') %>"><%= c.status %></span>
+        </div>
+        <div class="card-body">
+          <p style="font-size:0.87rem;line-height:1.5;margin-bottom:0.75rem"><%= c.reason || 'No reason provided.' %></p>
+          <div class="text-muted" style="font-size:0.78rem;margin-bottom:0.5rem">
+            Current: <strong><%= c.Grade ? (c.Grade.override_marks != null ? c.Grade.override_marks : c.Grade.awarded_marks) : '?' %></strong> / <%= c.Grade && c.Grade.Rubric ? c.Grade.Rubric.max_marks : '?' %>
+            &middot; Requested: <strong><%= c.requested_marks != null ? c.requested_marks : '—' %></strong>
+            &middot; Submitted: <%= new Date(c.created_at || c.createdAt).toLocaleDateString() %>
+          </div>
+          <% if (c.status === 'pending') { %>
+            <form method="POST" action="/ta-portal/cribs/resolve/<%= c.id %>" style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap;margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--ghost-border)">
+              <div class="form-group" style="margin:0">
+                <label>Resolved Marks</label>
+                <input type="number" name="resolved_marks" step="0.5" min="0" max="<%= c.Grade && c.Grade.Rubric ? c.Grade.Rubric.max_marks : 100 %>" class="form-control" style="width:100px" placeholder="marks">
+              </div>
+              <div class="form-group" style="flex:1;margin:0">
+                <label>Note</label>
+                <input type="text" name="resolved_note" class="form-control" placeholder="Resolution note" maxlength="1000">
+              </div>
+              <button type="submit" name="action" value="accept" class="btn btn-sm btn-primary" style="background:var(--success)">Accept</button>
+              <button type="submit" name="action" value="reject" class="btn btn-sm btn-outline" style="border-color:var(--error);color:var(--error)">Reject</button>
+            </form>
+          <% } else if (c.resolved_note) { %>
+            <div class="text-muted" style="font-size:0.82rem;padding-top:0.5rem;border-top:1px solid var(--ghost-border)">
+              <strong>Resolution:</strong> <%= c.resolved_note %><% if (c.resolved_marks != null) { %> — Marks: <%= c.resolved_marks %><% } %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    <% }); %>
+  <% } %>
+<% } else { %>
+  <div class="empty-state"><i data-lucide="message-square-warning"></i><h3>Select an Exam</h3><p>Choose an exam from the filter above to view regrade requests.</p></div>
+<% } %>

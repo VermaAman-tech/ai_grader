@@ -1,9 +1,25 @@
 const router = require('express').Router();
-const { User, College, Subscription } = require('../models');
-const { asyncHandler } = require('../middleware/auth');
+const crypto = require('crypto');
+const { User, College, Subscription, CourseTA, Student, CourseEnrollment, PasswordReset } = require('../models');
+const { asyncHandler, setSessionUser } = require('../middleware/auth');
 const { Op } = require('sequelize');
 const { generateOTP, storeOTP, verifyOTP } = require('../services/otp-store');
 const { sendOtpEmail } = require('../services/email');
+const { isLocked, recordFailure, resetFailures } = require('../services/otp-throttle');
+
+function getPostLoginRedirect(session) {
+  const code = session.pendingJoinCode;
+  const role = session.pendingJoinRole;
+  if (code) {
+    delete session.pendingJoinCode;
+    delete session.pendingJoinRole;
+    return `/courses/join/${code}${role ? '?role=' + role : ''}`;
+  }
+  if (session.role === 'student' || session.role === 'user') {
+    return '/student/dashboard';
+  }
+  return '/dashboard';
+}
 
 const FREE_PAPER_LIMIT = 10;
 
@@ -24,8 +40,8 @@ function allowDevOtpExpose() {
 
 // ─── LOGIN ───
 router.get('/login', (req, res) => {
-  if (req.session.userId) return res.redirect('/dashboard');
-  res.render('login', { layout: false });
+  if (req.session.userId) return res.redirect(getPostLoginRedirect(req.session));
+  res.render('login', { layout: false, pendingJoin: req.session.pendingJoinCode || null });
 });
 
 router.post('/login', asyncHandler(async (req, res) => {
@@ -50,23 +66,119 @@ router.post('/login', asyncHandler(async (req, res) => {
     return res.redirect('/login');
   }
 
+  // Link any pending TA invitations
+  const taInvites = await CourseTA.findAll({
+    where: { email: cleanEmail, user_id: null },
+  });
+  for (const a of taInvites) {
+    a.user_id = user.id;
+    if (a.status === 'pending') a.status = 'active';
+    await a.save();
+  }
+
+  // Link any pending student roster entries
+  await Student.update({ user_id: user.id }, { where: { email: cleanEmail, user_id: null } });
+
+  const pendingJoin = req.session.pendingJoinCode;
+  const pendingJoinRole = req.session.pendingJoinRole;
+
   req.session.regenerate(function (err) {
     if (err) { req.flash('error', 'Session error.'); return res.redirect('/login'); }
-    req.session.userId = user.id;
-    req.session.userName = user.full_name;
-    req.session.userEmail = user.email;
-    req.session.role = user.role;
-    req.session.collegeId = user.college_id;
-    req.session.collegeName = user.College?.name || null;
-    req.session.collegeType = user.College?.type || null;
-    req.session.save(() => res.redirect('/dashboard'));
+    setSessionUser(req.session, user);
+    if (pendingJoin) {
+      req.session.pendingJoinCode = pendingJoin;
+      req.session.pendingJoinRole = pendingJoinRole;
+    }
+    const dest = getPostLoginRedirect(req.session);
+    req.session.save(() => res.redirect(dest));
   });
 }));
 
-// ─── REGISTER ───
+// ─── OTP LOGIN (passwordless, available for any user) ───
+router.post('/request-otp', asyncHandler(async (req, res) => {
+  const cleanEmail = (req.body.email || '').trim().toLowerCase();
+  if (!cleanEmail) {
+    req.flash('error', 'Please enter your email.');
+    return res.redirect('/login');
+  }
+
+  const user = await User.findOne({ where: { email: cleanEmail } });
+  req.session.pendingOtpEmail = cleanEmail;
+  let devOtp = null;
+
+  if (user && user.email_verified) {
+    const otp = generateOTP();
+    storeOTP(`login:${cleanEmail}`, otp, 10 * 60 * 1000);
+    if (allowDevOtpExpose()) devOtp = otp;
+    let sent = false;
+    try {
+      sent = await sendOtpEmail({
+        to: cleanEmail,
+        code: otp,
+        subject: 'Your Intelligrade login code',
+        intro: 'Use this code to sign in:',
+      });
+    } catch (e) {
+      console.error('[OTP email]', e.message);
+    }
+    if (!sent && process.env.NODE_ENV !== 'production') {
+      console.log(`[Login OTP] ${cleanEmail}: ${otp}`);
+    }
+  }
+
+  await new Promise(r => setTimeout(r, 50 + Math.floor(Math.random() * 120)));
+  req.flash('success', 'If an account exists for this email, a login code has been sent.');
+  req.session.save(() => res.render('otp-verify', {
+    layout: false,
+    email: cleanEmail,
+    mockOTP: devOtp,
+  }));
+}));
+
+router.post('/verify-login-otp', asyncHandler(async (req, res) => {
+  const email = req.session.pendingOtpEmail;
+  if (!email) return res.redirect('/login');
+
+  if (isLocked('login-otp', email)) {
+    req.flash('error', 'Too many failed attempts. Please wait 15 minutes and request a new code.');
+    return res.redirect('/login');
+  }
+
+  const { otp } = req.body;
+  if (!verifyOTP(`login:${email}`, otp)) {
+    recordFailure('login-otp', email);
+    req.flash('error', 'Invalid or expired code. Please try again.');
+    return res.render('otp-verify', { layout: false, email, mockOTP: null });
+  }
+  resetFailures('login-otp', email);
+
+  const user = await User.findOne({ where: { email }, include: [College] });
+  if (!user) return res.redirect('/login');
+
+  await Student.update({ user_id: user.id }, { where: { email, user_id: null } });
+  const taInvites = await CourseTA.findAll({ where: { email, user_id: null } });
+  for (const a of taInvites) { a.user_id = user.id; if (a.status === 'pending') a.status = 'active'; await a.save(); }
+
+  const pendingJoin = req.session.pendingJoinCode;
+  const pendingJoinRole = req.session.pendingJoinRole;
+
+  req.session.regenerate(function (err) {
+    if (err) { req.flash('error', 'Session error.'); return res.redirect('/login'); }
+    setSessionUser(req.session, user);
+    delete req.session.pendingOtpEmail;
+    if (pendingJoin) {
+      req.session.pendingJoinCode = pendingJoin;
+      req.session.pendingJoinRole = pendingJoinRole;
+    }
+    const dest = getPostLoginRedirect(req.session);
+    req.session.save(() => res.redirect(dest));
+  });
+}));
+
+// ─── REGISTER (role-agnostic) ───
 router.get('/register', (req, res) => {
-  if (req.session.userId) return res.redirect('/dashboard');
-  res.render('register', { layout: false });
+  if (req.session.userId) return res.redirect(getPostLoginRedirect(req.session));
+  res.render('register', { layout: false, pendingJoin: req.session.pendingJoinCode || null });
 });
 
 router.post('/register', asyncHandler(async (req, res) => {
@@ -74,12 +186,17 @@ router.post('/register', asyncHandler(async (req, res) => {
   const errors = [];
 
   if (!full_name || full_name.trim().length < 2) errors.push('Full name is required.');
+  if (full_name && full_name.length > 200) errors.push('Name is too long (200 char max).');
   const cleanEmail = (email || '').trim().toLowerCase();
   if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) errors.push('A valid email is required.');
+  if (cleanEmail.length > 254) errors.push('Email is too long.');
   const cleanPhone = (phone || '').replace(/[^0-9+]/g, '');
   if (cleanPhone && cleanPhone.length < 8) errors.push('Enter a valid phone number.');
+  if (cleanPhone && cleanPhone.length > 20) errors.push('Phone number is too long.');
   if (!password || password.length < 6) errors.push('Password must be at least 6 characters.');
+  if (password && password.length > 128) errors.push('Password is too long (128 char max).');
   if (password !== confirm_password) errors.push('Passwords do not match.');
+  if (department && department.length > 200) errors.push('Department name is too long.');
 
   if (errors.length) {
     errors.forEach(e => req.flash('error', e));
@@ -94,10 +211,14 @@ router.post('/register', asyncHandler(async (req, res) => {
 
   const domain = cleanEmail.split('@')[1];
   let college = null;
-  let userRole = role || 'individual';
+  let userRole = role || 'professor';
   let pendingAdminCollege = null;
 
-  if (userRole === 'admin') {
+  const selectedRole = userRole;
+
+  if (userRole === 'student') {
+    college = null;
+  } else if (userRole === 'admin') {
     if (!institution_name || institution_name.trim().length < 2) {
       req.flash('error', 'Institution name is required.');
       return res.redirect('/register');
@@ -107,16 +228,17 @@ router.post('/register', asyncHandler(async (req, res) => {
       req.flash('error', `An institution is already registered for @${domain}. Join as a member instead.`);
       return res.redirect('/register');
     }
-    pendingAdminCollege = { name: institution_name.trim(), domain, type: 'college' };
-    userRole = 'admin';
-  } else if (userRole === 'professor') {
+    pendingAdminCollege = { name: institution_name.trim(), domain, type: admin_type || 'college' };
+  } else {
     college = await College.findOne({ where: { domain } });
-    if (!college) {
-      req.flash('error', `No institution is registered for @${domain}. Your admin must register first, or sign up as Individual.`);
-      return res.redirect('/register');
+    if (!college && selectedRole !== 'professor') {
+      userRole = 'individual';
     }
-    userRole = 'professor';
   }
+
+  const resolvedDbRole = userRole === 'student' ? 'student'
+    : userRole === 'admin' ? 'admin'
+    : 'professor';
 
   const user = await User.create({
     college_id: college?.id || null,
@@ -124,11 +246,15 @@ router.post('/register', asyncHandler(async (req, res) => {
     email: cleanEmail,
     phone: cleanPhone || null,
     password_hash: User.hashPassword(password),
-    role: userRole === 'individual' ? 'professor' : userRole,
+    role: resolvedDbRole,
     department: (department || '').trim() || null,
     email_verified: false,
     phone_verified: false,
   });
+
+  // Link any pending TA invitations or student roster entries
+  await Student.update({ user_id: user.id }, { where: { email: cleanEmail, user_id: null } });
+  await CourseTA.update({ user_id: user.id, status: 'active' }, { where: { email: cleanEmail, user_id: null } });
 
   const otp = generateOTP();
   storeOTP(`email:${cleanEmail}`, otp, 5 * 60 * 1000);
@@ -146,11 +272,11 @@ router.post('/register', asyncHandler(async (req, res) => {
   const isProd = process.env.NODE_ENV === 'production';
   if (!sent && isProd) {
     await user.destroy();
-    req.flash('error', 'We could not send the verification email. Configure SMTP (e.g. SMTP_HOST, SMTP_USER, SMTP_PASS) and try again.');
+    req.flash('error', 'We could not send the verification email. Configure SMTP and try again.');
     return res.redirect('/register');
   }
   if (!sent && !isProd) {
-    console.log(`[OTP] Email verification for ${cleanEmail}: ${otp} (SMTP not configured — set env for real delivery)`);
+    console.log(`[OTP] Email verification for ${cleanEmail}: ${otp} (SMTP not configured)`);
   }
 
   req.session.pendingUserId = user.id;
@@ -160,11 +286,12 @@ router.post('/register', asyncHandler(async (req, res) => {
   req.session.pendingCollegeName = college?.name || null;
   req.session.pendingCollegeType = college?.type || null;
   req.session.pendingAdminCollege = pendingAdminCollege;
+  // pendingJoinCode/pendingJoinRole are already on the session from the join redirect
 
   if (allowDevOtpExpose()) req.session.devOtpPreview = otp;
   else delete req.session.devOtpPreview;
 
-  if (userRole === 'individual') {
+  if (resolvedDbRole !== 'student' && !college) {
     const now = new Date();
     const end = new Date(now);
     end.setDate(end.getDate() + PLAN_DURATIONS.free);
@@ -198,12 +325,20 @@ router.post('/verify-email', asyncHandler(async (req, res) => {
   if (!req.session.pendingUserId) return res.redirect('/register');
 
   const email = req.session.pendingEmail;
-  if (!verifyOTP(`email:${email}`, otp)) {
-    req.flash('error', 'Invalid or expired OTP. Please try again.');
+
+  if (isLocked('email-otp', email)) {
+    req.flash('error', 'Too many failed attempts. Please wait 15 minutes and request a new code.');
     return res.redirect('/verify-email');
   }
 
-  const user = await User.findByPk(req.session.pendingUserId);
+  if (!verifyOTP(`email:${email}`, otp)) {
+    recordFailure('email-otp', email);
+    req.flash('error', 'Invalid or expired OTP. Please try again.');
+    return res.redirect('/verify-email');
+  }
+  resetFailures('email-otp', email);
+
+  const user = await User.findByPk(req.session.pendingUserId, { include: [College] });
   if (!user) return res.redirect('/register');
 
   user.email_verified = true;
@@ -228,30 +363,28 @@ router.post('/verify-email', asyncHandler(async (req, res) => {
 
   await user.save();
 
+  const pendingJoin = req.session.pendingJoinCode;
+  const pendingJoinRole = req.session.pendingJoinRole;
+
   delete req.session.pendingAdminCollege;
   delete req.session.devOtpPreview;
 
   req.session.regenerate(function (err) {
     if (err) { req.flash('error', 'Session error.'); return res.redirect('/login'); }
-    req.session.userId = user.id;
-    req.session.userName = user.full_name;
-    req.session.userEmail = user.email;
-    req.session.role = user.role;
-    req.session.collegeId = collegeId;
-    req.session.collegeName = collegeName;
-    req.session.collegeType = collegeType;
+    setSessionUser(req.session, user, { collegeId, collegeName, collegeType });
+    if (pendingJoin) {
+      req.session.pendingJoinCode = pendingJoin;
+      req.session.pendingJoinRole = pendingJoinRole;
+    }
 
     req.session.save(() => {
       if (role === 'admin') {
         req.flash('success', 'Email verified! Choose a plan for your institution.');
         return res.redirect('/plans');
       }
-      if (role === 'individual') {
-        req.flash('success', 'Email verified! You have 10 free paper evaluations. Upgrade anytime.');
-        return res.redirect('/dashboard');
-      }
       req.flash('success', 'Email verified! Welcome to Intelligrade.');
-      res.redirect('/dashboard');
+      const dest = getPostLoginRedirect(req.session);
+      res.redirect(dest);
     });
   });
 }));
@@ -282,6 +415,102 @@ router.post('/resend-otp', asyncHandler(async (req, res) => {
   else delete req.session.devOtpPreview;
   req.flash('success', 'A new verification code has been sent to your email.');
   req.session.save(() => res.redirect('/verify-email'));
+}));
+
+// ─── FORGOT / RESET PASSWORD ───
+router.get('/forgot-password', (req, res) => {
+  res.render('forgot-password', { layout: false });
+});
+
+router.post('/forgot-password', asyncHandler(async (req, res) => {
+  const cleanEmail = (req.body.email || '').trim().toLowerCase();
+  if (!cleanEmail) {
+    req.flash('error', 'Please enter your email.');
+    return res.redirect('/forgot-password');
+  }
+
+  const user = await User.findOne({ where: { email: cleanEmail } });
+  if (user && user.email_verified) {
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 60 * 60 * 1000);
+    await PasswordReset.create({ user_id: user.id, token, expires_at: expires });
+
+    const resetLink = `${req.protocol}://${req.get('host')}/reset-password/${token}`;
+    let sent = false;
+    try {
+      sent = await sendOtpEmail({
+        to: cleanEmail,
+        code: resetLink,
+        subject: 'Reset your Intelligrade password',
+        intro: 'Click the link below to reset your password (valid for 1 hour):',
+      });
+    } catch (e) {
+      console.error('[Reset email]', e.message);
+    }
+    if (!sent && process.env.NODE_ENV !== 'production') {
+      console.log(`[Password Reset] ${cleanEmail}: ${resetLink}`);
+    }
+  }
+
+  req.flash('success', 'If an account exists for this email, a password reset link has been sent.');
+  res.redirect('/login');
+}));
+
+router.get('/reset-password/:token', asyncHandler(async (req, res) => {
+  if (!/^[a-f0-9]{64}$/.test(req.params.token)) {
+    req.flash('error', 'This reset link is invalid or has expired.');
+    return res.redirect('/forgot-password');
+  }
+  const reset = await PasswordReset.findOne({
+    where: { token: req.params.token, used: false, expires_at: { [Op.gt]: new Date() } },
+  });
+  if (!reset) {
+    req.flash('error', 'This reset link is invalid or has expired.');
+    return res.redirect('/forgot-password');
+  }
+  res.render('reset-password', { layout: false, token: req.params.token });
+}));
+
+router.post('/reset-password/:token', asyncHandler(async (req, res) => {
+  if (!/^[a-f0-9]{64}$/.test(req.params.token)) {
+    req.flash('error', 'This reset link is invalid or has expired.');
+    return res.redirect('/forgot-password');
+  }
+  const { password, confirm_password } = req.body;
+  if (!password || password.length < 6) {
+    req.flash('error', 'Password must be at least 6 characters.');
+    return res.redirect(`/reset-password/${req.params.token}`);
+  }
+  if (password.length > 128) {
+    req.flash('error', 'Password is too long (128 char max).');
+    return res.redirect(`/reset-password/${req.params.token}`);
+  }
+  if (password !== confirm_password) {
+    req.flash('error', 'Passwords do not match.');
+    return res.redirect(`/reset-password/${req.params.token}`);
+  }
+
+  const reset = await PasswordReset.findOne({
+    where: { token: req.params.token, used: false, expires_at: { [Op.gt]: new Date() } },
+  });
+  if (!reset) {
+    req.flash('error', 'This reset link is invalid or has expired.');
+    return res.redirect('/forgot-password');
+  }
+
+  const user = await User.findByPk(reset.user_id);
+  if (!user) return res.redirect('/forgot-password');
+
+  user.password_hash = User.hashPassword(password);
+  await user.save();
+  reset.used = true;
+  await reset.save();
+
+  // Invalidate all other reset tokens for this user
+  await PasswordReset.update({ used: true }, { where: { user_id: user.id, used: false } });
+
+  req.flash('success', 'Password reset successfully. Please sign in.');
+  res.redirect('/login');
 }));
 
 // ─── PLANS ───

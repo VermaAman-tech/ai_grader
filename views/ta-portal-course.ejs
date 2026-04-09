@@ -1,0 +1,102 @@
+<div class="page-header">
+  <h1><i data-lucide="layout-dashboard"></i> <%= course.code ? course.code + ' — ' : '' %><%= course.name %></h1>
+  <p class="page-sub">Prof. <%= professor %> &middot; <%= studentCount %> students &middot; <%= exams.length %> exam<%= exams.length !== 1 ? 's' : '' %><% if (typeof assignedQuestions !== 'undefined' && assignedQuestions.length) { %> &middot; Assigned Q: <%= assignedQuestions.join(', ') %><% } %></p>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi-card">
+    <div class="kpi-icon blue"><i data-lucide="users"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= studentCount %></div><div class="kpi-label">Students</div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon purple"><i data-lucide="file-text"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= exams.length %></div><div class="kpi-label">Exams</div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon amber"><i data-lucide="clock"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= typeof pendingCount !== 'undefined' ? pendingCount : 0 %></div><div class="kpi-label">Pending</div></div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon green"><i data-lucide="check-circle"></i></div>
+    <div class="kpi-data"><div class="kpi-value"><%= typeof gradedCount !== 'undefined' ? gradedCount : 0 %></div><div class="kpi-label">Graded</div></div>
+  </div>
+</div>
+
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1.5rem">
+  <% if (permissions.can_grade) { %>
+    <a href="/ta-portal/grading/<%= exams.length ? exams[0].id : '#' %>" class="btn btn-outline btn-sm"><i data-lucide="check-circle"></i> Grading</a>
+  <% } %>
+  <% if (permissions.can_view_analytics) { %>
+    <a href="/ta-portal/analytics/<%= course.id %>" class="btn btn-outline btn-sm"><i data-lucide="bar-chart-3"></i> Analytics</a>
+  <% } %>
+  <% if (permissions.can_manage_roster) { %>
+    <a href="/ta-portal/roster/<%= course.id %>" class="btn btn-outline btn-sm"><i data-lucide="users"></i> Roster</a>
+  <% } %>
+  <% if (permissions.can_post_announcements) { %>
+    <a href="/ta-portal/announcements/<%= course.id %>" class="btn btn-outline btn-sm"><i data-lucide="megaphone"></i> Announcements</a>
+  <% } %>
+  <% if (permissions.can_access_cribs) { %>
+    <a href="/ta-portal/cribs/<%= course.id %>" class="btn btn-outline btn-sm"><i data-lucide="message-square-warning"></i> Cribs</a>
+  <% } %>
+  <% if (permissions.can_manage_docs) { %>
+    <a href="/ta-portal/documents/<%= course.id %>" class="btn btn-outline btn-sm"><i data-lucide="file-stack"></i> Documents</a>
+  <% } %>
+</div>
+
+<div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start">
+  <% if (permissions.can_grade) { %>
+    <div class="card">
+      <div class="card-header"><i data-lucide="file-text"></i> Exams</div>
+      <div class="card-body">
+        <% if (!exams.length) { %>
+          <div class="empty-state" style="padding:2rem 1rem"><i data-lucide="inbox"></i><h3>No exams yet</h3><p>The professor hasn't created any exams for this course yet.</p></div>
+        <% } else { %>
+          <table class="table table-compact">
+            <thead><tr><th>Exam</th><th>Type</th><th>Marks</th><th></th></tr></thead>
+            <tbody>
+              <% exams.forEach(function(e) { %>
+                <tr>
+                  <td style="font-weight:600"><%= e.name %></td>
+                  <td><%= e.exam_type || 'Exam' %></td>
+                  <td><%= e.total_marks || '—' %></td>
+                  <td class="actions-cell"><a href="/ta-portal/grading/<%= e.id %>" class="btn btn-sm btn-primary">Grade</a></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="card">
+    <div class="card-header"><i data-lucide="megaphone"></i> Recent Announcements</div>
+    <div class="card-body">
+      <% if (!recentAnnouncements.length) { %>
+        <p class="text-muted" style="text-align:center;padding:1rem 0">No announcements yet.</p>
+      <% } else { %>
+        <% recentAnnouncements.forEach(function(a) { %>
+          <div style="padding:0.6rem 0;<%= a !== recentAnnouncements[recentAnnouncements.length - 1] ? 'border-bottom:1px solid var(--ghost-border)' : '' %>">
+            <div style="font-weight:600;font-size:0.9rem"><%= a.title %></div>
+            <p class="text-muted" style="font-size:0.82rem;margin-top:2px"><%= (a.content || '').substring(0, 120) %><%= (a.content || '').length > 120 ? '...' : '' %></p>
+            <div class="text-muted" style="font-size:0.72rem;margin-top:3px"><%= new Date(a.created_at || a.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) %></div>
+          </div>
+        <% }); %>
+        <% if (permissions.can_post_announcements) { %>
+          <div style="margin-top:0.75rem"><a href="/ta-portal/announcements/<%= course.id %>" style="font-size:0.82rem;font-weight:600">View all &rarr;</a></div>
+        <% } %>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<% if (typeof assignedQuestions !== 'undefined' && assignedQuestions.length) { %>
+  <div class="card" style="margin-top:18px">
+    <div class="card-header"><i data-lucide="crosshair"></i> Your Assigned Questions</div>
+    <div class="card-body">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <% assignedQuestions.forEach(function(q) { %><span class="badge badge-outline"><%= q %></span><% }); %>
+      </div>
+    </div>
+  </div>
+<% } %>

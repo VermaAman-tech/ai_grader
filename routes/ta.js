@@ -3,6 +3,7 @@ const { ensureAuth, ensureSubscription, asyncHandler } = require('../middleware/
 const { requireInt, requireString, requireEmail } = require('../middleware/validate');
 const { Course, CourseTA, User, Exam, Submission, Grade, Rubric, Student, IntegrationConfig } = require('../models');
 const { Op, UniqueConstraintError } = require('sequelize');
+const { sendOtpEmail } = require('../services/email');
 
 const PERMISSIONS_BY_ROLE = {
   head_ta: {
@@ -100,7 +101,7 @@ router.post('/invite', ensureAuth, ensureSubscription, asyncHandler(async (req, 
   }
 
   const user = await User.findOne({ where: { email } });
-  const defaultPerms = PERMISSIONS_BY_ROLE[role] || PERMISSIONS_BY_ROLE.ta;
+  const perms = PERMISSIONS_BY_ROLE[role] || PERMISSIONS_BY_ROLE.ta;
 
   try {
     await CourseTA.create({
@@ -109,7 +110,12 @@ router.post('/invite', ensureAuth, ensureSubscription, asyncHandler(async (req, 
       email,
       role,
       status: user ? 'active' : 'pending',
-      assigned_students: encodeStudentsAndPermissions([], defaultPerms),
+      can_grade: perms.can_grade,
+      can_view_analytics: perms.can_view_analytics,
+      can_manage_roster: perms.can_manage_roster,
+      can_post_announcements: perms.can_post_announcements,
+      can_access_cribs: perms.can_access_cribs,
+      can_manage_docs: perms.can_manage_docs,
     });
   } catch (e) {
     if (e instanceof UniqueConstraintError) {
@@ -119,7 +125,22 @@ router.post('/invite', ensureAuth, ensureSubscription, asyncHandler(async (req, 
     throw e;
   }
 
-  req.flash('success', `TA invitation sent to ${email}.`);
+  // Send invitation email with join link
+  const joinCode = course.join_code;
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const joinLink = joinCode ? `${baseUrl}/courses/join/${joinCode}?role=ta` : `${baseUrl}/login`;
+  try {
+    await sendOtpEmail({
+      to: email,
+      code: joinLink,
+      subject: `You've been invited as a TA for ${course.name}`,
+      intro: `You have been invited as a ${role === 'head_ta' ? 'Head TA' : 'Teaching Assistant'} for "${course.name}" (${course.code}). ${user ? 'Sign in to access your TA dashboard' : 'Create an account and use the link below to join the course'}:`,
+    });
+  } catch (e) {
+    console.error('[TA invite email]', e.message);
+  }
+
+  req.flash('success', `TA invitation sent to ${email}. They will receive an email with instructions.`);
   res.redirect(`/ta?course_id=${courseId}`);
 }));
 
@@ -160,11 +181,9 @@ router.post('/permissions/:taId', ensureAuth, ensureSubscription, asyncHandler(a
   if (!ta) throw new Error('ACCESS_DENIED');
 
   const permKeys = ['can_grade', 'can_view_analytics', 'can_manage_roster', 'can_post_announcements', 'can_access_cribs', 'can_manage_docs'];
-  const newPerms = {};
-  permKeys.forEach(k => { newPerms[k] = req.body[k] === 'on' || req.body[k] === 'true' || req.body[k] === true; });
-
-  const currentStudents = getAssignedStudents(ta);
-  ta.assigned_students = encodeStudentsAndPermissions(currentStudents, newPerms);
+  permKeys.forEach(k => {
+    ta[k] = req.body[k] === 'on' || req.body[k] === 'true' || req.body[k] === true;
+  });
   await ta.save();
 
   req.flash('success', 'Permissions updated.');

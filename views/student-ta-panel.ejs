@@ -1,0 +1,171 @@
+<!-- TA Panel tabs — rendered inside the floating window -->
+<div class="ta-panel-tabs">
+  <button class="ta-panel-tab active" data-tab="taOverview"><i data-lucide="layout-dashboard"></i> Overview</button>
+  <% if (permissions.can_grade) { %>
+  <button class="ta-panel-tab" data-tab="taGrading"><i data-lucide="check-circle"></i> Grading</button>
+  <% } %>
+  <% if (permissions.can_view_analytics) { %>
+  <button class="ta-panel-tab" data-tab="taAnalytics"><i data-lucide="bar-chart-3"></i> Analytics</button>
+  <% } %>
+  <% if (permissions.can_access_cribs) { %>
+  <button class="ta-panel-tab" data-tab="taCribs"><i data-lucide="message-square-warning"></i> Cribs</button>
+  <% } %>
+  <% if (permissions.can_manage_roster) { %>
+  <button class="ta-panel-tab" data-tab="taRoster"><i data-lucide="users"></i> Roster</button>
+  <% } %>
+</div>
+
+<!-- Overview Tab -->
+<div id="taOverview" class="ta-tab-content active">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:24px;">
+    <div class="sp-stat">
+      <div class="sp-stat-icon purple"><i data-lucide="file-text"></i></div>
+      <div><div class="sp-stat-value"><%= exams.length %></div><div class="sp-stat-label">Exams</div></div>
+    </div>
+    <div class="sp-stat">
+      <div class="sp-stat-icon blue"><i data-lucide="users"></i></div>
+      <div><div class="sp-stat-value"><%= studentCount %></div><div class="sp-stat-label">Students</div></div>
+    </div>
+    <div class="sp-stat">
+      <div class="sp-stat-icon amber"><i data-lucide="clock"></i></div>
+      <div><div class="sp-stat-value"><%= pendingCount %></div><div class="sp-stat-label">Pending</div></div>
+    </div>
+    <div class="sp-stat">
+      <div class="sp-stat-icon green"><i data-lucide="check-circle"></i></div>
+      <div><div class="sp-stat-value"><%= gradedCount %></div><div class="sp-stat-label">Graded</div></div>
+    </div>
+  </div>
+
+  <div class="ta-section">
+    <h4><i data-lucide="info"></i> Course Info</h4>
+    <div class="ta-item">
+      <div>
+        <strong style="font-family:var(--font-display);font-weight:700;"><%= course.code %></strong> — <%= course.name %>
+        <div style="font-size:0.78rem;color:var(--muted);margin-top:2px;">Professor: <%= course.User?.full_name || 'Unknown' %><% if (course.semester) { %> &middot; <%= course.semester %><% } %></div>
+      </div>
+      <span class="sp-ta-badge"><%= ta.role === 'head_ta' ? 'Head TA' : 'TA' %></span>
+    </div>
+  </div>
+
+  <div class="ta-section">
+    <h4><i data-lucide="shield-check"></i> Your Permissions</h4>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;">
+      <% Object.entries(permissions).forEach(function([key, val]) { %>
+        <span class="ta-perm-chip <%= val ? 'granted' : 'denied' %>">
+          <%= key.replace(/^can_/, '').replace(/_/g, ' ') %>: <%= val ? 'Yes' : 'No' %>
+        </span>
+      <% }); %>
+    </div>
+  </div>
+
+  <% if (exams.length) { %>
+  <div class="ta-section">
+    <h4><i data-lucide="file-text"></i> Exams</h4>
+    <% exams.forEach(function(exam) { %>
+      <div class="ta-item">
+        <div>
+          <strong style="font-family:var(--font-display);font-weight:700;font-size:0.88rem;"><%= exam.name %></strong>
+          <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;">
+            <%= exam.total_marks %> marks &middot;
+            <span class="badge badge-<%= exam.grades_released ? 'success' : 'outline' %>" style="font-size:0.65rem;"><%= exam.grades_released ? 'Released' : 'Not released' %></span>
+          </div>
+        </div>
+        <% if (permissions.can_grade) { %>
+          <a href="/ta-portal/course/<%= course.id %>" class="btn btn-sm btn-outline" target="_blank">Open</a>
+        <% } %>
+      </div>
+    <% }); %>
+  </div>
+  <% } %>
+
+  <% if (announcements.length) { %>
+  <div class="ta-section">
+    <h4><i data-lucide="megaphone"></i> Recent Announcements</h4>
+    <% announcements.forEach(function(a) { %>
+      <div class="sp-list-item" style="flex-direction:column;align-items:flex-start;">
+        <strong style="font-size:0.85rem;"><%= a.title %></strong>
+        <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;"><%= new Date(a.createdAt).toLocaleDateString() %></div>
+      </div>
+    <% }); %>
+  </div>
+  <% } %>
+
+  <div style="margin-top:24px;text-align:center;">
+    <a href="/ta-portal/course/<%= course.id %>" class="btn btn-primary" target="_blank">
+      <i data-lucide="external-link" style="width:16px;height:16px;"></i> Open Full TA Portal
+    </a>
+  </div>
+</div>
+
+<!-- Grading Tab -->
+<% if (permissions.can_grade) { %>
+<div id="taGrading" class="ta-tab-content">
+  <div class="ta-section">
+    <h4><i data-lucide="check-circle"></i> Grading Queue</h4>
+    <% if (pendingCount > 0) { %>
+      <div class="sp-card" style="box-shadow:none;background:var(--warning-bg);padding:16px;border-radius:var(--radius);">
+        <p style="margin:0 0 10px;font-size:0.88rem;font-weight:600;color:var(--warning);"><%= pendingCount %> submission(s) pending grading.</p>
+        <a href="/ta-portal/course/<%= course.id %>" class="btn btn-primary btn-sm" target="_blank">Start Grading</a>
+      </div>
+    <% } else { %>
+      <div class="sp-card" style="box-shadow:none;background:var(--success-bg);padding:16px;border-radius:var(--radius);">
+        <p style="margin:0;font-size:0.88rem;color:var(--success);font-weight:500;">All submissions have been graded. Great work!</p>
+      </div>
+    <% } %>
+  </div>
+
+  <% if (exams.length) { %>
+  <div class="ta-section">
+    <h4><i data-lucide="file-text"></i> Grade by Exam</h4>
+    <% exams.forEach(function(exam) { %>
+      <div class="ta-item">
+        <div>
+          <strong style="font-size:0.88rem;"><%= exam.name %></strong>
+          <span style="font-size:0.72rem;color:var(--muted);"> &middot; <%= exam.total_marks %> marks</span>
+        </div>
+        <a href="/ta-portal/grading/<%= course.id %>/<%= exam.id %>" class="btn btn-sm btn-outline" target="_blank">Grade</a>
+      </div>
+    <% }); %>
+  </div>
+  <% } %>
+</div>
+<% } %>
+
+<!-- Analytics Tab -->
+<% if (permissions.can_view_analytics) { %>
+<div id="taAnalytics" class="ta-tab-content">
+  <div class="ta-section">
+    <h4><i data-lucide="bar-chart-3"></i> Course Analytics</h4>
+    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:14px;">View detailed grade distribution, performance trends, and concept mastery analytics.</p>
+    <a href="/ta-portal/analytics/<%= course.id %>" class="btn btn-primary btn-sm" target="_blank">
+      <i data-lucide="external-link" style="width:14px;height:14px;"></i> Open Analytics
+    </a>
+  </div>
+</div>
+<% } %>
+
+<!-- Cribs Tab -->
+<% if (permissions.can_access_cribs) { %>
+<div id="taCribs" class="ta-tab-content">
+  <div class="ta-section">
+    <h4><i data-lucide="message-square-warning"></i> Regrade Requests</h4>
+    <p style="color:var(--muted);font-size:0.88rem;margin-bottom:14px;">Review and resolve student regrade requests for this course.</p>
+    <a href="/ta-portal/cribs/<%= course.id %>" class="btn btn-primary btn-sm" target="_blank">
+      <i data-lucide="external-link" style="width:14px;height:14px;"></i> Open Cribs
+    </a>
+  </div>
+</div>
+<% } %>
+
+<!-- Roster Tab -->
+<% if (permissions.can_manage_roster) { %>
+<div id="taRoster" class="ta-tab-content">
+  <div class="ta-section">
+    <h4><i data-lucide="users"></i> Student Roster</h4>
+    <p style="color:var(--muted);font-size:0.88rem;"><%= studentCount %> students currently enrolled.</p>
+    <a href="/ta-portal/roster/<%= course.id %>" class="btn btn-primary btn-sm" target="_blank" style="margin-top:10px;">
+      <i data-lucide="external-link" style="width:14px;height:14px;"></i> Manage Roster
+    </a>
+  </div>
+</div>
+<% } %>

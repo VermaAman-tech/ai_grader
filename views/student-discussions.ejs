@@ -1,47 +1,45 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="light">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Discussions - <%= course.code %> - Intelligrade</title>
-  <link rel="stylesheet" href="/css/style.css">
-  <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body class="auth-body" style="background:var(--surface-container-lowest,#fafafa)">
-  <div style="max-width:800px;margin:0 auto;padding:1.5rem">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
-      <div>
-        <h2 style="margin:0"><i data-lucide="messages-square" style="width:24px;height:24px;display:inline-block;vertical-align:middle"></i> <%= course.code %> Discussions</h2>
-        <p style="margin:0.25rem 0 0;opacity:0.7;font-size:0.85rem"><%= course.name %></p>
-      </div>
-      <a href="/student/course/<%= course.id %>" class="btn btn-outline btn-sm">Back to Course</a>
-    </div>
+<div style="margin-bottom:28px;">
+  <a href="/student/course/<%= course.id %>" style="font-size:0.82rem;color:var(--muted);display:inline-flex;align-items:center;gap:4px;margin-bottom:8px;">
+    <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> <%= course.code %>
+  </a>
+  <h1 style="font-family:var(--font-display);font-size:1.65rem;font-weight:800;letter-spacing:-0.02em;margin:4px 0 0;">
+    <i data-lucide="messages-square" style="width:28px;height:28px;color:var(--primary-container);"></i>
+    Discussions
+  </h1>
+  <p style="color:var(--muted);font-size:0.88rem;margin-top:4px;"><%= course.name %></p>
+</div>
 
-    <% if (threads.length === 0) { %>
-      <div class="empty-state"><i data-lucide="messages-square"></i><p>No discussions yet.</p></div>
-    <% } else { %>
-      <div style="display:grid;gap:0.75rem">
-        <% threads.forEach(t => { %>
-          <a href="/student/discussion-thread/<%= t.id %>" class="card" style="text-decoration:none;color:inherit;display:block">
-            <div class="card-body" style="display:flex;justify-content:space-between;align-items:center">
-              <div>
-                <% if (t.is_pinned) { %><span class="badge badge-outline" style="font-size:0.65rem;margin-right:4px">Pinned</span><% } %>
-                <strong><%= t.title %></strong>
-                <div style="font-size:0.75rem;opacity:0.6">
-                  by <%= t.User ? t.User.full_name : 'Anonymous' %> &middot;
-                  <%= t.DiscussionPosts ? t.DiscussionPosts.length : 0 %> replies &middot;
-                  <%= t.view_count %> views
-                </div>
-              </div>
-              <% if (t.is_resolved) { %>
-                <span class="badge" style="background:var(--success,#10b981);color:#fff;font-size:0.65rem">Resolved</span>
-              <% } %>
-            </div>
-          </a>
-        <% }); %>
+<% if (threads.length === 0) { %>
+  <div class="sp-card">
+    <div class="sp-card-body" style="padding:0;">
+      <div class="sp-empty">
+        <i data-lucide="messages-square"></i>
+        <h3>No discussions yet</h3>
+        <p>Check back later for course discussions.</p>
       </div>
-    <% } %>
+    </div>
   </div>
-  <script>lucide.createIcons();</script>
-</body>
-</html>
+<% } else { %>
+  <div class="sp-card">
+    <div class="sp-card-body" style="padding:12px;">
+      <% threads.forEach(function(t) { %>
+        <a href="/student/discussion-thread/<%= t.id %>" class="sp-list-item" style="text-decoration:none;color:inherit;">
+          <div style="flex:1;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <% if (t.is_pinned) { %><span class="badge" style="font-size:0.62rem;">Pinned</span><% } %>
+              <strong style="font-size:0.88rem;"><%= t.title %></strong>
+            </div>
+            <div style="font-size:0.72rem;color:var(--muted);margin-top:3px;">
+              by <%= t.User ? t.User.full_name : 'Anonymous' %> &middot;
+              <%= t.DiscussionPosts ? t.DiscussionPosts.length : 0 %> replies &middot;
+              <%= t.view_count %> views
+            </div>
+          </div>
+          <% if (t.is_resolved) { %>
+            <span class="badge badge-success" style="font-size:0.68rem;">Resolved</span>
+          <% } %>
+        </a>
+      <% }); %>
+    </div>
+  </div>
+<% } %>

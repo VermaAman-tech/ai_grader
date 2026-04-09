@@ -1,8 +1,14 @@
 const router = require('express').Router();
+const crypto = require('crypto');
 const { ensureAuth, ensureSubscription, asyncHandler, assertCourseOwner } = require('../middleware/auth');
 const { requireString, optionalString } = require('../middleware/validate');
-const { Course, Exam, Student } = require('../models');
+const { Course, Exam, Student, CourseEnrollment, CourseTA, User } = require('../models');
 
+function generateJoinCode() {
+  return crypto.randomBytes(4).toString('hex').toUpperCase().slice(0, 8);
+}
+
+// ─── COURSE CRUD ───
 router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courses = await Course.findAll({
     where: { user_id: req.session.userId },
@@ -39,12 +45,24 @@ router.post('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) =
   const credits = parseInt(req.body.credits) || null;
   const department = optionalString(req.body.department, { maxLen: 200 });
 
-  await Course.create({
+  const joinCode = generateJoinCode();
+  const course = await Course.create({
     user_id: req.session.userId,
     name, code, semester, section,
     description, objectives, syllabus, credits, department,
+    join_code: joinCode,
+    allow_join: true,
   });
-  req.flash('success', `Course "${name}" created.`);
+
+  await CourseEnrollment.create({
+    course_id: course.id,
+    user_id: req.session.userId,
+    role: 'instructor',
+    status: 'active',
+    join_method: 'created',
+  });
+
+  req.flash('success', `Course "${name}" created. Join code: ${joinCode}`);
   res.redirect('/courses');
 }));
 

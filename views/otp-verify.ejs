@@ -3,10 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Verify Email - Intelligrade</title>
+  <title>Enter Login Code - Intelligrade</title>
   <%- include('partials/theme-init') %>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -17,26 +15,26 @@
         <%- include('partials/logo', { logoSize: 44, logoId: 'auth' }) %>
         <h1>Intelligrade</h1>
       </div>
-      <h2>Verify your email</h2>
+      <h2>Enter your login code</h2>
       <p class="auth-subtitle">We sent a 6-digit code to <strong><%= email %></strong></p>
 
       <% if (typeof success !== 'undefined' && success && success.length) { %>
-        <% success.forEach(function(msg) { %><div class="alert alert-success"><%= msg %></div><% }); %>
+        <% (Array.isArray(success) ? success : [success]).forEach(function(msg) { %><div class="alert alert-success"><%= msg %></div><% }); %>
       <% } %>
       <% if (typeof error !== 'undefined' && error && error.length) { %>
-        <% error.forEach(function(msg) { %><div class="alert alert-error"><%= msg %></div><% }); %>
+        <% (Array.isArray(error) ? error : [error]).forEach(function(msg) { %><div class="alert alert-error"><%= msg %></div><% }); %>
       <% } %>
 
       <% if (mockOTP) { %>
         <div class="alert alert-info" style="background: var(--primary-container, #e8edf5); border: 1px solid var(--primary, #4361ee); border-radius: 10px; padding: 14px 18px; margin-bottom: 18px; text-align: center;">
-          <small style="display:block; opacity:.7; margin-bottom:4px;">DEV MODE — Your OTP code:</small>
+          <small style="display:block; opacity:.7; margin-bottom:4px;">DEV MODE — Your code:</small>
           <span style="font-size: 2rem; font-weight: 700; letter-spacing: .35em; font-family: 'JetBrains Mono', monospace; color: var(--primary, #4361ee);"><%= mockOTP %></span>
         </div>
       <% } %>
 
-      <form method="POST" action="/verify-email" class="auth-form">
+      <form method="POST" action="/verify-login-otp" class="auth-form">
         <div class="form-group">
-          <label>Enter 6-digit OTP</label>
+          <label>6-digit code</label>
           <div class="input-icon">
             <i data-lucide="key-round"></i>
             <input type="text" name="otp" required maxlength="6" minlength="6" placeholder="000000"
@@ -44,14 +42,12 @@
                    autocomplete="one-time-code" inputmode="numeric" pattern="[0-9]{6}">
           </div>
         </div>
-        <button type="submit" class="btn btn-primary btn-block">Verify Email</button>
+        <button type="submit" class="btn btn-primary btn-block">Verify &amp; Sign In</button>
       </form>
 
-      <form method="POST" action="/resend-otp" style="margin-top: 12px;">
-        <button type="submit" class="btn btn-outline btn-block btn-sm">Resend OTP</button>
-      </form>
-
-      <p class="auth-footer-text" style="margin-top: 16px;">Wrong email? <a href="/register">Start over</a></p>
+      <p class="auth-footer-text" style="margin-top:16px;">
+        <a href="/login">Use a different email</a>
+      </p>
     </div>
   </div>
   <script>

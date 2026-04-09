@@ -1,0 +1,48 @@
+<div class="page-header">
+  <h1><i data-lucide="users"></i> Roster</h1>
+  <p class="page-sub"><%= course.code ? course.code + ' — ' : '' %><%= course.name %> &middot; <%= students.length %> student<%= students.length !== 1 ? 's' : '' %></p>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+  <div class="card-header"><i data-lucide="user-plus"></i> Add Student</div>
+  <div class="card-body">
+    <form method="POST" action="/ta-portal/roster/<%= course.id %>/add" style="display:flex;gap:0.75rem;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="margin:0">
+        <label>Name *</label>
+        <input type="text" name="name" required class="form-control" placeholder="Student name" style="min-width:180px">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Roll Number</label>
+        <input type="text" name="roll_number" class="form-control" placeholder="e.g. CS2024001" style="min-width:140px">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Email</label>
+        <input type="email" name="email" class="form-control" placeholder="student@univ.edu" style="min-width:200px">
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Add Student</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><i data-lucide="users"></i> Students (<%= students.length %>)</div>
+  <div class="card-body">
+    <% if (!students.length) { %>
+      <div class="empty-state" style="padding:2rem 1rem"><i data-lucide="users"></i><h3>No Students</h3><p>No students in the roster yet.</p></div>
+    <% } else { %>
+      <table class="table">
+        <thead><tr><th>#</th><th>Name</th><th>Roll Number</th><th>Email</th></tr></thead>
+        <tbody>
+          <% students.forEach(function(s, i) { %>
+            <tr>
+              <td class="text-muted"><%= i + 1 %></td>
+              <td style="font-weight:600"><%= s.name %></td>
+              <td><code><%= s.roll_number || '—' %></code></td>
+              <td class="text-muted"><%= s.email || '—' %></td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    <% } %>
+  </div>
+</div>

@@ -9,13 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (typeof lucide !== 'undefined') lucide.createIcons();
 
-  // ── Dark / Light Mode ──
+  // ── Dark / Light Mode Toggle (theme is pre-set by inline script in <head>) ──
   const html = document.documentElement;
   const toggle = document.getElementById('themeToggle');
-  const saved = localStorage.getItem('ig-theme');
-  if (saved) html.setAttribute('data-theme', saved);
-  else if (window.matchMedia('(prefers-color-scheme: dark)').matches) html.setAttribute('data-theme', 'dark');
-
   if (toggle) {
     toggle.addEventListener('click', () => {
       const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
@@ -235,7 +231,8 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const ctx = getContext();
       const qs = ctx.exam_id ? `?exam_id=${ctx.exam_id}` : '';
-      const resp = await fetch(`/assistant/history${qs}`);
+      const historyUrl = wrapper.dataset.historyEndpoint || '/assistant/history';
+      const resp = await fetch(`${historyUrl}${qs}`);
       const msgs = await resp.json();
       if (msgs.length) {
         const welcome = messagesEl.querySelector('.assistant-welcome');
@@ -255,7 +252,8 @@ document.addEventListener('DOMContentLoaded', () => {
     addTypingIndicator();
 
     try {
-      const resp = await fetch('/assistant/action', {
+      const actionUrl = wrapper.dataset.endpoint || '/assistant/action';
+      const resp = await fetch(actionUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: msg, context: getContext() }),
@@ -304,7 +302,8 @@ document.addEventListener('DOMContentLoaded', () => {
     clearBtn.addEventListener('click', async () => {
       const ctx = getContext();
       try {
-        await fetch('/assistant/clear', {
+        const clearUrl = wrapper.dataset.clearEndpoint || '/assistant/clear';
+        await fetch(clearUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ exam_id: ctx.exam_id }),

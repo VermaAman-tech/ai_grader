@@ -1,20 +1,22 @@
 const router = require('express').Router();
 const { ensureAuth, ensureSubscription, asyncHandler } = require('../middleware/auth');
 const { requireInt } = require('../middleware/validate');
-const { Course, ClassSession, ActiveFeedback, Student } = require('../models');
+const { Course, ClassSession, ActiveFeedback, Student, CourseEnrollment } = require('../models');
 const { Op } = require('sequelize');
 
 const FEEDBACK_CONTENT_MAX = 2000;
 
 async function assertCourseAccess(req, courseId) {
   if (!req.session?.userId) throw new Error('ACCESS_DENIED');
-  if (req.session.role === 'student') {
-    const enr = await Student.findOne({ where: { course_id: courseId, email: req.session.email } });
-    if (!enr) throw new Error('ACCESS_DENIED');
-    return;
-  }
-  const course = await Course.findOne({ where: { id: courseId, user_id: req.session.userId } });
-  if (!course) throw new Error('ACCESS_DENIED');
+  const owns = await Course.findOne({ where: { id: courseId, user_id: req.session.userId } });
+  if (owns) return;
+  const enrolled = await CourseEnrollment.findOne({
+    where: { course_id: courseId, user_id: req.session.userId, status: 'active' },
+  });
+  if (enrolled) return;
+  const roster = await Student.findOne({ where: { course_id: courseId, user_id: req.session.userId } });
+  if (roster) return;
+  throw new Error('ACCESS_DENIED');
 }
 
 router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {

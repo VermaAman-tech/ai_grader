@@ -17,14 +17,16 @@ const storage = multer.diskStorage({
   },
   filename(req, file, cb) {
     const ts = Date.now();
-    cb(null, `${ts}_${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
+    const safe = (file.originalname || 'file').replace(/\0/g, '').replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${ts}_${safe}`);
   },
 });
 const upload = multer({
   storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter(req, file, cb) {
-    const ok = file.mimetype === 'application/pdf' && file.originalname.toLowerCase().endsWith('.pdf');
+    const safeName = (file.originalname || '').replace(/\0/g, '');
+    const ok = file.mimetype === 'application/pdf' && safeName.toLowerCase().endsWith('.pdf');
     cb(null, ok);
   },
 });

@@ -8,6 +8,11 @@
       <% if (course.department) { %><span class="meta-chip"><i data-lucide="building"></i> <%= course.department %></span><% } %>
       <span class="meta-chip"><i data-lucide="file-text"></i> <%= course.examCount %> exams</span>
       <span class="meta-chip"><i data-lucide="users"></i> <%= course.studentCount %> students</span>
+      <% if (course.join_code) { %>
+      <span class="meta-chip" style="background:var(--primary-container, #e3f0ff); font-weight:600;" title="Share this code with students and TAs to join">
+        <i data-lucide="key-round"></i> Join Code: <%= course.join_code %>
+      </span>
+      <% } %>
     </div>
   </div>
   <button class="btn btn-outline" onclick="document.getElementById('editCourseModal').showModal()"><i data-lucide="edit-3"></i> Edit</button>

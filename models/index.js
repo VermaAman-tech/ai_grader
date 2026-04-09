@@ -71,8 +71,10 @@ const Course = sequelize.define('Course', {
   department:  { type: DataTypes.STRING(200) },
   review_threshold: { type: DataTypes.FLOAT, defaultValue: 0.6 },
   crib_window_hours: { type: DataTypes.INTEGER, defaultValue: 48 },
+  join_code:   { type: DataTypes.STRING(8), unique: true },
+  allow_join:  { type: DataTypes.BOOLEAN, defaultValue: true },
 }, {
-  indexes: [{ fields: ['user_id'] }],
+  indexes: [{ fields: ['user_id'] }, { fields: ['join_code'], unique: true }],
 });
 
 // ── Exam ──
@@ -248,6 +250,23 @@ const OverrideLog = sequelize.define('OverrideLog', {
   indexes: [{ fields: ['grade_id'] }, { fields: ['user_id'] }],
 });
 
+// ── CourseEnrollment (unified per-course role) ──
+const CourseEnrollment = sequelize.define('CourseEnrollment', {
+  course_id:   { type: DataTypes.INTEGER, allowNull: false, references: { model: Course, key: 'id' } },
+  user_id:     { type: DataTypes.INTEGER, allowNull: false, references: { model: User, key: 'id' } },
+  role:        { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'student' },
+  status:      { type: DataTypes.STRING(20), defaultValue: 'active' },
+  join_method: { type: DataTypes.STRING(20), defaultValue: 'manual' },
+  joined_at:   { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+}, {
+  indexes: [
+    { fields: ['course_id'] },
+    { fields: ['user_id'] },
+    { fields: ['course_id', 'user_id'], unique: true },
+    { fields: ['role'] },
+  ],
+});
+
 // ── CourseTA (TA workflow — 3.3) ──
 const CourseTA = sequelize.define('CourseTA', {
   course_id:    { type: DataTypes.INTEGER, allowNull: false, references: { model: Course, key: 'id' } },
@@ -261,6 +280,12 @@ const CourseTA = sequelize.define('CourseTA', {
   avg_grading_time:   { type: DataTypes.FLOAT, defaultValue: 0 },
   override_rate:      { type: DataTypes.FLOAT, defaultValue: 0 },
   consistency_score:  { type: DataTypes.FLOAT, defaultValue: 1.0 },
+  can_grade:              { type: DataTypes.BOOLEAN, defaultValue: true },
+  can_view_analytics:     { type: DataTypes.BOOLEAN, defaultValue: false },
+  can_manage_roster:      { type: DataTypes.BOOLEAN, defaultValue: false },
+  can_post_announcements: { type: DataTypes.BOOLEAN, defaultValue: false },
+  can_access_cribs:       { type: DataTypes.BOOLEAN, defaultValue: false },
+  can_manage_docs:        { type: DataTypes.BOOLEAN, defaultValue: false },
 }, {
   indexes: [
     { fields: ['course_id'] },
@@ -429,6 +454,16 @@ const ClassSession = sequelize.define('ClassSession', {
   indexes: [{ fields: ['course_id'] }, { fields: ['session_date'] }],
 });
 
+// ── PasswordReset ──
+const PasswordReset = sequelize.define('PasswordReset', {
+  user_id:    { type: DataTypes.INTEGER, allowNull: false, references: { model: User, key: 'id' } },
+  token:      { type: DataTypes.STRING(100), allowNull: false, unique: true },
+  expires_at: { type: DataTypes.DATE, allowNull: false },
+  used:       { type: DataTypes.BOOLEAN, defaultValue: false },
+}, {
+  indexes: [{ fields: ['token'], unique: true }, { fields: ['user_id'] }],
+});
+
 // ── IntegrationConfig (per-course or global tool credentials) ──
 const IntegrationConfig = sequelize.define('IntegrationConfig', {
   course_id:    { type: DataTypes.INTEGER, references: { model: Course, key: 'id' } },
@@ -508,10 +543,18 @@ OverrideLog.belongsTo(Grade, { foreignKey: 'grade_id' });
 User.hasMany(OverrideLog, { foreignKey: 'user_id', onDelete: 'CASCADE' });
 OverrideLog.belongsTo(User, { foreignKey: 'user_id' });
 
+Course.hasMany(CourseEnrollment, { foreignKey: 'course_id', onDelete: 'CASCADE' });
+CourseEnrollment.belongsTo(Course, { foreignKey: 'course_id' });
+User.hasMany(CourseEnrollment, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+CourseEnrollment.belongsTo(User, { foreignKey: 'user_id' });
+
 Course.hasMany(CourseTA, { foreignKey: 'course_id', onDelete: 'CASCADE' });
 CourseTA.belongsTo(Course, { foreignKey: 'course_id' });
 User.hasMany(CourseTA, { foreignKey: 'user_id', onDelete: 'SET NULL' });
 CourseTA.belongsTo(User, { foreignKey: 'user_id' });
+
+User.hasMany(PasswordReset, { foreignKey: 'user_id', onDelete: 'CASCADE' });
+PasswordReset.belongsTo(User, { foreignKey: 'user_id' });
 
 Grade.hasMany(Crib, { foreignKey: 'grade_id', onDelete: 'CASCADE' });
 Crib.belongsTo(Grade, { foreignKey: 'grade_id' });
@@ -571,9 +614,10 @@ module.exports = {
   Submission, Grade, ChatMessage,
   ActiveSession, GradeBoundary, EmailLog,
   ConceptNode, QuestionConcept,
-  OverrideLog, CourseTA, Crib,
+  OverrideLog, CourseEnrollment, CourseTA, Crib,
   Announcement, CourseDocument,
   DiscussionThread, DiscussionPost,
   LivePoll, PollResponse, ClassSession,
   LearningObjective, ActiveFeedback, IntegrationConfig,
+  PasswordReset,
 };

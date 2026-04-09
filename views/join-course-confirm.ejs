@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Join <%= course.name %> - Intelligrade</title>
+  <%- include('partials/theme-init') %>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="auth-body">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <%- include('partials/logo', { logoSize: 44, logoId: 'auth' }) %>
+        <h1>Intelligrade</h1>
+      </div>
+      <h2>Join this course?</h2>
+
+      <div style="background:var(--surface-container-low, #f5f5f5); border-radius:12px; padding:1.25rem; margin-bottom:1.5rem; text-align:center;">
+        <div style="font-size:1.1rem; font-weight:700; margin-bottom:0.25rem;"><%= course.code %> &mdash; <%= course.name %></div>
+        <div style="font-size:0.85rem; opacity:0.7;">Instructor: <%= professor %></div>
+        <% if (course.semester) { %><div style="font-size:0.8rem; opacity:0.5; margin-top:0.25rem;"><%= course.semester %></div><% } %>
+      </div>
+
+      <form method="POST" action="/courses/join" class="auth-form">
+        <input type="hidden" name="code" value="<%= code %>">
+        <div class="form-group">
+          <label>Join as</label>
+          <div class="form-row" style="gap:8px;">
+            <label class="reg-inst-opt" style="flex:1;">
+              <input type="radio" name="role" value="student" <%= (typeof preselectedRole === 'undefined' || preselectedRole !== 'ta') ? 'checked' : '' %>>
+              <span>Student</span>
+            </label>
+            <label class="reg-inst-opt" style="flex:1;">
+              <input type="radio" name="role" value="ta" <%= (typeof preselectedRole !== 'undefined' && preselectedRole === 'ta') ? 'checked' : '' %>>
+              <span>Teaching Assistant</span>
+            </label>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Confirm &amp; Join</button>
+      </form>
+
+      <p class="auth-footer-text"><a href="/dashboard">Cancel</a></p>
+    </div>
+  </div>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

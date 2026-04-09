@@ -5,6 +5,7 @@ const { requireInt } = require('../middleware/validate');
 const { Course, Student, User } = require('../models');
 const { parse: parseCsv } = require('csv-parse/sync');
 const { UniqueConstraintError } = require('sequelize');
+const { sendOtpEmail } = require('../services/email');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -35,20 +36,11 @@ function parseCSV(text) {
   }
 }
 
-async function ensureStudentUser(name, email) {
+async function linkExistingUser(email) {
   if (!email) return null;
   const cleanEmail = email.trim().toLowerCase();
-  let user = await User.findOne({ where: { email: cleanEmail, role: 'student' } });
-  if (!user) {
-    user = await User.create({
-      full_name: name,
-      email: cleanEmail,
-      password_hash: User.hashPassword('auto-' + Date.now()),
-      role: 'student',
-      email_verified: true,
-    });
-  }
-  return user;
+  const user = await User.findOne({ where: { email: cleanEmail } });
+  return user || null;
 }
 
 router.get('/', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
@@ -109,7 +101,7 @@ router.post('/upload', ensureAuth, ensureSubscription, upload.single('roster_fil
         existing.name = name;
         if (email) existing.email = email;
         if (email && !existing.user_id) {
-          const user = await ensureStudentUser(name, email);
+          const user = await linkExistingUser(email);
           if (user) existing.user_id = user.id;
         }
         await existing.save();
@@ -120,7 +112,7 @@ router.post('/upload', ensureAuth, ensureSubscription, upload.single('roster_fil
 
     let userId = null;
     if (email) {
-      const user = await ensureStudentUser(name, email);
+      const user = await linkExistingUser(email);
       if (user) userId = user.id;
     }
 
@@ -136,7 +128,9 @@ router.post('/upload', ensureAuth, ensureSubscription, upload.single('roster_fil
     }
   }
 
-  req.flash('success', `Roster imported: ${added} added, ${skipped} skipped/updated. Students with emails can now log in with OTP at /student/login`);
+  const course = await Course.findByPk(courseId);
+  const joinCode = course?.join_code || '';
+  req.flash('success', `Roster imported: ${added} added, ${skipped} skipped/updated.${joinCode ? ' Share join code ' + joinCode + ' with students.' : ''}`);
   res.redirect(`/roster?course_id=${courseId}`);
 }));
 
@@ -163,7 +157,7 @@ router.post('/add', ensureAuth, ensureSubscription, asyncHandler(async (req, res
 
   let userId = null;
   if (email) {
-    const user = await ensureStudentUser(name, email);
+    const user = await linkExistingUser(email);
     if (user) userId = user.id;
   }
 
@@ -176,7 +170,28 @@ router.post('/add', ensureAuth, ensureSubscription, asyncHandler(async (req, res
     }
     throw e;
   }
-  req.flash('success', `Student "${name}" added.${email ? ' They can log in at /student/login with OTP.' : ''}`);
+
+  // Send invitation email if student has an email
+  if (email) {
+    const course = await Course.findByPk(courseId);
+    const joinCode = course?.join_code;
+    if (joinCode) {
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const joinLink = `${baseUrl}/courses/join/${joinCode}`;
+      try {
+        await sendOtpEmail({
+          to: email,
+          code: joinLink,
+          subject: `You've been added to ${course.name} on Intelligrade`,
+          intro: `You have been added to the roster for "${course.name}" (${course.code}). Register or sign in, then use the link below to join the course:`,
+        });
+      } catch (e) {
+        console.error('[Student invite email]', e.message);
+      }
+    }
+  }
+
+  req.flash('success', `Student "${name}" added.${email ? ' An invitation email has been sent.' : ''}`);
   res.redirect(`/roster?course_id=${courseId}`);
 }));
 

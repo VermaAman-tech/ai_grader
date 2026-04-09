@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Student Login - Intelligrade</title>
+  <%- include('partials/theme-init') %>
   <link rel="stylesheet" href="/css/style.css">
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
@@ -60,20 +61,18 @@
         </form>
 
         <div style="text-align:center;margin-top:0.5rem">
-          <a href="/student/login" style="opacity:0.7;font-size:0.8rem">Use a different email</a>
+          <a href="/login" style="opacity:0.7;font-size:0.8rem">Use a different email</a>
         </div>
       <% } %>
 
       <div style="text-align:center;margin-top:1.5rem">
-        <a href="/login" style="opacity:0.7;font-size:0.875rem">Professor login</a>
+        <a href="/login" style="opacity:0.7;font-size:0.875rem">Back to Sign In</a>
         &middot;
         <a href="/" style="opacity:0.7;font-size:0.875rem">Home</a>
       </div>
     </div>
   </div>
   <script>
-    const t = localStorage.getItem('ig-theme');
-    if (t) document.documentElement.setAttribute('data-theme', t);
     lucide.createIcons();
   </script>
 </body>

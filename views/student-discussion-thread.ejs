@@ -1,74 +1,59 @@
-<!DOCTYPE html>
-<html lang="en" data-theme="light">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= thread.title %> - Intelligrade</title>
-  <link rel="stylesheet" href="/css/style.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
-</head>
-<body class="auth-body" style="background:var(--surface-container-lowest,#fafafa)">
-  <div style="max-width:800px;margin:0 auto;padding:1.5rem">
-    <a href="/student/discussions/<%= course.id %>" class="btn btn-outline btn-sm" style="margin-bottom:1rem">&larr; Back to Discussions</a>
+<div style="max-width:800px;">
+  <a href="/student/discussions/<%= course.id %>" style="font-size:0.82rem;color:var(--muted);display:inline-flex;align-items:center;gap:4px;margin-bottom:16px;">
+    <i data-lucide="arrow-left" style="width:14px;height:14px;"></i> Discussions
+  </a>
 
-    <div class="card">
-      <div class="card-body">
-        <h2 style="margin:0 0 0.5rem"><%= thread.title %></h2>
-        <div style="font-size:0.8rem;opacity:0.6;margin-bottom:1rem">
-          by <%= thread.User ? thread.User.full_name : 'Anonymous' %> &middot;
-          <%= new Date(thread.createdAt).toLocaleDateString() %> &middot;
-          <%= thread.view_count %> views
-          <% if (thread.is_resolved) { %> &middot; <span style="color:var(--success,#10b981)">Resolved</span><% } %>
-        </div>
-        <div style="line-height:1.6"><%= thread.content %></div>
+  <div class="sp-card" style="margin-bottom:20px;">
+    <div class="sp-card-body">
+      <h2 style="font-family:var(--font-display);font-size:1.25rem;font-weight:800;letter-spacing:-0.01em;margin:0 0 8px;"><%= thread.title %></h2>
+      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        by <strong><%= thread.User ? thread.User.full_name : 'Anonymous' %></strong> &middot;
+        <%= new Date(thread.createdAt).toLocaleDateString() %> &middot;
+        <%= thread.view_count %> views
+        <% if (thread.is_resolved) { %><span class="badge badge-success" style="font-size:0.65rem;">Resolved</span><% } %>
       </div>
-    </div>
-
-    <h3 style="margin:1.5rem 0 0.75rem">Replies (<%= posts.length %>)</h3>
-
-    <% posts.forEach(post => { %>
-      <div class="card" style="margin-bottom:0.5rem;border-left:3px solid <%= post.is_answer ? 'var(--success,#10b981)' : 'transparent' %>">
-        <div class="card-body">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-            <div style="font-size:0.8rem">
-              <strong><%= post.is_anonymous ? 'Anonymous Student' : (post.User ? post.User.full_name : 'Unknown') %></strong>
-              <% if (post.User && (post.User.role === 'professor' || post.User.role === 'admin')) { %>
-                <span class="badge" style="background:var(--primary);color:#fff;font-size:0.6rem;padding:1px 4px;border-radius:3px;margin-left:4px">Instructor</span>
-              <% } %>
-              <% if (post.is_answer) { %>
-                <span class="badge" style="background:var(--success,#10b981);color:#fff;font-size:0.6rem;padding:1px 4px;border-radius:3px;margin-left:4px">Answer</span>
-              <% } %>
-            </div>
-            <span style="font-size:0.7rem;opacity:0.5"><%= new Date(post.createdAt).toLocaleDateString() %></span>
-          </div>
-          <div style="line-height:1.6"><%= post.content %></div>
-        </div>
-      </div>
-    <% }); %>
-
-    <div class="card" style="margin-top:1rem">
-      <div class="card-body">
-        <h4>Post a Reply</h4>
-        <form method="POST" action="/student/discussion-reply/<%= thread.id %>">
-          <textarea name="content" class="form-control" rows="3" placeholder="Write your reply..." required style="border:1px solid var(--outline-variant);border-radius:8px;padding:0.5rem;width:100%;margin-bottom:0.5rem"></textarea>
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <label style="font-size:0.8rem;display:flex;align-items:center;gap:4px">
-              <input type="checkbox" name="is_anonymous"> Post anonymously
-            </label>
-            <button type="submit" class="btn btn-primary btn-sm">Reply</button>
-          </div>
-        </form>
-      </div>
+      <div style="line-height:1.7;font-size:0.9rem;color:var(--on-surface-variant);"><%= thread.content %></div>
     </div>
   </div>
-  <script>
-    lucide.createIcons();
-    document.addEventListener('DOMContentLoaded', () => {
-      if (typeof renderMathInElement !== 'undefined') renderMathInElement(document.body, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }], throwOnError: false });
-    });
-  </script>
-</body>
-</html>
+
+  <h3 style="font-family:var(--font-display);font-size:0.95rem;font-weight:700;margin:0 0 12px;color:var(--on-surface);">
+    Replies (<%= posts.length %>)
+  </h3>
+
+  <% posts.forEach(function(post) { %>
+    <div class="sp-card" style="margin-bottom:8px;<%= post.is_answer ? 'border-left:3px solid var(--success);' : '' %>">
+      <div class="sp-card-body" style="padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="font-size:0.78rem;display:flex;align-items:center;gap:6px;">
+            <strong><%= post.is_anonymous ? 'Anonymous Student' : (post.User ? post.User.full_name : 'Unknown') %></strong>
+            <% if (post.User && (post.User.role === 'professor' || post.User.role === 'admin')) { %>
+              <span class="badge" style="background:linear-gradient(135deg,var(--primary) 0%,var(--primary-container) 100%);color:#fff;font-size:0.6rem;padding:1px 6px;">Instructor</span>
+            <% } %>
+            <% if (post.is_answer) { %>
+              <span class="badge badge-success" style="font-size:0.6rem;padding:1px 6px;">Answer</span>
+            <% } %>
+          </div>
+          <span style="font-size:0.7rem;color:var(--muted);"><%= new Date(post.createdAt).toLocaleDateString() %></span>
+        </div>
+        <div style="line-height:1.6;font-size:0.88rem;color:var(--on-surface-variant);"><%= post.content %></div>
+      </div>
+    </div>
+  <% }); %>
+
+  <div class="sp-card" style="margin-top:16px;">
+    <div class="sp-card-header"><i data-lucide="reply"></i> Post a Reply</div>
+    <div class="sp-card-body">
+      <form method="POST" action="/student/discussion-reply/<%= thread.id %>">
+        <div class="form-group">
+          <textarea name="content" class="form-control" rows="3" placeholder="Write your reply..." required style="width:100%;"></textarea>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <label style="font-size:0.78rem;display:flex;align-items:center;gap:4px;color:var(--muted);">
+            <input type="checkbox" name="is_anonymous"> Post anonymously
+          </label>
+          <button type="submit" class="btn btn-primary btn-sm">Reply</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

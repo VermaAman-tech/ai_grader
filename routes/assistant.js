@@ -16,7 +16,15 @@ const ASSISTANT_SYSTEM_PROMPT = loadPrompt(
   'You are Intelligrade AI assistant. Help with grading, analytics, and course actions.'
 );
 
-router.post('/action', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
+async function blockNonProfessor(req, res, next) {
+  const ownsCourses = await Course.count({ where: { user_id: req.session.userId } });
+  if (!ownsCourses) {
+    return res.status(403).json({ error: 'AI Assistant is available for course instructors only.' });
+  }
+  next();
+}
+
+router.post('/action', ensureAuth, blockNonProfessor, ensureSubscription, asyncHandler(async (req, res) => {
   const { message, context } = req.body;
   if (!message?.trim()) return res.json({ error: 'Message cannot be empty.' });
 
@@ -215,7 +223,7 @@ router.post('/action', ensureAuth, ensureSubscription, asyncHandler(async (req, 
   }
 }));
 
-router.get('/history', ensureAuth, asyncHandler(async (req, res) => {
+router.get('/history', ensureAuth, blockNonProfessor, asyncHandler(async (req, res) => {
   const examId = parseInt(req.query.exam_id) || null;
   const messages = await ChatMessage.findAll({
     where: { user_id: req.session.userId, ...(examId ? { exam_id: examId } : {}) },
@@ -225,7 +233,7 @@ router.get('/history', ensureAuth, asyncHandler(async (req, res) => {
   res.json(messages.map(m => ({ role: m.role, content: m.content, created_at: m.created_at })));
 }));
 
-router.post('/clear', ensureAuth, asyncHandler(async (req, res) => {
+router.post('/clear', ensureAuth, blockNonProfessor, asyncHandler(async (req, res) => {
   const examId = parseInt(req.body.exam_id) || null;
   await ChatMessage.destroy({
     where: { user_id: req.session.userId, ...(examId ? { exam_id: examId } : {}) },

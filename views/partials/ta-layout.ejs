@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= typeof pageTitle !== 'undefined' ? pageTitle : 'TA Portal' %> - Intelligrade</title>
+  <%- include('theme-init') %>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-brand">
+        <%- include('logo', { logoSize: 28, logoId: 'sidebar' }) %>
+        <span>Intelligrade</span>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebarNav">
+        <a href="/student/dashboard"><i data-lucide="arrow-left"></i><span>Student Portal</span></a>
+        <div class="sidebar-divider"></div>
+
+        <% if (typeof course !== 'undefined' && course) { %>
+          <div style="padding:6px 14px 12px;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted)"><%= course.code || course.name %></div>
+          <a href="/ta-portal/course/<%= course.id %>" class="<%= typeof currentPage !== 'undefined' && currentPage === 'course' ? 'active' : '' %>"><i data-lucide="layout-dashboard"></i><span>Overview</span></a>
+          <% if (typeof permissions !== 'undefined' && permissions.can_grade) { %>
+            <a href="/ta-portal/grading/<%= typeof defaultExamId !== 'undefined' && defaultExamId ? defaultExamId : '#' %>" class="<%= typeof currentPage !== 'undefined' && currentPage === 'grading' ? 'active' : '' %>"><i data-lucide="check-circle"></i><span>Grading</span></a>
+          <% } %>
+          <% if (typeof permissions !== 'undefined' && permissions.can_view_analytics) { %>
+            <a href="/ta-portal/analytics/<%= course.id %>" class="<%= typeof currentPage !== 'undefined' && currentPage === 'analytics' ? 'active' : '' %>"><i data-lucide="bar-chart-3"></i><span>Analytics</span></a>
+          <% } %>
+          <% if (typeof permissions !== 'undefined' && permissions.can_manage_roster) { %>
+            <a href="/ta-portal/roster/<%= course.id %>" class="<%= typeof currentPage !== 'undefined' && currentPage === 'roster' ? 'active' : '' %>"><i data-lucide="users"></i><span>Roster</span></a>
+          <% } %>
+          <% if (typeof permissions !== 'undefined' && permissions.can_post_announcements) { %>
+            <a href="/ta-portal/announcements/<%= course.id %>" class="<%= typeof currentPage !== 'undefined' && currentPage === 'announcements' ? 'active' : '' %>"><i data-lucide="megaphone"></i><span>Announcements</span></a>
+          <% } %>
+          <% if (typeof permissions !== 'undefined' && permissions.can_access_cribs) { %>
+            <a href="/ta-portal/cribs/<%= course.id %>" class="<%= typeof currentPage !== 'undefined' && currentPage === 'cribs' ? 'active' : '' %>"><i data-lucide="message-square-warning"></i><span>Cribs / Regrade</span></a>
+          <% } %>
+          <% if (typeof permissions !== 'undefined' && permissions.can_manage_docs) { %>
+            <a href="/ta-portal/documents/<%= course.id %>" class="<%= typeof currentPage !== 'undefined' && currentPage === 'documents' ? 'active' : '' %>"><i data-lucide="file-stack"></i><span>Documents</span></a>
+          <% } %>
+        <% } else { %>
+          <a href="/ta-portal/dashboard" class="<%= typeof currentPage !== 'undefined' && currentPage === 'dashboard' ? 'active' : '' %>"><i data-lucide="layout-dashboard"></i><span>All Courses</span></a>
+        <% } %>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+          <i data-lucide="sun" class="theme-icon-light"></i>
+          <i data-lucide="moon" class="theme-icon-dark"></i>
+        </button>
+        <div class="user-info">
+          <i data-lucide="user-circle"></i>
+          <div>
+            <div class="user-name"><%= typeof session !== 'undefined' ? session.userName : '' %></div>
+            <div class="user-role">Teaching Assistant</div>
+          </div>
+        </div>
+        <a href="/logout" class="logout-link"><i data-lucide="log-out"></i><span>Sign Out</span></a>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+          <i data-lucide="menu"></i>
+        </button>
+        <div class="topbar-title"></div>
+      </header>
+
+      <% if (typeof success !== 'undefined' && success && success.length) { %>
+        <% (Array.isArray(success) ? success : [success]).forEach(function(msg) { %>
+          <div class="alert alert-success"><i data-lucide="check-circle-2"></i><span><%= msg %></span><button class="alert-close" onclick="this.parentElement.remove()">&times;</button></div>
+        <% }); %>
+      <% } %>
+      <% if (typeof error !== 'undefined' && error && error.length) { %>
+        <% (Array.isArray(error) ? error : [error]).forEach(function(msg) { %>
+          <div class="alert alert-error"><i data-lucide="alert-triangle"></i><span><%= msg %></span><button class="alert-close" onclick="this.parentElement.remove()">&times;</button></div>
+        <% }); %>
+      <% } %>
+
+      <div class="page-content">
+        <%- body %>
+      </div>
+    </main>
+
+    <!-- AI Assistant Panel (same as professor — Copilot-style) -->
+    <% if (typeof course !== 'undefined' && course) { %>
+    <div id="ai-assistant"
+         data-exam-id=""
+         data-course-id="<%= course.id %>"
+         data-page="<%= typeof currentPage !== 'undefined' ? currentPage : 'ta-course' %>"
+         data-endpoint="/ta-portal/ai/action"
+         data-history-endpoint="/ta-portal/ai/history"
+         data-clear-endpoint="/ta-portal/ai/clear">
+      <button id="assistant-toggle" class="assistant-fab" type="button" title="AI Agent">
+        <span class="assistant-fab-rainbow" aria-hidden="true"></span>
+        <span class="assistant-fab-inner">
+          <i data-lucide="star" class="assistant-fab-star"></i>
+          <span class="assistant-fab-label">AI Agent</span>
+        </span>
+      </button>
+      <div id="assistant-panel" class="assistant-panel">
+        <div class="assistant-header">
+          <div class="assistant-header-left">
+            <i data-lucide="sparkles"></i>
+            <span>AI Assistant</span>
+          </div>
+          <div class="assistant-header-right">
+            <button id="assistant-clear" class="assistant-btn" title="Clear chat"><i data-lucide="trash-2"></i></button>
+            <button id="assistant-close" class="assistant-btn" title="Close">&times;</button>
+          </div>
+        </div>
+        <div class="assistant-messages" id="assistant-messages">
+          <div class="assistant-welcome">
+            <i data-lucide="sparkles"></i>
+            <p>Hi! I'm your AI teaching assistant for <strong><%= course.code || course.name %></strong>. Ask me about grading, analytics, students, or anything else.</p>
+          </div>
+        </div>
+        <form id="assistant-form" class="assistant-input">
+          <input type="text" id="assistant-input" placeholder="Ask anything or use mic..." autocomplete="off">
+          <button type="button" id="assistant-mic" class="btn btn-outline btn-sm btn-mic" title="Voice input"><i data-lucide="mic"></i></button>
+          <button type="submit" class="btn btn-primary btn-sm"><i data-lucide="send"></i></button>
+        </form>
+      </div>
+      <div id="assistant-backdrop" class="assistant-backdrop" aria-hidden="true"></div>
+    </div>
+    <% } %>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    lucide.createIcons();
+    (function() {
+      var nav = document.getElementById('sidebarNav');
+      if (!nav) return;
+      var key = 'ig-ta-sidebar-scroll';
+      var saved = sessionStorage.getItem(key);
+      if (saved) nav.scrollTop = parseInt(saved, 10);
+      var active = nav.querySelector('a.active');
+      if (active && !saved) active.scrollIntoView({ block: 'nearest' });
+      nav.addEventListener('scroll', function() { sessionStorage.setItem(key, nav.scrollTop); });
+    })();
+    document.addEventListener('DOMContentLoaded', function() {
+      if (typeof renderMathInElement !== 'undefined') {
+        renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '\\[', right: '\\]', display: true },
+          ],
+          throwOnError: false,
+        });
+      }
+    });
+  </script>
+</body>
+</html>

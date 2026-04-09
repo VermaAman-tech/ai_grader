@@ -4,6 +4,7 @@ const { requireInt, requireString, requireEmail } = require('../middleware/valid
 const { Course, CourseTA, User, Exam, Submission, Grade, Rubric, Student, IntegrationConfig } = require('../models');
 const { Op, UniqueConstraintError } = require('sequelize');
 const { sendOtpEmail } = require('../services/email');
+const { sendNotification } = require('../services/notification');
 
 const PERMISSIONS_BY_ROLE = {
   head_ta: {
@@ -125,16 +126,15 @@ router.post('/invite', ensureAuth, ensureSubscription, asyncHandler(async (req, 
     throw e;
   }
 
-  // Send invitation email with join link
-  const joinCode = course.join_code;
   const baseUrl = `${req.protocol}://${req.get('host')}`;
-  const joinLink = joinCode ? `${baseUrl}/courses/join/${joinCode}?role=ta` : `${baseUrl}/login`;
+  const prof = await User.findByPk(req.session.userId);
   try {
-    await sendOtpEmail({
-      to: email,
-      code: joinLink,
-      subject: `You've been invited as a TA for ${course.name}`,
-      intro: `You have been invited as a ${role === 'head_ta' ? 'Head TA' : 'Teaching Assistant'} for "${course.name}" (${course.code}). ${user ? 'Sign in to access your TA dashboard' : 'Create an account and use the link below to join the course'}:`,
+    await sendNotification('ta_invite', {
+      email,
+      professorName: prof?.full_name || 'Professor',
+      courseName: course.name,
+      courseCode: course.code,
+      baseUrl,
     });
   } catch (e) {
     console.error('[TA invite email]', e.message);

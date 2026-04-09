@@ -637,10 +637,18 @@ try {
   loadPrompt = require('../utils/prompt-loader').loadPrompt;
 } catch {}
 
+let ChatThread, isMongoConnected;
+try {
+  ChatThread = require('../models/mongo/ChatThread');
+  isMongoConnected = require('../config/mongodb').isMongoConnected;
+} catch {}
+
 const TA_SYSTEM_PROMPT = (loadPrompt && loadPrompt(
   'system/assistant.md',
-  'You are Intelligrade AI assistant for Teaching Assistants. Help with grading, analytics, student queries, and course management.'
-)) || 'You are Intelligrade AI assistant for Teaching Assistants. Help with grading, analytics, student queries, and course management.';
+  'You are Intelligrade AI assistant for Teaching Assistants. Help with grading, analytics, student queries, and course management within your assigned scope.'
+)) || 'You are Intelligrade AI assistant for Teaching Assistants.';
+
+const { executeAction } = require('../services/agent-actions');
 
 router.post('/ai/action', ensureAuth, ensureTA, asyncTA(async (req, res) => {
   if (!LLMService || !ChatMessage) return res.json({ error: 'AI assistant not configured.' });
@@ -650,20 +658,28 @@ router.post('/ai/action', ensureAuth, ensureTA, asyncTA(async (req, res) => {
 
   const courseId = parseInt(context?.course_id) || null;
   const page = context?.page || 'ta-course';
+  const userMsg = message.trim().slice(0, 2000);
 
   if (!courseId) return res.json({ error: 'No course context.' });
 
   const assignment = await getTAAssignment(req.session.userId, courseId);
   if (!assignment) return res.json({ error: 'You are not a TA for this course.' });
 
-  await ChatMessage.create({
-    user_id: req.session.userId,
-    exam_id: null,
-    role: 'user',
-    content: message.trim().slice(0, 2000),
-  });
+  // Save to MongoDB if available, else PostgreSQL
+  let mongoThread = null;
+  if (isMongoConnected && isMongoConnected() && ChatThread) {
+    try {
+      mongoThread = await ChatThread.getOrCreateThread(req.session.userId, courseId, null, 'ta_assistant');
+      mongoThread.addMessage('user', userMsg, { context_page: page });
+      await mongoThread.save();
+    } catch { mongoThread = null; }
+  }
+  if (!mongoThread) {
+    await ChatMessage.create({ user_id: req.session.userId, exam_id: null, role: 'user', content: userMsg });
+  }
 
-  let contextBlock = `\nTA is on: ${page} page.\nRole: ${assignment.raw?.role || 'ta'}`;
+  let contextBlock = `\nTA: ${req.session.userName} on ${page} page.\nRole: ${assignment.raw?.role || 'ta'}`;
+  contextBlock += `\nPermissions: grade=${assignment.can_grade}, analytics=${assignment.can_view_analytics}, roster=${assignment.can_manage_roster}, announcements=${assignment.can_post_announcements}`;
 
   const course = await Course.findByPk(courseId);
   if (course) {
@@ -700,14 +716,14 @@ router.post('/ai/action', ensureAuth, ensureTA, asyncTA(async (req, res) => {
 
   const docs = await CourseDocument.findAll({ where: { course_id: courseId } });
   if (docs.length) {
-    const userMsg = message.toLowerCase();
+    const qLower = userMsg.toLowerCase();
     let ragContext = '';
     let budget = 1200;
     for (const doc of docs) {
       if (budget <= 0) break;
       const text = (doc.extracted_text || '').trim();
       if (!text) continue;
-      const kw = userMsg.match(/[a-z]{4,}/g) || [];
+      const kw = qLower.match(/[a-z]{4,}/g) || [];
       const tl = text.toLowerCase();
       if (kw.filter(k => tl.includes(k)).length > 0 || docs.length <= 3) {
         const chunk = text.slice(0, Math.min(budget, 500));
@@ -718,27 +734,67 @@ router.post('/ai/action', ensureAuth, ensureTA, asyncTA(async (req, res) => {
     if (ragContext) contextBlock += `\n--- COURSE DOCS ---${ragContext}`;
   }
 
-  const recent = await ChatMessage.findAll({
-    where: { user_id: req.session.userId },
-    order: [['created_at', 'DESC']],
-    limit: 10,
-  });
-  recent.reverse();
-  const messages = recent.map(m => ({ role: m.role, content: m.content }));
+  let messages;
+  if (mongoThread) {
+    messages = mongoThread.getRecentMessages(12);
+  } else {
+    const recent = await ChatMessage.findAll({
+      where: { user_id: req.session.userId },
+      order: [['created_at', 'DESC']],
+      limit: 12,
+    });
+    recent.reverse();
+    messages = recent.map(m => ({ role: m.role, content: m.content }));
+  }
 
   try {
     const llm = new LLMService();
     const raw = await llm.chat(messages, TA_SYSTEM_PROMPT + contextBlock);
-    let reply = raw.trim().split('\n').filter(l => !l.match(/^ACTION:/)).join('\n').trim();
+    let reply = raw.trim();
 
-    await ChatMessage.create({ user_id: req.session.userId, exam_id: null, role: 'assistant', content: reply });
-    res.json({ reply });
+    // Parse and execute actions TAs are allowed to perform
+    const actionLines = [];
+    const cleanLines = [];
+    for (const line of reply.split('\n')) {
+      const m = line.match(/^ACTION:({.*})$/);
+      if (m) { try { actionLines.push(JSON.parse(m[1])); } catch {} }
+      else cleanLines.push(line);
+    }
+    reply = cleanLines.join('\n').trim();
+
+    const allowedTAActions = ['navigate', 'create_announcement', 'create_thread', 'analyze_student', 'search_documents'];
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    for (const action of actionLines) {
+      if (!allowedTAActions.includes(action.type)) continue;
+      if (action.type === 'create_announcement' && !assignment.can_post_announcements) continue;
+      const result = await executeAction(action, course?.user_id || req.session.userId, baseUrl);
+      if (result.executed && result.message) reply += `\n\n*${result.message}*`;
+    }
+
+    if (mongoThread) {
+      mongoThread.addMessage('assistant', reply, { actions_executed: actionLines.map(a => a.type) });
+      await mongoThread.save();
+    } else {
+      await ChatMessage.create({ user_id: req.session.userId, exam_id: null, role: 'assistant', content: reply });
+    }
+
+    const clientAction = actionLines.find(a => a.type === 'navigate');
+    res.json({ reply, action: clientAction || null });
   } catch (err) {
     res.json({ error: `AI error: ${err.message}` });
   }
 }));
 
 router.get('/ai/history', ensureAuth, ensureTA, asyncTA(async (req, res) => {
+  const courseId = parseInt(req.query.course_id) || null;
+
+  if (isMongoConnected && isMongoConnected() && ChatThread) {
+    try {
+      const thread = await ChatThread.getOrCreateThread(req.session.userId, courseId, null, 'ta_assistant');
+      return res.json(thread.getRecentMessages(50));
+    } catch {}
+  }
+
   if (!ChatMessage) return res.json([]);
   const messages = await ChatMessage.findAll({
     where: { user_id: req.session.userId },
@@ -749,8 +805,17 @@ router.get('/ai/history', ensureAuth, ensureTA, asyncTA(async (req, res) => {
 }));
 
 router.post('/ai/clear', ensureAuth, ensureTA, asyncTA(async (req, res) => {
-  if (!ChatMessage) return res.json({ ok: true });
-  await ChatMessage.destroy({ where: { user_id: req.session.userId } });
+  if (isMongoConnected && isMongoConnected() && ChatThread) {
+    try {
+      await ChatThread.updateMany(
+        { user_id: req.session.userId, thread_type: 'ta_assistant' },
+        { $set: { is_archived: true } }
+      );
+    } catch {}
+  }
+  if (ChatMessage) {
+    await ChatMessage.destroy({ where: { user_id: req.session.userId } });
+  }
   res.json({ ok: true });
 }));
 

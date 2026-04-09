@@ -1,20 +1,51 @@
 const { Sequelize } = require('sequelize');
-const path = require('path');
 
-const dbPath = process.env.DATABASE_PATH || './data/intelligrade.db';
+const databaseUrl = process.env.DATABASE_URL;
 
-const sequelize = new Sequelize({
-  dialect: 'sqlite',
-  storage: path.resolve(dbPath),
-  logging: false,
-  define: {
-    underscored: true,
-    timestamps: true,
-  },
-});
+let sequelize;
 
-sequelize.query('PRAGMA journal_mode = WAL;').catch(() => {});
-sequelize.query('PRAGMA busy_timeout = 5000;').catch(() => {});
-sequelize.query('PRAGMA foreign_keys = ON;').catch(() => {});
+if (databaseUrl) {
+  sequelize = new Sequelize(databaseUrl, {
+    dialect: 'postgres',
+    logging: false,
+    define: {
+      underscored: true,
+      timestamps: true,
+    },
+    dialectOptions: {
+      ssl: process.env.DB_SSL === 'true'
+        ? { require: true, rejectUnauthorized: false }
+        : false,
+    },
+    pool: {
+      max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+      min: parseInt(process.env.DB_POOL_MIN || '2', 10),
+      acquire: 30000,
+      idle: 10000,
+    },
+  });
+} else {
+  sequelize = new Sequelize(
+    process.env.DB_NAME || 'intelligrade',
+    process.env.DB_USER || 'postgres',
+    process.env.DB_PASS || 'postgres',
+    {
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+      dialect: 'postgres',
+      logging: false,
+      define: {
+        underscored: true,
+        timestamps: true,
+      },
+      pool: {
+        max: parseInt(process.env.DB_POOL_MAX || '10', 10),
+        min: parseInt(process.env.DB_POOL_MIN || '2', 10),
+        acquire: 30000,
+        idle: 10000,
+      },
+    }
+  );
+}
 
 module.exports = sequelize;

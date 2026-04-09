@@ -623,7 +623,6 @@ async function seed() {
   console.log('  COUPONS: LAUNCH30, WELCOME20, EDUCATOR50, ANNUAL15, COLLEGE25');
   console.log('===========================================================\n');
 
-  await sequelize.query('PRAGMA wal_checkpoint(TRUNCATE);');
   await sequelize.close();
   process.exit(0);
 }

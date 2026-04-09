@@ -132,7 +132,7 @@ cp .env.example .env
 |----------|-------------|---------|
 | `PORT` | Server port | `4000` |
 | `SESSION_SECRET` | Session cookie secret | (required) |
-| `DATABASE_PATH` | SQLite file location | `./data/intelligrade.db` |
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://postgres:postgres@localhost:5432/intelligrade` |
 | `HF_TOKEN` | Hugging Face API token | (required for AI features) |
 | `HF_REASONING_TOKEN` | Optional token used only for reasoning calls | `HF_TOKEN` |
 | `HF_PROVIDER` | Inference provider routing | `auto` |

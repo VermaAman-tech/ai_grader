@@ -155,37 +155,112 @@ router.post('/toggle/:provider', ensureAuth, ensureSubscription, asyncHandler(as
   res.redirect(`/integrations${courseId ? '?course_id=' + courseId : ''}`);
 }));
 
-// Moodle sync
+// Moodle sync roster
 router.post('/moodle/sync', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courseId = parseInt(req.body.course_id);
   const course = courseId ? await Course.findOne({ where: { id: courseId, user_id: req.session.userId } }) : null;
-  req.flash('success', course
-    ? `Moodle roster sync initiated for ${course.code}. (Connect LTI credentials to activate.)`
-    : 'Select a valid course.');
-  res.redirect('/integrations?course_id=' + (courseId || ''));
+  if (!course) { req.flash('error', 'Select a valid course.'); return res.redirect('/integrations'); }
+
+  const config = await IntegrationConfig.findOne({
+    where: { provider: 'moodle', user_id: req.session.userId, course_id: courseId },
+  });
+  if (!config || !config.is_active) {
+    req.flash('error', 'Configure and enable Moodle integration first.');
+    return res.redirect('/integrations?course_id=' + courseId);
+  }
+
+  try {
+    const { createConnector } = require('../services/lms-connector');
+    const connector = createConnector('moodle', config.config);
+    const parsed = JSON.parse(config.config || '{}');
+    const result = await connector.importRoster(parsed.deployment_id || parsed.client_id, courseId);
+    config.last_synced = new Date();
+    await config.save();
+    req.flash('success', `Moodle sync complete: ${result.total} students (${result.created} new).`);
+  } catch (err) {
+    req.flash('error', `Moodle sync failed: ${err.message}`);
+  }
+  res.redirect('/integrations?course_id=' + courseId);
 }));
 
 // Moodle push grades
 router.post('/moodle/push-grades', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const examId = parseInt(req.body.exam_id);
   const exam = examId ? await Exam.findByPk(examId, { include: [{ model: Course, required: true, where: { user_id: req.session.userId } }] }) : null;
-  if (exam) {
-    const gradeCount = await Grade.count({ include: [{ model: Submission, required: true, where: { exam_id: examId } }] });
-    req.flash('success', `${gradeCount} grades queued for Moodle push for "${exam.name}".`);
-  } else {
-    req.flash('error', 'Exam not found.');
+  if (!exam) { req.flash('error', 'Exam not found.'); return res.redirect('/integrations'); }
+
+  const config = await IntegrationConfig.findOne({
+    where: { provider: 'moodle', user_id: req.session.userId, course_id: exam.course_id },
+  });
+  if (!config || !config.is_active) {
+    req.flash('error', 'Configure Moodle integration first.');
+    return res.redirect('/integrations?course_id=' + exam.course_id);
   }
-  res.redirect('/integrations?course_id=' + (exam?.course_id || ''));
+
+  try {
+    const { createConnector } = require('../services/lms-connector');
+    const connector = createConnector('moodle', config.config);
+    const parsed = JSON.parse(config.config || '{}');
+    const result = await connector.pushGrades(parsed.deployment_id, req.body.moodle_item_id || '0', examId);
+    req.flash('success', `Pushed ${result.pushed}/${result.total} grades to Moodle for "${exam.name}".`);
+  } catch (err) {
+    req.flash('error', `Moodle grade push failed: ${err.message}`);
+  }
+  res.redirect('/integrations?course_id=' + exam.course_id);
 }));
 
-// Canvas sync
+// Canvas sync roster
 router.post('/canvas/sync', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
   const courseId = parseInt(req.body.course_id);
   const course = courseId ? await Course.findOne({ where: { id: courseId, user_id: req.session.userId } }) : null;
-  req.flash('success', course
-    ? `Canvas roster sync initiated for ${course.code}. (Connect API token to activate.)`
-    : 'Select a valid course.');
-  res.redirect('/integrations?course_id=' + (courseId || ''));
+  if (!course) { req.flash('error', 'Select a valid course.'); return res.redirect('/integrations'); }
+
+  const config = await IntegrationConfig.findOne({
+    where: { provider: 'canvas', user_id: req.session.userId, course_id: courseId },
+  });
+  if (!config || !config.is_active) {
+    req.flash('error', 'Configure and enable Canvas integration first.');
+    return res.redirect('/integrations?course_id=' + courseId);
+  }
+
+  try {
+    const { createConnector } = require('../services/lms-connector');
+    const connector = createConnector('canvas', config.config);
+    const parsed = JSON.parse(config.config || '{}');
+    const result = await connector.importRoster(parsed.canvas_course_id, courseId);
+    config.last_synced = new Date();
+    await config.save();
+    req.flash('success', `Canvas sync complete: ${result.total} students (${result.created} new).`);
+  } catch (err) {
+    req.flash('error', `Canvas sync failed: ${err.message}`);
+  }
+  res.redirect('/integrations?course_id=' + courseId);
+}));
+
+// Canvas push grades
+router.post('/canvas/push-grades', ensureAuth, ensureSubscription, asyncHandler(async (req, res) => {
+  const examId = parseInt(req.body.exam_id);
+  const exam = examId ? await Exam.findByPk(examId, { include: [{ model: Course, required: true, where: { user_id: req.session.userId } }] }) : null;
+  if (!exam) { req.flash('error', 'Exam not found.'); return res.redirect('/integrations'); }
+
+  const config = await IntegrationConfig.findOne({
+    where: { provider: 'canvas', user_id: req.session.userId, course_id: exam.course_id },
+  });
+  if (!config || !config.is_active) {
+    req.flash('error', 'Configure Canvas integration first.');
+    return res.redirect('/integrations?course_id=' + exam.course_id);
+  }
+
+  try {
+    const { createConnector } = require('../services/lms-connector');
+    const connector = createConnector('canvas', config.config);
+    const parsed = JSON.parse(config.config || '{}');
+    const result = await connector.pushGrades(parsed.canvas_course_id, req.body.canvas_assignment_id || '0', examId);
+    req.flash('success', `Pushed ${result.pushed}/${result.total} grades to Canvas for "${exam.name}".`);
+  } catch (err) {
+    req.flash('error', `Canvas grade push failed: ${err.message}`);
+  }
+  res.redirect('/integrations?course_id=' + exam.course_id);
 }));
 
 // Piazza import

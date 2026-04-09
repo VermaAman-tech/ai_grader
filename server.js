@@ -17,6 +17,8 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 const { sequelize } = require('./models');
+const { connectMongo } = require('./config/mongodb');
+const { initializePassport } = require('./config/passport');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +47,10 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Stripe webhooks need raw body — must be before json parser
+app.use('/checkout/webhook', express.raw({ type: 'application/json' }));
+
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(express.json({ limit: '2mb' }));
 
@@ -60,6 +66,8 @@ app.use(session({
   },
 }));
 app.use(flash());
+
+const ssoStatus = initializePassport(app);
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -100,6 +108,11 @@ app.use((req, res, next) => {
   res.locals.error = req.flash('error');
   res.locals.currentPath = req.path;
   res.locals.jsonForScript = jsonForScript;
+  res.locals.ssoEnabled = {
+    google: !!process.env.GOOGLE_CLIENT_ID,
+    saml: !!process.env.SAML_ENTRY_POINT,
+    samlName: process.env.SAML_IDP_NAME || 'Institution SSO',
+  };
   next();
 });
 
@@ -132,6 +145,7 @@ const { ensureProfessor } = require('./middleware/auth');
 
 // ── Core routes (auth & dashboard have their own role guards) ──
 app.use('/', require('./routes/auth'));
+app.use('/auth', require('./routes/sso'));
 app.use('/', require('./routes/dashboard'));
 
 // ── Course join routes (accessible to all authenticated users) ──
@@ -259,7 +273,9 @@ async function start() {
 
   await ensureLegacySchemaCompatibility();
   await sequelize.sync({ alter: false });
-  console.log('Database synced.');
+  console.log('PostgreSQL synced.');
+
+  await connectMongo();
 
   cleanExports();
   setInterval(cleanExports, 30 * 60 * 1000);

@@ -117,6 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fab = document.getElementById('assistant-toggle');
   const panel = document.getElementById('assistant-panel');
+  const backdrop = document.getElementById('assistant-backdrop');
   const closeBtn = document.getElementById('assistant-close');
   const clearBtn = document.getElementById('assistant-clear');
   const form = document.getElementById('assistant-form');
@@ -125,21 +126,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let isOpen = false;
 
+  function openPanel() {
+    if (isOpen) return;
+    isOpen = true;
+    panel.classList.add('open');
+    fab.classList.add('active');
+    if (backdrop) backdrop.classList.add('open');
+    document.body.classList.add('assistant-open');
+    input.focus();
+    loadHistory();
+  }
+
+  function closePanel() {
+    if (!isOpen) return;
+    isOpen = false;
+    panel.classList.remove('open');
+    fab.classList.remove('active');
+    if (backdrop) backdrop.classList.remove('open');
+    document.body.classList.remove('assistant-open');
+  }
+
   function togglePanel() {
-    isOpen = !isOpen;
-    panel.classList.toggle('open', isOpen);
-    fab.classList.toggle('active', isOpen);
-    if (isOpen) {
-      input.focus();
-      loadHistory();
-    }
+    if (isOpen) closePanel();
+    else openPanel();
   }
 
   fab.addEventListener('click', togglePanel);
-  closeBtn.addEventListener('click', togglePanel);
+  closeBtn.addEventListener('click', closePanel);
+  if (backdrop) backdrop.addEventListener('click', closePanel);
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isOpen) togglePanel();
+    if (e.key === 'Escape' && isOpen) closePanel();
   });
 
   function getContext() {

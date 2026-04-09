@@ -6,7 +6,7 @@ class OCRService {
   constructor() {
     this.minTextChars = parseInt(process.env.OCR_MIN_TEXT_CHARS || '20', 10);
     this.apiKey = process.env.HF_TOKEN || '';
-    this.ocrModel = process.env.OCR_MODEL || 'Qwen/Qwen3-VL-8B-Instruct';
+    this.ocrModel = process.env.OCR_MODEL || 'Qwen/Qwen2.5-VL-3B-Instruct';
     this.ocrTimeout = parseInt(process.env.OCR_TIMEOUT || '90000', 10);
     this.provider = process.env.HF_PROVIDER || 'auto';
   }

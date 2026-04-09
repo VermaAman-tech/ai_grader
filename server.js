@@ -162,6 +162,40 @@ function cleanExports() {
   } catch {}
 }
 
+async function ensureLegacySchemaCompatibility() {
+  const queryInterface = sequelize.getQueryInterface();
+  const models = Object.values(sequelize.models);
+
+  for (const model of models) {
+    const tableName = model.getTableName();
+    let tableInfo;
+
+    try {
+      tableInfo = await queryInterface.describeTable(tableName);
+    } catch {
+      // Table does not exist yet; sync() will create it.
+      continue;
+    }
+
+    const existingColumns = new Set(
+      Object.keys(tableInfo).map(col => col.toLowerCase())
+    );
+
+    for (const attr of Object.values(model.rawAttributes)) {
+      const columnName = attr.field || attr.fieldName;
+      if (!columnName || existingColumns.has(columnName.toLowerCase())) continue;
+
+      await queryInterface.addColumn(tableName, columnName, {
+        type: attr.type,
+        allowNull: true,
+      });
+
+      existingColumns.add(columnName.toLowerCase());
+      console.log(`Patched legacy schema: added ${tableName}.${columnName}.`);
+    }
+  }
+}
+
 async function start() {
   const dirs = [
     process.env.UPLOAD_DIR || './data/uploads',
@@ -169,6 +203,7 @@ async function start() {
   ];
   for (const d of dirs) fs.mkdirSync(path.resolve(d), { recursive: true });
 
+  await ensureLegacySchemaCompatibility();
   await sequelize.sync({ alter: false });
   console.log('Database synced.');
 

@@ -1895,12 +1895,38 @@ select.form-control {
    AI ASSISTANT PANEL (Copilot-style)
    ================================================================ */
 
+#ai-assistant {
+  position: relative;
+  z-index: 1100;
+}
+
+body.assistant-open {
+  overflow: hidden;
+}
+
+.assistant-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 29, 35, 0.28);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  z-index: 1200;
+}
+
+.assistant-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* AI Agent FAB: rounded pill, star + label, rolling rainbow border */
 .assistant-fab {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 1000;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1250;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1909,7 +1935,7 @@ select.form-control {
   cursor: pointer;
   border-radius: 999px;
   background: transparent;
-  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
   transition: transform 0.22s ease, box-shadow 0.22s ease;
   overflow: visible;
   isolation: isolate;
@@ -1921,23 +1947,22 @@ select.form-control {
   border-radius: inherit;
   background: linear-gradient(
     90deg,
-    #ff0844,
-    #ff8f1f,
-    #ffeb3b,
-    #00e676,
-    #00b0ff,
-    #7c4dff,
-    #e040fb,
-    #ff0844
+    #7da2ff,
+    #6fc6ff,
+    #7ad8bc,
+    #e8c97a,
+    #d7a6ea,
+    #7da2ff
   );
-  background-size: 400% 100%;
-  animation: assistant-fab-rainbow-roll 3.5s linear infinite;
+  background-size: 220% 100%;
+  opacity: 0.92;
+  animation: assistant-fab-rainbow-roll 16s linear infinite;
   z-index: 0;
 }
 
 @keyframes assistant-fab-rainbow-roll {
   0% { background-position: 0% 50%; }
-  100% { background-position: 400% 50%; }
+  100% { background-position: 220% 50%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1973,11 +1998,11 @@ select.form-control {
   width: 22px;
   height: 22px;
   flex-shrink: 0;
-  color: #fde047;
-  stroke: #fbbf24;
-  fill: #facc15;
+  color: #f2d46a;
+  stroke: #e9c65d;
+  fill: #eed372;
   stroke-width: 1.5px;
-  filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.55));
+  filter: drop-shadow(0 0 5px rgba(242, 212, 106, 0.35));
 }
 
 .assistant-fab-label {
@@ -1986,17 +2011,23 @@ select.form-control {
 }
 
 .assistant-fab:hover {
-  transform: scale(1.04) translateY(-2px);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.24), 0 0 24px rgba(124, 77, 255, 0.2);
+  transform: scale(1.015) translateY(-1px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.2), 0 0 14px rgba(125, 162, 255, 0.16);
 }
 
 .assistant-fab.active {
   transform: scale(0.98);
-  opacity: 0.92;
+  opacity: 0.9;
 }
 
 .assistant-fab.active .assistant-fab-rainbow {
-  animation-duration: 6s;
+  animation-duration: 24s;
+}
+
+body.assistant-open .assistant-fab {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  pointer-events: none;
 }
 
 .assistant-panel {
@@ -2008,7 +2039,7 @@ select.form-control {
   background: var(--surface-container-lowest);
   border-left: 1px solid var(--outline-variant);
   box-shadow: var(--shadow-float);
-  z-index: 999;
+  z-index: 1300;
   display: flex;
   flex-direction: column;
   transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -2173,6 +2204,13 @@ select.form-control {
   }
   .assistant-fab-star,
   .assistant-fab-inner > svg.assistant-fab-star { width: 18px; height: 18px; }
+}
+
+@media (min-width: 1200px) {
+  .assistant-fab {
+    right: 28px;
+    bottom: 28px;
+  }
 }
 
 /* ── Grade Boundaries ── */
@@ -2690,7 +2728,7 @@ select.form-control {
 /* ── Print styles ── */
 @media print {
   .sidebar, .topbar, .assistant-fab, .assistant-panel,
-  .filter-bar, .theme-toggle, .btn { display: none !important; }
+  .assistant-backdrop, .filter-bar, .theme-toggle, .btn { display: none !important; }
   .main-content { margin-left: 0 !important; padding: 0 !important; }
   .card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd; }
 }

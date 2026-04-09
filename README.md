@@ -134,12 +134,16 @@ cp .env.example .env
 | `SESSION_SECRET` | Session cookie secret | (required) |
 | `DATABASE_PATH` | SQLite file location | `./data/intelligrade.db` |
 | `HF_TOKEN` | Hugging Face API token | (required for AI features) |
+| `HF_REASONING_TOKEN` | Optional token used only for reasoning calls | `HF_TOKEN` |
 | `HF_PROVIDER` | Inference provider routing | `auto` |
+| `HF_REASONING_PROVIDER` | Optional provider override for reasoning calls | `HF_PROVIDER` |
 | `LLM_MODEL` | Primary grading/chat model | `Qwen/Qwen2.5-7B-Instruct` |
 | `LLM_FALLBACK_MODELS` | Comma-separated fallback models | (optional) |
+| `REASONING_MODEL` | Primary model for assistant reasoning calls | `LLM_MODEL` |
+| `REASONING_FALLBACK_MODELS` | Comma-separated reasoning fallback models | `LLM_FALLBACK_MODELS` |
 | `LLM_TIMEOUT` | LLM request timeout (ms) | `30000` |
 | `LLM_MAX_RETRIES` | Retries per model | `2` |
-| `OCR_MODEL` | Vision model for handwritten text | `Qwen/Qwen3-VL-8B-Instruct` |
+| `OCR_MODEL` | Vision model for handwritten text | `Qwen/Qwen2.5-VL-3B-Instruct` |
 | `OCR_TIMEOUT` | Vision request timeout (ms) | `60000` |
 | `OCR_MIN_TEXT_CHARS` | Minimum chars before vision OCR triggers | `20` |
 | `UPLOAD_DIR` | PDF upload storage path | `./data/uploads` |
@@ -149,7 +153,7 @@ cp .env.example .env
 1. Sign in at [huggingface.co](https://huggingface.co)
 2. Go to Settings → Access Tokens
 3. Create a token with read + inference access
-4. Paste into `HF_TOKEN` in your `.env`
+4. Paste into `HF_TOKEN` in your `.env` (optionally also set `HF_REASONING_TOKEN` for a separate reasoning key)
 
 ### Run
 
@@ -158,6 +162,41 @@ npm run dev
 ```
 
 Open [http://localhost:4000](http://localhost:4000) in your browser.
+
+### Seed Demo Account And Data (Idempotent)
+
+This command creates or updates a dedicated demo professor account and seeds a large dataset on your existing database (without force-dropping tables):
+
+```bash
+npm run seed:demo
+```
+
+Default demo credentials (configurable in `.env`):
+
+- Email: `demo.prof@intelligrade.local`
+- Password: `Demo@12345`
+
+The script populates courses, exams, students, submissions, grades, documents, polls, class sessions, discussions, and announcements.
+
+---
+
+## Editing System Prompts
+
+System prompts are now stored in dedicated files so you can view and edit them directly:
+
+- `prompts/system/grading.md` - AI grading behavior for rubric evaluation
+- `prompts/system/assistant.md` - Sidebar AI assistant behavior and ACTION tool instructions
+- `prompts/system/chat.md` - Chat page assistant behavior
+- `prompts/system/rubric.md` - Rubric generator behavior
+
+These are loaded by `utils/prompt-loader.js` and consumed by:
+
+- `services/llm.js`
+- `routes/assistant.js`
+- `routes/chat.js`
+- `services/rubric-generator.js`
+
+After editing prompt files, restart the Node process (or let `node --watch` restart) to apply changes.
 
 ---
 

@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "seed": "node scripts/seed.js",
+    "seed:demo": "node scripts/seed-demo.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.17",
@@ -24,7 +26,7 @@
     "nodemailer": "^8.0.4",
     "pdf-parse": "^1.1.1",
     "sequelize": "^6.37.5",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "stripe": "^22.0.0"
   }
 }
